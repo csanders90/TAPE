@@ -1,3 +1,5 @@
+import os, sys
+sys.path.insert(0, os.getcwd())
 from core.LMs.lm_trainer import LMTrainer
 from core.config import cfg, update_cfg
 import pandas as pd
