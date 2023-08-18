@@ -9,3 +9,4 @@ do
     python -m core.trainEnsemble dataset $dataset gnn.model.name SAGE >> ${dataset}_gnn.out
     python -m core.trainEnsemble dataset $dataset gnn.model.name RevGAT gnn.train.use_dgl True gnn.train.lr 0.002 gnn.train.dropout 0.5 >> ${dataset}_gnn.out
 done
+

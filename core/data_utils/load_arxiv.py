@@ -31,7 +31,12 @@ def get_raw_text_arxiv(use_text=False, seed=0):
 
     raw_text = pd.read_csv('dataset/ogbn_arxiv_orig/titleabs.tsv',
                            sep='\t', header=None, names=['paper id', 'title', 'abs'])
-    df = pd.merge(nodeidx2paperid, raw_text, on='paper id')
+    
+    # remove string paper id
+    nodeidx2paperid['paper id'] = nodeidx2paperid['paper id'].astype(int)
+    raw_text = raw_text.dropna()
+    raw_text.loc[1:,'paper id'] = raw_text[1:]['paper id'].astype(int)
+    df = pd.merge(nodeidx2paperid, raw_text[1:], on='paper id')
     text = []
     for ti, ab in zip(df['title'], df['abs']):
         t = 'Title: ' + ti + '\n' + 'Abstract: ' + ab
