@@ -86,17 +86,54 @@ def get_raw_text_cora(use_text=False, seed=0):
         fn = line.split('\t')[1]
         pid_filename[pid] = fn
 
+    andrew_maccallum_path = 'dataset/cora_andrew_mccallum/extractions/'
     path = 'dataset/cora_orig/mccallum/cora/extractions/'
     text = []
+    whole, founded = len(data_citeid), 0
     for pid in data_citeid:
         fn = pid_filename[pid]
-        with open(path+fn) as f:
-            lines = f.read().splitlines()
-
-        for line in lines:
-            if 'Title:' in line:
-                ti = line
-            if 'Abstract:' in line:
-                ab = line
-        text.append(ti+'\n'+ab)
+        try:
+            ti, ab = load_ab_ti(andrew_maccallum_path, fn)
+            founded += 1
+            text.append(ti+'\n'+ab)
+        except:
+            #ti, ab = load_ab_ti(path, fn)
+            print('not found: {}'.format(fn))
+            # ti, ab = load_ab_ti(andrew_maccallum_path, fn)
+    print('founded {}/{}'.format(founded, whole))
     return data, text
+
+def load_ab_ti(path, fn):
+    with open(path+fn) as f:
+        lines = f.read().splitlines()
+    for line in lines:
+        if 'Title:' in line:
+            ti = line
+        else:
+            ti = ''
+        if 'Abstract:' in line:
+            ab = line
+        else:
+            ab = ''
+    return ti, ab
+
+if __name__ == '__main__':
+    import os
+    extraction_list = os.listdir("dataset/cora_orig/mccallum/cora/extractions")
+    n_names = ["{}\n".format(i) for i in extraction_list]
+    with open(r'extraction.txt', 'w') as fp:
+        fp.writelines(n_names)
+
+    
+    andrew_maccallum_list = os.listdir("dataset/cora_andrew_mccallum/extractions")
+    n_names = [f"{i}\n".encode('utf-8', 'replace').decode() for i in andrew_maccallum_list]
+    with open('andrew_maccallum.txt', 'w') as fp:
+        fp.writelines(n_names)    
+
+    data, data_citeid = get_cora_casestudy()
+    data, text = get_raw_text_cora(use_text=True)
+    print(data)
+    print(data_citeid)
+
+
+

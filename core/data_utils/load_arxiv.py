@@ -21,7 +21,6 @@ def get_raw_text_arxiv(use_text=False, seed=0):
     data.val_mask = val_mask
     data.test_mask = test_mask
     
-    import IPython; IPython.embed()
     data.edge_index = data.adj_t.to_symmetric()
     if not use_text:
         return data, None
@@ -42,3 +41,8 @@ def get_raw_text_arxiv(use_text=False, seed=0):
         t = 'Title: ' + ti + '\n' + 'Abstract: ' + ab
         text.append(t)
     return data, text
+
+if __name__ == '__main__':
+    data, text = get_raw_text_arxiv(use_text=True)
+    print(data)
+    print(text)
