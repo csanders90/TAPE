@@ -72,6 +72,37 @@ def parse_cora():
     data_edges = np.vstack((data_edges, np.fliplr(data_edges)))
     return data_X, data_Y, data_citeid, np.unique(data_edges, axis=0).transpose()
 
+def get_raw_text_cora_from_rpo(use_text=False, seed=0):
+    """adopted from repo: 
+    https://github.com/XiaoxinHe/TAPE/blob/241c93b735dcebbe2853414395c1559d5c2ce202/core/data_utils/load_cora.py
+    """
+    data, data_citeid = get_cora_casestudy(seed)
+    if not use_text:
+        return data, None
+
+    with open('dataset/cora_orig/mccallum/cora/papers')as f:
+        lines = f.readlines()
+    pid_filename = {}
+    for line in lines:
+        pid = line.split('\t')[0]
+        fn = line.split('\t')[1]
+        pid_filename[pid] = fn
+
+    path = 'dataset/cora_andrew_mccallum/extractions/'
+    text = []
+    for pid in data_citeid:
+        fn = pid_filename[pid]
+        with open(path+fn) as f:
+            lines = f.read().splitlines()
+
+        for line in lines:
+            if 'Title:' in line:
+                ti = line
+            if 'Abstract:' in line:
+                ab = line
+        text.append(ti+'\n'+ab)
+    return data, text
+
 
 def get_raw_text_cora(use_text=False, seed=0):
     data, data_citeid = get_cora_casestudy(seed)
@@ -87,35 +118,35 @@ def get_raw_text_cora(use_text=False, seed=0):
         pid_filename[pid] = fn
 
     andrew_maccallum_path = 'dataset/cora_andrew_mccallum/extractions/'
-    path = 'dataset/cora_orig/mccallum/cora/extractions/'
+    # path = 'dataset/cora_orig/mccallum/cora/extractions/'
     text = []
     whole, founded = len(data_citeid), 0
+    no_ab_or_ti = 0
     for pid in data_citeid:
         fn = pid_filename[pid]
-        try:
-            ti, ab = load_ab_ti(andrew_maccallum_path, fn)
-            founded += 1
-            text.append(ti+'\n'+ab)
-        except:
-            #ti, ab = load_ab_ti(path, fn)
-            print('not found: {}'.format(fn))
-            # ti, ab = load_ab_ti(andrew_maccallum_path, fn)
-    print('founded {}/{}'.format(founded, whole))
+        ti, ab = load_ab_ti(andrew_maccallum_path, fn)
+        founded += 1
+        text.append(ti+'\n'+ab)
+       
+        if ti == '' or ab == '':
+            print(f"no title {ti}, no abstract {ab}")
+            no_ab_or_ti +=1
+    print(f"found {founded}/{whole} papers, {no_ab_or_ti} no ab or ti.")
     return data, text
 
+
+
 def load_ab_ti(path, fn):
+    ti, ab = '', ''
     with open(path+fn) as f:
         lines = f.read().splitlines()
     for line in lines:
-        if 'Title:' in line:
+        if line.split(':')[0] == 'Title':
             ti = line
-        else:
-            ti = ''
-        if 'Abstract:' in line:
+        elif line.split(':')[0] == 'Abstract':
             ab = line
-        else:
-            ab = ''
     return ti, ab
+
 
 if __name__ == '__main__':
     import os
