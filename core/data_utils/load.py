@@ -56,6 +56,3 @@ def load_data(dataset, use_dgl=False, use_text=False, use_gpt=False, seed=0):
         data, text = get_raw_text(use_text=True, seed=seed)
 
     return data, text
-
-if __name__ is 'main':
-    data, text = load_data('cora', use_text=True, use_gpt=True)

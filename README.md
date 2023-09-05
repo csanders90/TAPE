@@ -32,7 +32,28 @@ pip install transformers
 pip install --upgrade accelerate
 ```
 
+Today
+```
 
+Currently Loaded Modules:
+  1) devel/cmake/3.18   2) devel/cuda/10.2   3) devel/cudnn/10.2 (E)   4) compiler/gnu/11.1
+
+  Where:
+   E:  Experimental
+
+pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu114
+conda install pytorch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 cudatoolkit=11.3 -c pytorch
+conda install -c pyg pytorch-sparse
+conda install -c pyg pytorch-scatter
+conda install -c pyg pytorch-cluster
+conda install -c pyg pyg
+pip install ogb
+conda install -c dglteam/label/cu113 dgl
+pip install yacs
+pip install transformers
+pip install --upgrade accelerate
+
+``
 ## 1. Download TAG datasets
 
 ### A. Original text attributes
@@ -55,7 +76,7 @@ PubMed | Download the dataset [here](https://drive.google.com/file/d/166waPAjUwu
 ## 2. Fine-tuning the LMs
 ### To use the orginal text attributes
 ```
-WANDB_DISABLED=True TOKENIZERS_PARALLELISM=False CUDA_VISIBLE_DEVICES=0,1,2,3 python -m core.trainLM dataset ogbn-arxiv
+WANDB_DISABLED=True TOKENIZERS_PARALLELISM=False CUDA_VISIBLE_DEVICES=0,1 python -m core.trainLM dataset ogbn-arxiv
 ```
 
 ### To use the GPT responses

@@ -129,7 +129,7 @@ def get_raw_text_cora(use_text=False, seed=0):
         text.append(ti+'\n'+ab)
        
         if ti == '' or ab == '':
-            print(f"no title {ti}, no abstract {ab}")
+            # print(f"no title {ti}, no abstract {ab}")
             no_ab_or_ti +=1
     print(f"found {founded}/{whole} papers, {no_ab_or_ti} no ab or ti.")
     return data, text
@@ -148,18 +148,7 @@ def load_ab_ti(path, fn):
     return ti, ab
 
 
-if __name__ == '__main__':
-    import os
-    extraction_list = os.listdir("dataset/cora_orig/mccallum/cora/extractions")
-    n_names = ["{}\n".format(i) for i in extraction_list]
-    with open(r'extraction.txt', 'w') as fp:
-        fp.writelines(n_names)
-
-    
-    andrew_maccallum_list = os.listdir("dataset/cora_andrew_mccallum/extractions")
-    n_names = [f"{i}\n".encode('utf-8', 'replace').decode() for i in andrew_maccallum_list]
-    with open('andrew_maccallum.txt', 'w') as fp:
-        fp.writelines(n_names)    
+if __name__ == '__main__': 
 
     data, data_citeid = get_cora_casestudy()
     data, text = get_raw_text_cora(use_text=True)

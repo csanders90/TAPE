@@ -15,3 +15,5 @@
 		}
 	]
 }
+
+// python -m core.trainLM dataset ogbn-arxiv
