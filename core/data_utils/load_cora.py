@@ -87,26 +87,43 @@ def get_raw_text_cora(use_text=False, seed=0):
         pid_filename[pid] = fn
 
     path = 'dataset/cora_orig/mccallum/cora/extractions/'
-    # values = os.listdir(path)
-    # with open("file.txt", 'w') as output:
-    #     for row in values:
-    #         output.write(str(row) + '\n')
+    # path = 'dataset/cora/extractions/'
+    values = os.listdir(path)
+    with open("extraction.txt", 'w') as output:
+        for row in values:
+            output.write(str(row) + '\n')
             
     text = []
+    not_loaded = []
+    i = 0
     for pid in data_citeid:
         fn = pid_filename[pid]
-        if os.path.exists(path+fn): 
-            pathfn = path+fn
-        else:
-            pathfn = path+fn.replace(":", "_")
+        try:
+            if os.path.exists(path+fn): 
+                pathfn = path+fn
+            elif os.path.exists(path+fn.replace(":", "_")):
+                pathfn = path+fn.replace(":", "_")
+            elif os.path.exists(path+fn.replace("_", ":")):
+                pathfn = path+fn.replace("_", ":")
+                
             with open(pathfn) as f:
                 lines = f.read().splitlines()
-            
+                    
+            for line in lines:
+                if 'Title:' in line:
+                    ti = line
+                if 'Abstract:' in line:
+                    ab = line
+            text.append(ti+'\n'+ab)
+        except:
+            not_loaded.append(pathfn)
+            i += 1
 
-        for line in lines:
-            if 'Title:' in line:
-                ti = line
-            if 'Abstract:' in line:
-                ab = line
-        text.append(ti+'\n'+ab)
+        print(f"not loaded {i} papers.")
+        print(f"not loaded papers: {not_loaded}")
     return data, text
+
+if __name__ == '__main__':
+    data, text = get_raw_text_cora(use_text=True)
+    print(data)
+    print(text)
