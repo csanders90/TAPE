@@ -119,11 +119,11 @@ def get_raw_text_cora(use_text=False, seed=0):
             not_loaded.append(pathfn)
             i += 1
 
-        print(f"not loaded {i} papers.")
-        print(f"not loaded papers: {not_loaded}")
+        # print(f"not loaded {i} papers.")
+        # print(f"not loaded papers: {not_loaded}")
     return data, text
 
-if __name__ == '__main__':
-    data, text = get_raw_text_cora(use_text=True)
-    print(data)
-    print(text)
+# if __name__ == '__main__':
+#     data, text = get_raw_text_cora(use_text=True)
+#     print(data)
+#     print(text)
