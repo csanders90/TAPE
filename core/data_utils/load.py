@@ -2,7 +2,7 @@ import os
 import json
 import torch
 import csv
-from core.data_utils.dataset import CustomDGLDataset
+from data_utils.dataset import CustomDGLDataset
 
 
 def load_gpt_preds(dataset, topk):
@@ -23,11 +23,11 @@ def load_gpt_preds(dataset, topk):
 
 def load_data(dataset, use_dgl=False, use_text=False, use_gpt=False, seed=0):
     if dataset == 'cora':
-        from core.data_utils.load_cora import get_raw_text_cora as get_raw_text
+        from data_utils.load_cora import get_raw_text_cora as get_raw_text
     elif dataset == 'pubmed':
-        from core.data_utils.load_pubmed import get_raw_text_pubmed as get_raw_text
+        from data_utils.load_pubmed import get_raw_text_pubmed as get_raw_text
     elif dataset == 'ogbn-arxiv':
-        from core.data_utils.load_arxiv import get_raw_text_arxiv as get_raw_text
+        from data_utils.load_arxiv import get_raw_text_arxiv as get_raw_text
     else:
         exit(f'Error: Dataset {dataset} not supported')
 
