@@ -123,6 +123,7 @@ def get_raw_text_cora(use_text=False, seed=0):
         # print(f"not loaded papers: {not_loaded}")
     return data, text
 
+# TEST CODE
 # if __name__ == '__main__':
 #     data, text = get_raw_text_cora(use_text=True)
 #     print(data)
