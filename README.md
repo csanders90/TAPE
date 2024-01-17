@@ -58,12 +58,7 @@ pip install --upgrade accelerate
 
 ### A. Original text attributes
 
-| Dataset | Description |
-| ----- |  ---- |
-| ogbn-arxiv  | The [OGB](https://ogb.stanford.edu/docs/nodeprop/) provides the mapping from MAG paper IDs into the raw texts of titles and abstracts. <br/>Download the dataset [here](https://snap.stanford.edu/ogb/data/misc/ogbn_arxiv/titleabs.tsv.gz), unzip and move it to `dataset/ogbn_arxiv_orig`.|
-|Cora| Download the dataset [here](https://drive.google.com/file/d/1oo6EbCjrwOabjjudT5LGx75Ks9_HBAMs/view?usp=sharing), unzip and move it to `dataset/cora_orig`.|
-PubMed | Download the dataset [here](https://drive.google.com/file/d/1sYZX-jP6H8OkopVa9cp8-KXdEti5ki_W/view?usp=sharing), unzip and move it to `dataset/PubMed_orig`.|
-
+tested data version is saved under /home/kit/aifb/cc7738/tape_dataset/dataset
 
 ### B. LLM responses
 | Dataset | Description |
