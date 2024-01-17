@@ -1,8 +1,8 @@
 import torch
 
-from core.GNNs.gnn_trainer import GNNTrainer
-from core.GNNs.dgl_gnn_trainer import DGLGNNTrainer
-from core.data_utils.load import load_data
+from NC.GNNs.gnn_trainer import GNNTrainer
+from NC.GNNs.dgl_gnn_trainer import DGLGNNTrainer
+from data_utils.load import load_data
 
 LOG_FREQ = 10
 

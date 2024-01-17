@@ -2,10 +2,10 @@ import torch
 from time import time
 import numpy as np
 
-from core.GNNs.RevGAT.model import RevGAT
-from core.GNNs.gnn_utils import EarlyStopping
-from core.data_utils.load import load_data, load_gpt_preds
-from core.utils import time_logger
+from NC.GNNs.RevGAT.model import RevGAT
+from NC.GNNs.gnn_utils import EarlyStopping
+from data_utils.load import load_data, load_gpt_preds
+from NC.utils import time_logger
 
 LOG_FREQ = 10
 

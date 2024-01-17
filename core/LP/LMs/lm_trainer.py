@@ -2,10 +2,10 @@ import torch
 import numpy as np
 
 from transformers import AutoTokenizer, AutoModel, TrainingArguments, Trainer, IntervalStrategy
-from core.LMs.model import BertClassifier, BertClaInfModel
-from core.data_utils.dataset import Dataset
-from core.data_utils.load import load_data
-from core.utils import init_path, time_logger
+from LP.LMs.model import BertClassifier, BertClaInfModel
+from data_utils.dataset import Dataset
+from data_utils.load import load_data
+from LP.utils import init_path, time_logger
 
 
 def compute_metrics(p):
@@ -20,7 +20,8 @@ class LMTrainer():
     def __init__(self, cfg):
         self.dataset_name = cfg.dataset
         self.seed = cfg.seed
-
+        self.task = cfg.task
+        
         self.model_name = cfg.lm.model.name
         self.feat_shrink = cfg.lm.model.feat_shrink
 
@@ -28,6 +29,7 @@ class LMTrainer():
         self.dropout = cfg.lm.train.dropout
         self.att_dropout = cfg.lm.train.att_dropout
         self.cla_dropout = cfg.lm.train.cla_dropout
+        
         self.batch_size = cfg.lm.train.batch_size
         self.epochs = cfg.lm.train.epochs
         self.warmup_epochs = cfg.lm.train.warmup_epochs
@@ -153,7 +155,7 @@ class LMTrainer():
             from ogb.nodeproppred import Evaluator
             _evaluator = Evaluator(name=self.dataset_name)
         else:
-            from core.GNNs.gnn_utils import Evaluator
+            from LP.GNNs.gnn_utils import Evaluator
             _evaluator = Evaluator(name=self.dataset_name)
 
         def evaluator(preds, labels): return _evaluator.eval({
