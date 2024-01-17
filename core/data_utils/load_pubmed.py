@@ -151,9 +151,9 @@ def get_raw_text_pubmed(use_text=False, seed=0):
         text.append(t)
     return data, text
 
-
-if __name__ == "__main__":
-    data, data_pubid = get_pubmed_casestudy()
-    data, text = get_raw_text_pubmed(use_text=True, seed=0)
-    print(data)
-    print(text)
+# TEST CODE
+# if __name__ == "__main__":
+#     data, data_pubid = get_pubmed_casestudy()
+#     data, text = get_raw_text_pubmed(use_text=True, seed=0)
+#     print(data)
+#     print(text)

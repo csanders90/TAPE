@@ -42,7 +42,8 @@ def get_raw_text_arxiv(use_text=False, seed=0):
         text.append(t)
     return data, text
 
-if __name__ == '__main__':
-    data, text = get_raw_text_arxiv(use_text=True)
-    print(data)
-    print(text)
+# TEST CODE 
+# if __name__ == '__main__':
+#     data, text = get_raw_text_arxiv(use_text=True)
+#     print(data)
+#     print(text)

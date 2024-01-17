@@ -64,7 +64,8 @@ def get_raw_text_products(use_text=False, seed=0):
     return data, text
 
 
-if __name__ == '__main__':
-    data, text = get_raw_text_products(True)
-    print(data)
-    print(text[0])
+# TEST CODE
+# if __name__ == '__main__':
+#     data, text = get_raw_text_products(True)
+#     print(data)
+#     print(text[0])
