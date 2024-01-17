@@ -1,3 +1,5 @@
+import os, sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from core.LMs.lm_trainer import LMTrainer
 from core.config import cfg, update_cfg
 import pandas as pd

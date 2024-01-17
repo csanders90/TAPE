@@ -150,3 +150,10 @@ def get_raw_text_pubmed(use_text=False, seed=0):
         t = 'Title: ' + ti + '\n'+'Abstract: ' + ab
         text.append(t)
     return data, text
+
+
+if __name__ == "__main__":
+    data, data_pubid = get_pubmed_casestudy()
+    data, text = get_raw_text_pubmed(use_text=True, seed=0)
+    print(data)
+    print(text)

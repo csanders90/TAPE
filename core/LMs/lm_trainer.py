@@ -42,7 +42,8 @@ class LMTrainer():
         # Preprocess data
         data, text = load_data(
             dataset=self.dataset_name, use_text=True, use_gpt=cfg.lm.train.use_gpt, seed=self.seed)
-        self.data = data
+        
+        self.data = data 
         self.num_nodes = data.x.size(0)
         self.n_labels = data.y.unique().size(0)
 
@@ -106,6 +107,7 @@ class LMTrainer():
             fp16=True,
             dataloader_drop_last=True,
         )
+        
         self.trainer = Trainer(
             model=self.model,
             args=args,

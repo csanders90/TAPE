@@ -1,13 +1,13 @@
 import numpy as np
 import torch
 import random
-
+import os 
 from torch_geometric.datasets import Planetoid
 import torch_geometric.transforms as T
 
 
 # return cora dataset as pytorch geometric Data object together with 60/20/20 split, and list of cora IDs
-
+root_path = '/pfs/work7/workspace/scratch/cc7738-nlp_graph/TAPE/'
 
 def get_cora_casestudy(SEED=0):
     data_X, data_Y, data_citeid, data_edges = parse_cora()
@@ -53,7 +53,7 @@ def get_cora_casestudy(SEED=0):
 
 
 def parse_cora():
-    path = 'dataset/cora_orig/cora'
+    path = root_path + 'dataset/cora_orig/cora'
     idx_features_labels = np.genfromtxt(
         "{}.content".format(path), dtype=np.dtype(str))
     data_X = idx_features_labels[:, 1:-1].astype(np.float32)
@@ -87,16 +87,43 @@ def get_raw_text_cora(use_text=False, seed=0):
         pid_filename[pid] = fn
 
     path = 'dataset/cora_orig/mccallum/cora/extractions/'
+    # path = 'dataset/cora/extractions/'
+    values = os.listdir(path)
+    with open("extraction.txt", 'w') as output:
+        for row in values:
+            output.write(str(row) + '\n')
+            
     text = []
+    not_loaded = []
+    i = 0
     for pid in data_citeid:
         fn = pid_filename[pid]
-        with open(path+fn) as f:
-            lines = f.read().splitlines()
+        try:
+            if os.path.exists(path+fn): 
+                pathfn = path+fn
+            elif os.path.exists(path+fn.replace(":", "_")):
+                pathfn = path+fn.replace(":", "_")
+            elif os.path.exists(path+fn.replace("_", ":")):
+                pathfn = path+fn.replace("_", ":")
+                
+            with open(pathfn) as f:
+                lines = f.read().splitlines()
+                    
+            for line in lines:
+                if 'Title:' in line:
+                    ti = line
+                if 'Abstract:' in line:
+                    ab = line
+            text.append(ti+'\n'+ab)
+        except:
+            not_loaded.append(pathfn)
+            i += 1
 
-        for line in lines:
-            if 'Title:' in line:
-                ti = line
-            if 'Abstract:' in line:
-                ab = line
-        text.append(ti+'\n'+ab)
+        # print(f"not loaded {i} papers.")
+        # print(f"not loaded papers: {not_loaded}")
     return data, text
+
+# if __name__ == '__main__':
+#     data, text = get_raw_text_cora(use_text=True)
+#     print(data)
+#     print(text)
