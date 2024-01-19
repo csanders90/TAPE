@@ -1,8 +1,8 @@
 import torch
 
-from NC.GNNs.gnn_trainer import GNNTrainer
-from NC.GNNs.dgl_gnn_trainer import DGLGNNTrainer
-from data_utils.load import load_data
+from core.GNNs.gnn_trainer import GNNTrainer
+from core.GNNs.dgl_gnn_trainer import DGLGNNTrainer
+from core.data_utils.load import load_data
 
 LOG_FREQ = 10
 
@@ -24,10 +24,7 @@ class EnsembleTrainer():
         self.weight_decay = cfg.gnn.train.weight_decay
 
         # ! Load data
-        data = load_data(self.dataset_name, use_dgl=False, use_text=False)
-
-        self.num_nodes = data.x.shape[0]
-        self.num_classes = data.y.unique().size(0)
+        data, _ = load_data(self.dataset_name, use_dgl=False, use_text=False, seed=cfg.seed)
 
         data.y = data.y.squeeze()
         self.data = data.to(self.device)
@@ -39,7 +36,10 @@ class EnsembleTrainer():
              "y_true": labels.view(-1, 1)}
         )["acc"]
 
-        self.TRAINER = DGLGNNTrainer if cfg.gnn.train.use_dgl else GNNTrainer
+        if cfg.gnn.model.name == 'RevGAT':
+            self.TRAINER = DGLGNNTrainer
+        else:
+            self.TRAINER = GNNTrainer
 
     @ torch.no_grad()
     def _evaluate(self, logits):

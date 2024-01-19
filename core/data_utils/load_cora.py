@@ -1,13 +1,13 @@
 import numpy as np
 import torch
 import random
-import os 
+
 from torch_geometric.datasets import Planetoid
 import torch_geometric.transforms as T
-
+import os
 
 # return cora dataset as pytorch geometric Data object together with 60/20/20 split, and list of cora IDs
-root_path = '/pfs/work7/workspace/scratch/cc7738-nlp_graph/TAPE/'
+root_path = '/pfs/work7/workspace/scratch/cc7738-nlp_graph/TAPE_chen/dataset'
 
 def get_cora_casestudy(SEED=0):
     data_X, data_Y, data_citeid, data_edges = parse_cora()
@@ -26,14 +26,6 @@ def get_cora_casestudy(SEED=0):
                         transform=T.NormalizeFeatures())
     data = dataset[0]
 
-    # check if loaded dataset is the same as Planetoid
-    data_edge_index = []
-    for i in range(data.edge_index.numpy().shape[1]):
-        data_edge_index.append([data.edge_index.numpy()[:, i][0], data.edge_index.numpy()[:, i][1]])
-    data_edge_index = set(data_edge_index)
-    
-    
-        
     data.x = torch.tensor(data_X).float()
     data.edge_index = torch.tensor(data_edges).long()
     data.y = torch.tensor(data_Y).long()
@@ -61,7 +53,7 @@ def get_cora_casestudy(SEED=0):
 
 
 def parse_cora():
-    path = root_path + 'dataset/cora_orig/cora'
+    path = root_path + '/cora_orig/cora'
     idx_features_labels = np.genfromtxt(
         "{}.content".format(path), dtype=np.dtype(str))
     data_X = idx_features_labels[:, 1:-1].astype(np.float32)
@@ -86,7 +78,7 @@ def get_raw_text_cora(use_text=False, seed=0):
     if not use_text:
         return data, None
 
-    with open('dataset/cora_orig/mccallum/cora/papers')as f:
+    with open(root_path + '/cora_orig/mccallum/cora/papers')as f:
         lines = f.readlines()
     pid_filename = {}
     for line in lines:
@@ -94,13 +86,7 @@ def get_raw_text_cora(use_text=False, seed=0):
         fn = line.split('\t')[1]
         pid_filename[pid] = fn
 
-    path = 'dataset/cora_orig/mccallum/cora/extractions/'
-    # path = 'dataset/cora/extractions/'
-    values = os.listdir(path)
-    with open("extraction.txt", 'w') as output:
-        for row in values:
-            output.write(str(row) + '\n')
-            
+    path = root_path + '/cora_orig/mccallum/cora/extractions/'
     text = []
     not_loaded = []
     i = 0
@@ -130,9 +116,3 @@ def get_raw_text_cora(use_text=False, seed=0):
         # print(f"not loaded {i} papers.")
         # print(f"not loaded papers: {not_loaded}")
     return data, text
-
-# TEST CODE
-# if __name__ == '__main__':
-#     data, text = get_raw_text_cora(use_text=True)
-#     print(data)
-#     print(text)

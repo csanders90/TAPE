@@ -2,10 +2,10 @@ import torch
 import numpy as np
 
 from transformers import AutoTokenizer, AutoModel, TrainingArguments, Trainer, IntervalStrategy
-from LP.LMs.model import BertClassifier, BertClaInfModel
-from data_utils.dataset import Dataset
-from data_utils.load import load_data
-from LP.utils import init_path, time_logger
+from core.LMs.model import BertClassifier, BertClaInfModel
+from core.data_utils.dataset import Dataset
+from core.data_utils.load import load_data
+from core.utils import init_path, time_logger
 
 
 def compute_metrics(p):
@@ -20,8 +20,7 @@ class LMTrainer():
     def __init__(self, cfg):
         self.dataset_name = cfg.dataset
         self.seed = cfg.seed
-        self.task = cfg.task
-        
+
         self.model_name = cfg.lm.model.name
         self.feat_shrink = cfg.lm.model.feat_shrink
 
@@ -29,7 +28,6 @@ class LMTrainer():
         self.dropout = cfg.lm.train.dropout
         self.att_dropout = cfg.lm.train.att_dropout
         self.cla_dropout = cfg.lm.train.cla_dropout
-        
         self.batch_size = cfg.lm.train.batch_size
         self.epochs = cfg.lm.train.epochs
         self.warmup_epochs = cfg.lm.train.warmup_epochs
@@ -42,12 +40,11 @@ class LMTrainer():
         self.ckpt_dir = f'prt_lm/{self.dataset_name}{self.use_gpt_str}/{self.model_name}-seed{self.seed}'
 
         # Preprocess data
-        data, text = load_data(
+        data, num_classes, text = load_data(
             dataset=self.dataset_name, use_text=True, use_gpt=cfg.lm.train.use_gpt, seed=self.seed)
-        
-        self.data = data 
-        self.num_nodes = data.x.size(0)
-        self.n_labels = data.y.unique().size(0)
+        self.data = data
+        self.num_nodes = data.y.size(0)
+        self.n_labels = num_classes
 
         tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         X = tokenizer(text, padding=True, truncation=True, max_length=512)
@@ -109,7 +106,6 @@ class LMTrainer():
             fp16=True,
             dataloader_drop_last=True,
         )
-        
         self.trainer = Trainer(
             model=self.model,
             args=args,
@@ -155,7 +151,7 @@ class LMTrainer():
             from ogb.nodeproppred import Evaluator
             _evaluator = Evaluator(name=self.dataset_name)
         else:
-            from LP.GNNs.gnn_utils import Evaluator
+            from core.GNNs.gnn_utils import Evaluator
             _evaluator = Evaluator(name=self.dataset_name)
 
         def evaluator(preds, labels): return _evaluator.eval({

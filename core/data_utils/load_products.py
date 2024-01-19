@@ -6,8 +6,6 @@ import json
 import numpy as np
 import os
 import time
-import os, sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from core.utils import time_logger
 
 FILE = 'dataset/ogbn_products_orig/ogbn-products.csv'
@@ -64,8 +62,7 @@ def get_raw_text_products(use_text=False, seed=0):
     return data, text
 
 
-# TEST CODE
-# if __name__ == '__main__':
-#     data, text = get_raw_text_products(True)
-#     print(data)
-#     print(text[0])
+if __name__ == '__main__':
+    data, text = get_raw_text_products(True)
+    print(data)
+    print(text[0])

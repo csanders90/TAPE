@@ -3,7 +3,7 @@ import torch.nn as nn
 import numpy as np
 from transformers import PreTrainedModel
 from transformers.modeling_outputs import TokenClassifierOutput
-from LP.utils import init_random_state
+from core.utils import init_random_state
 
 
 class BertClassifier(PreTrainedModel):

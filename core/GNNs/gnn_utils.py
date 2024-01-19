@@ -1,4 +1,4 @@
-from NC.utils import init_path
+from core.utils import init_path
 import numpy as np
 
 import torch
@@ -6,7 +6,7 @@ import torch
 
 def get_gnn_trainer(model):
     if model in ['GCN', 'RevGAT', 'SAGE']:
-        from NC.GNNs.gnn_trainer import GNNTrainer
+        from core.GNNs.gnn_trainer import GNNTrainer
     else:
         raise ValueError(f'GNN-Trainer for model {model} is not defined')
     return GNNTrainer
