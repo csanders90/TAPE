@@ -9,6 +9,7 @@ from torch_geometric.datasets import Planetoid
 import torch_geometric.transforms as T
 from torch_geometric.utils import to_torch_coo_tensor
 import networkx as nx
+import matspy as spy
 
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -130,9 +131,14 @@ if __name__ == '__main__':
             edge_index = dataset[0][0]['edge_index']
             # TAG 
             # edge index to sparse matrix
-            edge_index = edge_index[:, ::10000]
+            edge_index = edge_index[:, ::100000]
             m = construct_sparse_adj(edge_index)
             plot_coo_matrix(m, f'plots/{name}_data_edges.png')
+            
+            fig, ax = spy.spy_to_mpl(m)
+            fig.savefig("plots/spy.png", bbox_inches='tight')
+
+            spy(m)
             
             data, num_class, text = load_data(name)
 
