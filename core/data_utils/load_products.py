@@ -49,7 +49,8 @@ def _process():
 
 
 def get_raw_text_products(use_text=False, seed=0):
-    data = torch.load('dataset/ogbn_products/ogbn-products_subset.pt')
+    root_path = '/pfs/work7/workspace/scratch/cc7738-nlp_graph/TAPE_chen/'
+    data = torch.load(root_path + 'dataset/ogbn_products_orig/ogbn-products_subset.pt')
     text = pd.read_csv('dataset/ogbn_products_orig/ogbn-products_subset.csv')
     text = [f'Product:{ti}; Description: {cont}\n'for ti,
             cont in zip(text['title'], text['content'])]
