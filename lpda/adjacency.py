@@ -55,30 +55,37 @@ def draw_adjacency_matrix(adj: np.array, name: str) -> None:
 import os.path as osp 
 
 def compare_adj(data_name, data_edges):
-    path = osp.join(osp.dirname(osp.realpath(__file__)), 'dataset')
-    dataset = Planetoid(path, data_name,
+      """_summary_
+
+      Args:
+            data_name (_type_): _description_
+            data_edges (_type_): _description_
+      """
+      
+      path = osp.join(osp.dirname(osp.realpath(__file__)), 'dataset')
+      dataset = Planetoid(path, data_name,
                         transform=T.NormalizeFeatures())
-    data = dataset[0]
+      data = dataset[0]
 
-    # check if loaded dataset is the same as Planetoid
-    sorted_data_edges = np.sort(data_edges, axis=0)
-    sorted_data_index = np.sort(data.edge_index.numpy(), axis=0)
-    are_datasets_equal = np.array_equal(sorted_data_edges, sorted_data_index)
+      # check if loaded dataset is the same as Planetoid
+      sorted_data_edges = np.sort(data_edges, axis=0)
+      sorted_data_index = np.sort(data.edge_index.numpy(), axis=0)
+      are_datasets_equal = np.array_equal(sorted_data_edges, sorted_data_index)
 
-    print(sorted_data_edges)
-    print(sorted_data_index)
-    print(f'Are datasets equal? {are_datasets_equal}')
-    # original Planetoid dataset
-    adj = to_torch_coo_tensor(data.edge_index)
-    adj = adj.to_dense().numpy()
-    G = nx.from_numpy_array(adj, create_using=nx.Graph)
-    
-    plot_adjacency_matrix(G, f'plots/{data_name}_data.edge_index.png')
+      print(sorted_data_edges)
+      print(sorted_data_index)
+      print(f'Are datasets equal? {are_datasets_equal}')
+      # original Planetoid dataset
+      adj = to_torch_coo_tensor(data.edge_index)
+      adj = adj.to_dense().numpy()
+      G = nx.from_numpy_array(adj, create_using=nx.Graph)
 
-    # TAG 
-    adj = to_torch_coo_tensor(torch.tensor(data_edges))
-    adj = adj.to_dense().numpy()
-    plot_adjacency_matrix(G, f'plots/{data_name}_data_edges.png')
+      plot_adjacency_matrix(G, f'plots/{data_name}_data.edge_index.png')
+
+      # TAG 
+      adj = to_torch_coo_tensor(torch.tensor(data_edges))
+      adj = adj.to_dense().numpy()
+      plot_adjacency_matrix(G, f'plots/{data_name}_data_edges.png')
     
 def plot_adj_sparse():
       """plot the adjacency matrix of a sparse matrix"""
@@ -124,6 +131,8 @@ def construct_sparse_adj(edge_index) -> coo_matrix:
       if type(edge_index) == tuple:
             edge_index = np.concatenate([[edge_index[0].numpy()], 
                                          [edge_index[1].numpy()]], axis=0)
+      elif type(edge_index) != np.ndarray:
+            edge_index.numpy()
             
       rows, cols = edge_index[0, :], edge_index[1, :]
       vals = np.ones_like(rows)
@@ -146,7 +155,7 @@ if __name__ == '__main__':
       if name == 'ogbn-products':
             dataset = NodePropPredDataset(name)
             edge_index = dataset[0][0]['edge_index']
-            # TAG 
+
             # edge index to sparse matrix
             edge_index = edge_index[:, ::scale]
             m = construct_sparse_adj(edge_index)
@@ -162,6 +171,7 @@ if __name__ == '__main__':
             
             fig, ax = spy.spy_to_mpl(m)
             fig.savefig(f"plots/{name}_data_index_spy.png", bbox_inches='tight')
+
 
       if name == 'ogbn-arxiv':
             dataset = NodePropPredDataset(name)

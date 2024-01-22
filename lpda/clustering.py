@@ -107,10 +107,35 @@ def compare_remap(data) -> None:
     print(np.array_equal(adjacency.todense(), remapped_adjacency.todense()))
     return remapped_adjacency
 
+def metis_partation(data) -> None:
+    # compare the adjacency matrix of the original graph and the remapped graph
+    # plot original adjacency matrix
+    g = tag_to_dgl(data)
+
+    num_nodes = g.num_nodes()
+    adjacency = egde_index_to_dense(g.edges(), num_nodes)
+    fig, ax = spy.spy_to_mpl(adjacency)
+    fig.savefig(f"plots/{name}/{name}_data_edges_spy.png", bbox_inches='tight')
+    
+    # partition the graph and node mapping
+    node_map, _ = partition_graph(g, 'test', num_clusters, out_path='output/',  part_method='metis',
+                                balance_edges=False, return_mapping=True)
+    
+    # remap 
+    remapped_adjacency = node_map[g.edges()[0].numpy()], node_map[g.edges()[1].numpy()]
+    
+    # replot remapped adjacency matrix55
+    remapped_adjacency = egde_index_to_dense(remapped_adjacency , num_nodes)
+    fig, ax = spy.spy_to_mpl(remapped_adjacency)
+    fig.savefig(f"plots/{name}/remapped{name}_data_edges_spy.png", bbox_inches='tight')
+    
+    print(np.array_equal(adjacency.todense(), remapped_adjacency.todense()))
+    return remapped_adjacency
+
 
 if __name__ == '__main__':
     # params
-    num_clusters = 2
+    num_clusters = 4
     # 'arxiv_2023', 'ogbn-arxiv', 'ogbn-products', 
     for name in ['cora', 'pubmed']:
         # data
@@ -120,7 +145,8 @@ if __name__ == '__main__':
         elif name in ['ogbn-arxiv', 'ogbn-products']:
             data = load_ogb_dataset(name, 'dataset')
         
-        compare_remap(data)
+        # compare_remap(data)
+        metis_partation(data)
         
     exit(-1)
     

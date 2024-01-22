@@ -10,10 +10,9 @@
 			"request": "launch",
 			"program": "${file}",
 			"console": "integratedTerminal",
-			"justMyCode": false, 
+			"justMyCode": false,
 			"args": [],
 		}
 	]
 }
-
 // python -m core.trainLM dataset ogbn-arxiv
