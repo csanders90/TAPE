@@ -8,7 +8,7 @@ from torch_geometric.datasets import Planetoid
 import torch_geometric.transforms as T
 from torch_geometric.utils import to_torch_coo_tensor
 from ogb.nodeproppred import NodePropPredDataset
-
+from scipy.sparse import csc_array
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from core.data_utils.load import load_data
@@ -32,7 +32,8 @@ def plot_adjacency_matrix(G: nx.graph, name: str) -> None:
     fig = pyplot.figure(figsize=(5, 5)) # in inches
     pyplot.imshow(adjacency_matrix,
                   cmap="Greys",
-                  interpolation="none")
+                  interpolation="none"
+                  )
     pyplot.savefig(f'{name}')
 
 
@@ -130,11 +131,18 @@ def construct_sparse_adj(edge_index) -> coo_matrix:
       m = coo_matrix((vals, (rows, cols)), shape=shape)
       return m
       
-      
+import argparse 
+
 if __name__ == '__main__':
       
+      parser = argparse.ArgumentParser()
+      parser.add_argument('--dataset', type=str, default='cora',
+                          help='Dataset name.')
+      args = parser.parse_args()
+      
       scale = 100000
-      name = 'ogbn-arxiv'
+      name = args.dataset
+      
       if name == 'ogbn-products':
             dataset = NodePropPredDataset(name)
             edge_index = dataset[0][0]['edge_index']
@@ -177,6 +185,9 @@ if __name__ == '__main__':
 
       for name in ['cora', 'pubmed']:
             data, num_class, text = load_data(name)
-            compare_adj(name, data.edge_index.numpy())
             
-      # TODO Citeseer 
+            compare_adj(name, data.edge_index.numpy())
+            m = construct_sparse_adj(data.edge_index.numpy())
+            fig, ax = spy.spy_to_mpl(m)
+            fig.savefig(f"plots/{name}_data_index_spy.png", bbox_inches='tight')
+            
