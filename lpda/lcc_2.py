@@ -55,7 +55,7 @@ def get_node_mapper(lcc: np.ndarray) -> dict:
   counter = 0
   for node in lcc:
     mapper[node] = counter
-    counter += 1
+    counter += 14
   return mapper
 
 def remap_edges(edges: list, mapper: dict) -> list:

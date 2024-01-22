@@ -33,6 +33,7 @@ def get_component(adjacencyList: List[List[int]], start: int = 0) -> set:
     queued_nodes.extend(neighbors)
   return visited_nodes
 
+
 # NOTE: this assumes that the graph is undirected/ the adjacency matrix is symmetric
 def get_largest_connected_component(dataset: InMemoryDataset) -> np.ndarray:
     # detect the largest connected component of a undirected graph with symmetric adjacency matrix
@@ -123,7 +124,7 @@ if __name__ == '__main__':
             use_lcc_flag = True
             
             # planetoid_data = Planetoid(path, name) 
-            data, num_class, text = load_data(name, use_dgl=False, use_text=True, use_gpt=False, seed=0)
+            data, num_class, text = load_data(name, use_dgl=False, use_text=False, use_gpt=False, seed=0)
             
             print(data.num_nodes)
             
