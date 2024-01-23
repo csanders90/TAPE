@@ -56,7 +56,7 @@ def get_raw_text_products(use_text=False, seed=0):
             cont in zip(text['title'], text['content'])]
 
     data.edge_index = data.adj_t.to_symmetric()
-
+    
     if not use_text:
         return data, None
 

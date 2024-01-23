@@ -4,6 +4,9 @@ from ogb.linkproppred import PygLinkPropPredDataset
 import numpy as np
 import torch
 from typing import List
+from adjacency import construct_sparse_adj
+from adjacency import load_data
+import matspy as spy
 
 
 def get_component(adjacencyList: List[List[int]], start: int = 0) -> set:
@@ -111,14 +114,46 @@ if __name__ == '__main__':
     print(f"Finished {name}")
 
 
-#print("Working on ogbl collab")
-#dataset_name = 'ogbl-citation2'
-#dataset_name = 'ogbl-collab'
-#dataset = PygLinkPropPredDataset(name=dataset_name, root=path)
-#print(dataset.data.x.shape[0])
-#
-#lcc_collab = use_lcc(dataset)
-#print(lcc_collab.data.x.shape[0])
-#print("Finished ogbl collab")
+    print("Working on ogbl collab")
+    dataset_name = 'ogbl-citation2'
+    dataset_name = 'ogbl-collab'
+    dataset = PygLinkPropPredDataset(name=dataset_name, root=path)
+    print(dataset.data.x.shape[0])
+    
+    lcc_collab = use_lcc(dataset)
+    print(lcc_collab.data.x.shape[0])
+    print("Finished ogbl collab")
 
 
+    # params
+    path = '.'
+    # 'cora', 'pubmed', 
+    for name in ['ogbn-arxiv', 'ogbn-products', 'arxiv_2023']:
+        
+        if name in ['cora', 'pubmed', 'citeseer', 'ogbn-arxiv', 'ogbn-products', 'arxiv_2023']:
+            use_lcc_flag = True
+            
+            # planetoid_data = Planetoid(path, name) 
+            data, num_class, text = load_data(name, use_dgl=False, use_text=False, use_gpt=False, seed=0)
+            
+            print(data.num_nodes)
+            
+            if name  == 'ogbn-arxiv':
+                edge_index = data.edge_index.to_torch_sparse_coo_tensor().coalesce().indices()
+            else:
+                edge_index = data.edge_index.numpy()
+                
+            m = construct_sparse_adj(edge_index)
+            fig, ax = spy.spy_to_mpl(m)
+            fig.savefig(f"plots/{name}/{name}_ori_data_index_spy.png", bbox_inches='tight')
+            
+            
+            if use_lcc_flag:
+                data_lcc = use_lcc(data)
+            print(data_lcc.num_nodes)
+
+
+            m = construct_sparse_adj(data_lcc.edge_index.numpy())
+            fig, ax = spy.spy_to_mpl(m)
+            fig.savefig(f"plots/{name}/{name}_lcc_data_index_spy.png", bbox_inches='tight')
+        

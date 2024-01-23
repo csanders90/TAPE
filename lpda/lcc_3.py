@@ -4,6 +4,8 @@ utils for getting the largest connected component of a graph
 import numpy as np
 from torch_geometric.data import Data, InMemoryDataset
 import torch
+from torch_sparse.tensor import SparseTensor
+
 
 def get_largest_connected_component(dataset: InMemoryDataset) -> np.ndarray:
   remaining_nodes = set(range(dataset._data.x.shape[0]))
@@ -34,10 +36,33 @@ def remap_edges(edges: list, mapper: dict) -> list:
   return [row, col]
 
 
+def get_row_col(edge_index: SparseTensor) -> list:
+  if type(edge_index) is torch.Tensor:
+    row, col = edge_index.numpy()
+  elif type(edge_index) is SparseTensor:
+    row, col = edge_index.to_torch_sparse_coo_tensor().coalesce().indices().numpy()
+    return row, col
+  
+  
 def get_component(dataset: InMemoryDataset, start: int = 0) -> set:
+  # BFS
+  # this is a bit slow, but it works
+  # TODO: make this faster
+  # TODO: make this work for directed graphs
+  """this function detect the llc of a undirected graph with symmetric adjacency matrix
+
+  Args:
+      dataset (InMemoryDataset): modified graph from ogb or planetoid
+      start (int, optional): start node index. Defaults to 0.
+      dataset.data.edge_index is a tensor of shape [2, num_edges], default type is numpy.ndarray
+      
+  Returns:
+      set: return a set of the node set of local connected component of the graph
+  """
   visited_nodes = set()
   queued_nodes = set([start])
-  row, col = dataset._data.edge_index.numpy()
+  row, col = get_row_col(dataset._data.edge_index)
+    
   while queued_nodes:
     current_node = queued_nodes.pop()
     visited_nodes.update([current_node])
@@ -47,16 +72,17 @@ def get_component(dataset: InMemoryDataset, start: int = 0) -> set:
   return visited_nodes
 
 
-def use_lcc(dataset):
+def use_lcc(dataset: InMemoryDataset) -> InMemoryDataset:
     lcc = get_largest_connected_component(dataset)
 
     x_new = dataset._data.x[lcc]
     y_new = dataset._data.y[lcc]
 
-    row, col = dataset._data.edge_index.numpy()
+    row, col = get_row_col(dataset._data.edge_index)
     edges = [[i, j] for i, j in zip(row, col) if i in lcc and j in lcc]
     edges = remap_edges(edges, get_node_mapper(lcc))
 
+    # TODO add updated masks after lcc to data
     data = Data(
         x=x_new,
         edge_index=torch.LongTensor(edges),
@@ -69,7 +95,7 @@ def use_lcc(dataset):
         edge_attrs = None, 
         graph_attrs = None
     )
-    # original dataset._data = data
+
     dataset._data = data
     
     return dataset
