@@ -15,7 +15,12 @@ from ogb.linkproppred import PygLinkPropPredDataset
 import numpy as np
 import torch
 from typing import List 
+from torch_geometric.utils import is_undirected, to_undirected, contains_self_loops, contains_isolated_nodes, subgraph, get_laplacian
+from torch_geometric.utils import spmm, one_hot, normalized_cut, to_scipy_sparse_matrix, erdos_renyi_graph, remove_self_loops, add_self_loops, to_networkx, from_networkx
 
+from lcc_3 import use_lcc
+
+"""
 def get_component(adjacencyList: List[List[int]], start: int = 0) -> set:
   num_nodes = len(adjacencyList)
   visited = [False] * num_nodes
@@ -112,15 +117,16 @@ def use_lcc(dataset: InMemoryDataset):
     # original dataset._data = data
     dataset._data = data
     return dataset
+"""
 
 if __name__ == '__main__':
 
     # params
     path = '.'
-    
-    for name in ['cora', 'pubmed', 'ogbn-arxiv', 'ogbn-products', 'arxiv_2023']:
+    # 'cora', 'pubmed', 
+    for name in ['ogbn-arxiv', 'ogbn-products', 'arxiv_2023']:
         
-        if name in ['cora', 'pubmed', 'citeseer']:
+        if name in ['cora', 'pubmed', 'citeseer', 'ogbn-arxiv', 'ogbn-products', 'arxiv_2023']:
             use_lcc_flag = True
             
             # planetoid_data = Planetoid(path, name) 
@@ -147,5 +153,3 @@ if __name__ == '__main__':
             fig, ax = spy.spy_to_mpl(m)
             fig.savefig(f"plots/{name}/{name}_lcc_data_index_spy.png", bbox_inches='tight')
         
-        if name in ['ogbn-arxiv', 'ogbn-products', 'arxiv_2023']:
-            pass

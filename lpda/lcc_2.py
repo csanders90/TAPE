@@ -40,13 +40,11 @@ def get_largest_connected_component(dataset: InMemoryDataset) -> np.ndarray:
     start = min(remaining_nodes)
     comp = get_component(adjacencyList, start)
     total_size += len(comp)
-    print("Total size of visited nodes", total_size)
 
     comps.append(comp)
     remaining_nodes = remaining_nodes.difference(comp)
-
-  comps_size = [len(c) for c in comps]
-  print(comps_size)
+  
+  print(len(comp))
   result = np.array(list(comps[np.argmax(list(map(len, comps)))]))
   return result
 
@@ -91,27 +89,26 @@ def use_lcc(dataset):
     dataset._data = data
     return dataset
 
-#lcc = use_lcc(dataset)
+if __name__ == '__main__':
+  path = '.'
+  for name in ['cora', 'citeseer', 'pubmed']:
+    # dataset_name = 'cora' 
+    # dataset_name = 'citeseer'
 
-path = '.'
-# dataset_name = 'cora' 
-# dataset_name = 'citeseer'
+    #print("Working on Karateclub")
+    #dataset = KarateClub()
+    #print(dataset._data.x.shape[0])
+    #
+    #lcc_collab = use_lcc(dataset)
+    #print(lcc_collab.x.shape[0])
 
-#print("Working on Karateclub")
-#dataset = KarateClub()
-#print(dataset._data.x.shape[0])
-#
-#lcc_collab = use_lcc(dataset)
-#print(lcc_collab.x.shape[0])
+    print(f"Working on {name}")
+    dataset = Planetoid(path, name) 
+    print(dataset.data.x.shape[0])
 
-print("Working on pubmed")
-dataset_name = 'citeseer'# please try these datasets: 'cora', 'citeseer', 'pubmed'
-dataset = Planetoid(path,dataset_name) 
-print(dataset.data.x.shape[0])
-
-lcc_collab = use_lcc(dataset)
-print(lcc_collab.x.shape[0])
-print("Finished pubmed")
+    lcc_collab = use_lcc(dataset)
+    print(lcc_collab.x.shape[0])
+    print(f"Finished {name}")
 
 
 #print("Working on ogbl collab")

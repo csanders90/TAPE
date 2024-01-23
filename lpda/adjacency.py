@@ -145,7 +145,7 @@ import argparse
 if __name__ == '__main__':
       
       parser = argparse.ArgumentParser()
-      parser.add_argument('--dataset', type=str, default='cora',
+      parser.add_argument('--dataset', type=str, default='ogbn-arxiv',
                           help='Dataset name.')
       args = parser.parse_args()
       

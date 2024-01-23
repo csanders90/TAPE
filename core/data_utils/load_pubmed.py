@@ -7,6 +7,7 @@ import torch_geometric.transforms as T
 from sklearn.preprocessing import normalize
 import json
 import pandas as pd
+from torch_geometric.data import Data, InMemoryDataset
 
 # return pubmed dataset as pytorch geometric Data object together with 60/20/20 split, and list of pubmed IDs
 
@@ -28,34 +29,48 @@ def get_pubmed_casestudy(corrected=False, SEED=0):
     data = dataset[0]
 
     # replace dataset matrices with the PubMed-Diabetes data, for which we have the original pubmed IDs
-    data.x = torch.tensor(data_X)
-    data.edge_index = torch.tensor(data_edges)
-    data.y = torch.tensor(data_Y)
-
+    x = torch.tensor(data_X)
+    edge_index = torch.tensor(data_edges)
+    y = torch.tensor(data_Y)
+    num_nodes = data.num_nodes
+    
     # split data
     node_id = np.arange(data.num_nodes)
     np.random.shuffle(node_id)
 
-    data.train_id = np.sort(node_id[:int(data.num_nodes * 0.6)])
-    data.val_id = np.sort(
+    train_id = np.sort(node_id[:int(data.num_nodes * 0.6)])
+    val_id = np.sort(
         node_id[int(data.num_nodes * 0.6):int(data.num_nodes * 0.8)])
-    data.test_id = np.sort(node_id[int(data.num_nodes * 0.8):])
+    test_id = np.sort(node_id[int(data.num_nodes * 0.8):])
 
     if corrected:
         is_mistake = np.loadtxt(
             'pubmed_casestudy/pubmed_mistake.txt', dtype='bool')
-        data.train_id = [i for i in data.train_id if not is_mistake[i]]
-        data.val_id = [i for i in data.val_id if not is_mistake[i]]
-        data.test_id = [i for i in data.test_id if not is_mistake[i]]
+        train_id = [i for i in train_id if not is_mistake[i]]
+        val_id = [i for i in val_id if not is_mistake[i]]
+        test_id = [i for i in test_id if not is_mistake[i]]
 
-    data.train_mask = torch.tensor(
-        [x in data.train_id for x in range(data.num_nodes)])
-    data.val_mask = torch.tensor(
-        [x in data.val_id for x in range(data.num_nodes)])
-    data.test_mask = torch.tensor(
-        [x in data.test_id for x in range(data.num_nodes)])
+    train_mask = torch.tensor(
+        [x in train_id for x in range(data.num_nodes)])
+    val_mask = torch.tensor(
+        [x in val_id for x in range(data.num_nodes)])
+    test_mask = torch.tensor(
+        [x in test_id for x in range(data.num_nodes)])
 
-    return data, data_pubid
+    data = Data(x=x,
+        edge_index=edge_index,
+        y=y,
+        num_nodes=num_nodes,
+        train_mask=train_mask,
+        test_mask=test_mask,
+        val_mask=val_mask,
+        node_attrs=x, 
+        edge_attrs = None, 
+        graph_attrs = None
+    )        
+    dataset._data = data
+    
+    return dataset, data_pubid
 
 
 def parse_pubmed():
