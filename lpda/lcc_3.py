@@ -5,10 +5,23 @@ import numpy as np
 from torch_geometric.data import Data, InMemoryDataset
 import torch
 from torch_sparse.tensor import SparseTensor
+from ogb.nodeproppred.dataset_pyg import PygNodePropPredDataset
+from ogb.linkproppred.dataset_pyg import PygLinkPropPredDataset
+
+def get_Data(data: Data):
+  if type(data) is InMemoryDataset:
+    return data._data
+  elif type(data) is Data:
+    return data
+  elif type(data) is PygNodePropPredDataset or type(data) is PygLinkPropPredDataset:
+    return data._data
+  else:
+    return data[0]
 
 
 def get_largest_connected_component(dataset: InMemoryDataset) -> np.ndarray:
-  remaining_nodes = set(range(dataset._data.x.shape[0]))
+  data = get_Data(dataset)
+  remaining_nodes = set(range(data.x.shape[0]))
   comps = []
   while remaining_nodes:
     start = min(remaining_nodes)
@@ -41,7 +54,7 @@ def get_row_col(edge_index: SparseTensor) -> list:
     row, col = edge_index.numpy()
   elif type(edge_index) is SparseTensor:
     row, col = edge_index.to_torch_sparse_coo_tensor().coalesce().indices().numpy()
-    return row, col
+  return row, col
   
   
 def get_component(dataset: InMemoryDataset, start: int = 0) -> set:
@@ -59,9 +72,10 @@ def get_component(dataset: InMemoryDataset, start: int = 0) -> set:
   Returns:
       set: return a set of the node set of local connected component of the graph
   """
+  data = get_Data(dataset)
   visited_nodes = set()
   queued_nodes = set([start])
-  row, col = get_row_col(dataset._data.edge_index)
+  row, col = get_row_col(data.edge_index)
     
   while queued_nodes:
     current_node = queued_nodes.pop()
@@ -75,10 +89,11 @@ def get_component(dataset: InMemoryDataset, start: int = 0) -> set:
 def use_lcc(dataset: InMemoryDataset) -> InMemoryDataset:
     lcc = get_largest_connected_component(dataset)
 
-    x_new = dataset._data.x[lcc]
-    y_new = dataset._data.y[lcc]
+    data = get_Data(dataset)
+    x_new = data.x[lcc]
+    y_new = data.y[lcc]
 
-    row, col = get_row_col(dataset._data.edge_index)
+    row, col = get_row_col(data.edge_index)
     edges = [[i, j] for i, j in zip(row, col) if i in lcc and j in lcc]
     edges = remap_edges(edges, get_node_mapper(lcc))
 
@@ -95,7 +110,59 @@ def use_lcc(dataset: InMemoryDataset) -> InMemoryDataset:
         edge_attrs = None, 
         graph_attrs = None
     )
-
+    dataset = InMemoryDataset(root='./dataset')
     dataset._data = data
     
     return dataset
+  
+
+import numpy as np
+from torch_geometric.data import Data, InMemoryDataset
+from adjacency import load_data
+import torch 
+import matspy as spy
+from adjacency import construct_sparse_adj
+
+
+from torch_geometric.datasets import Planetoid, KarateClub
+from torch_geometric.data import Data, InMemoryDataset
+from ogb.linkproppred import PygLinkPropPredDataset
+import numpy as np
+import torch
+
+
+
+if __name__ == '__main__':
+
+    # params
+    path = '.'
+    # 'cora', 'pubmed', 'ogbn-arxiv', 'ogbn-products', 'arxiv_2023'
+    for name in ['cora', 'pubmed', 'ogbn-arxiv', 'ogbn-products', 'arxiv_2023']:
+        
+        if name in ['cora', 'pubmed', 'citeseer', 'ogbn-arxiv', 'ogbn-products', 'arxiv_2023']:
+            use_lcc_flag = True
+            
+            # planetoid_data = Planetoid(path, name) 
+            data, num_class, text = load_data(name, use_dgl=False, use_text=False, use_gpt=False, seed=0)
+            
+            print(f" original num of nodes: {data.num_nodes}")
+            
+            if name.startswith('ogb'):
+                edge_index = data.edge_index.to_torch_sparse_coo_tensor().coalesce().indices()
+            else:
+                edge_index = data.edge_index.numpy()
+                
+            m = construct_sparse_adj(edge_index)
+            fig, ax = spy.spy_to_mpl(m)
+            fig.savefig(f"plots/{name}/{name}_ori_data_index_spy.png", bbox_inches='tight')
+            
+            
+            if use_lcc_flag:
+                data_lcc = use_lcc(data)
+            print(data_lcc.num_nodes)
+
+
+            m = construct_sparse_adj(data_lcc.edge_index.numpy())
+            fig, ax = spy.spy_to_mpl(m)
+            fig.savefig(f"plots/{name}/{name}_lcc_data_index_spy.png", bbox_inches='tight')
+        

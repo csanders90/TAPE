@@ -23,7 +23,7 @@ def get_cora_casestudy(SEED=0) -> InMemoryDataset:
     # load data
     data_name = 'cora'
     # path = osp.join(osp.dirname(osp.realpath(__file__)), 'dataset')
-    dataset = Planetoid('dataset', data_name,
+    dataset = Planetoid('./dataset', data_name,
                         transform=T.NormalizeFeatures())
 
     data = dataset[0]

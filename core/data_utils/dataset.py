@@ -1,12 +1,10 @@
 
 import dgl
 import torch
-from torch.utils.data import Dataset as TorchDataset
-from torch.utils import Data 
-# convert PyG dataset to DGL dataset
+from torch.utils.data import Dataset
 
 
-class CustomDGLDataset(TorchDataset):
+class CustomDGLDataset(Dataset):
     def __init__(self, name, pyg_data):
         self.name = name
         self.pyg_data = pyg_data

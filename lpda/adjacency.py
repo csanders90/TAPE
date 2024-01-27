@@ -62,7 +62,7 @@ def compare_adj(data_name, data_edges):
             data_edges (_type_): _description_
       """
       
-      path = osp.join(osp.dirname(osp.realpath(__file__)), 'dataset')
+      path = osp.join(osp.dirname(osp.realpath(__file__)), './dataset')
       dataset = Planetoid(path, data_name,
                         transform=T.NormalizeFeatures())
       data = dataset[0]
