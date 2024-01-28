@@ -50,7 +50,7 @@ class CustomDGLDataset(Dataset):
 
 
 # Create torch dataset
-class Dataset(torch.utils.data.Dataset):
+class CustomPygDataset(torch.utils.data.Dataset):
     def __init__(self, encodings, labels=None):
         self.encodings = encodings
         self.labels = labels
