@@ -83,3 +83,7 @@ def time_logger(func):
         return ret
 
     return wrapper
+
+def get_root_dir():
+    file_dir = os.path.dirname(os.path.realpath(__file__))
+    return os.path.join(file_dir, "..")

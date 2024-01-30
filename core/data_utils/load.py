@@ -2,7 +2,7 @@ import os
 import json
 import torch
 import csv
-from core.data_utils.dataset import CustomDGLDataset
+from data_utils.dataset import CustomDGLDataset
 
 
 def load_gpt_preds(dataset, topk):

@@ -11,7 +11,7 @@ from ogb.nodeproppred import NodePropPredDataset
 from scipy.sparse import csc_array
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from core.data_utils.load import load_data
+from data_utils.load import load_data
 
 import matspy as spy # https://github.com/alugowski/matspy
 
