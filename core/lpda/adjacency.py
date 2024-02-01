@@ -119,6 +119,37 @@ def plot_coo_matrix(m: coo_matrix, name: str):
     fig.savefig(name)
     return ax
 
+def plot_pos_neg_adj(m_pos: coo_matrix, m_neg: coo_matrix, name: str):
+    """
+    Plot the COO matrix.
+
+    Parameters:
+    - m: coo_matrix, input COO matrix
+    - name: str, output file name
+    """
+    
+    if not isinstance(m_pos, coo_matrix):
+        m_pos = coo_matrix(m_pos) 
+    if not isinstance(m_neg, coo_matrix):
+        m_neg = coo_matrix(m_neg) 
+        
+    fig = plt.figure()
+    ax = fig.add_subplot(111, facecolor='white')
+    ax.plot(m_neg.col, m_neg.row, 's', color='black', ms=1)
+    ax.plot(m_pos.col, m_pos.row, 's', color='blue', ms=1)
+#     ax.set_xlim(0, m_neg.shape[1])
+#     ax.set_ylim(0, m_neg.shape[0])
+    ax.set_aspect('equal')
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    ax.invert_yaxis()
+    ax.set_aspect('equal')
+    ax.set_xticks([])
+    ax.set_yticks([])
+    fig.savefig(name)
+    return ax
+
+
 def construct_sparse_adj(edge_index) -> coo_matrix:
       """
       Construct a sparse adjacency matrix from an edge index.
@@ -133,6 +164,9 @@ def construct_sparse_adj(edge_index) -> coo_matrix:
                                          [edge_index[1].numpy()]], axis=0)
       elif type(edge_index) != np.ndarray:
             edge_index.numpy()
+      
+      if edge_index.shape[0] > edge_index.shape[1]:
+            edge_index = edge_index.T
             
       rows, cols = edge_index[0, :], edge_index[1, :]
       vals = np.ones_like(rows)

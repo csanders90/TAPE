@@ -32,7 +32,6 @@ from math import inf
 import seaborn as sns
 from torch.utils.data import DataLoader
 from torch_sparse import SparseTensor
-from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
 
 dir_path = get_root_dir()
 

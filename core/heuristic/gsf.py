@@ -15,7 +15,7 @@ def sort_edge_index(edge_index):
     return edge_reindex, sort_indices
 
 
-def Ben_PPR(A, edge_index, labels):
+def Ben_PPR(A, edge_index):
     """
     The Personalized PageRank heuristic score.
     Need to install fast_pagerank by "pip install fast-pagerank"
@@ -33,7 +33,7 @@ def Ben_PPR(A, edge_index, labels):
     scores = []
     visited = set([])
     j = 0
-    for i in range(edge_reindex.shape[1]):
+    for i in tqdm(range(edge_reindex.shape[1])):
         if i < j:
             continue
         
@@ -63,8 +63,7 @@ def Ben_PPR(A, edge_index, labels):
     scores = np.concatenate(scores, 0)
     print(f'evaluated PPR for {len(scores)} edges')
     
-    labels = labels[sort_indices]
-    return torch.FloatTensor(scores), edge_reindex, labels
+    return torch.FloatTensor(scores), edge_reindex
 
 def test_index_symmetric(edge_index):
     """symmetrize test edge split"""
@@ -74,7 +73,7 @@ def test_index_symmetric(edge_index):
 
 
 
-def SymPPR(A, edge_index, labels):
+def SymPPR(A, edge_index):
     """
     The Personalized PageRank heuristic score.
     Need to install fast_pagerank by "pip install fast-pagerank"
@@ -94,7 +93,7 @@ def SymPPR(A, edge_index, labels):
 
     visited = {}
     j = 0
-    for i in range(edge_index.shape[1]):
+    for i in tqdm(range(edge_index.shape[1])):
         if i < j:
             continue
         
@@ -126,11 +125,11 @@ def SymPPR(A, edge_index, labels):
         srt_dst = visited[f'[{edge_index[0, idx]}, {edge_index[1, idx]}]']
         dst_srt = visited[f'[{edge_index[1, idx]}, {edge_index[0, idx]}]']
         scores.append(dst_srt + srt_dst)
-    labels = torch.cat((labels, labels), 0)[sort_indices][:length]
-    return torch.FloatTensor(scores), edge_index, labels
+
+    return torch.FloatTensor(scores), edge_index
 
 
-def shortest_path(A, edge_index, remove=True):
+def shortest_path(A, edge_index, remove=False):
 
     scores = []
     G = nx.from_scipy_sparse_matrix(A)
@@ -139,7 +138,7 @@ def shortest_path(A, edge_index, remove=True):
     count = 0
     count1 = count2 = 0
     print('remove: ', remove)
-    for i in range(edge_index.size(1)):
+    for i in tqdm(range(edge_index.size(1))):
         s = edge_index[0][i].item()
         t = edge_index[1][i].item()
         if s == t:
@@ -185,7 +184,7 @@ def shortest_path(A, edge_index, remove=True):
         
     return torch.FloatTensor(scores)
 
-def katz_apro(A, edge_index, beta=0.005, path_len=3, remove=True):
+def katz_apro(A, edge_index, beta=0.005, path_len=3, remove=False):
 
     scores = []
     G = nx.from_scipy_sparse_matrix(A)
@@ -201,7 +200,7 @@ def katz_apro(A, edge_index, beta=0.005, path_len=3, remove=True):
         
         betas[i] = np.power(beta, i+1)
     
-    for i in range(edge_index.size(1)):
+    for i in tqdm(range(edge_index.size(1))):
         
         s = edge_index[0][i].item()
         t = edge_index[1][i].item()
@@ -257,7 +256,7 @@ def katz_close(A, edge_index, beta=0.005):
     sim = np.linalg.inv(aux)
     np.fill_diagonal(sim, sim.diagonal()-1)
 
-    for i in range(edge_index.size(1)):
+    for i in tqdm(range(edge_index.size(1))):
         s = edge_index[0][i].item()
         t = edge_index[1][i].item()
 

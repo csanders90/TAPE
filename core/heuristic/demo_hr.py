@@ -174,8 +174,6 @@ def main():
         val_edge_weight = torch.ones([val_edge_index.size(1)], dtype=int)
 
         edge_weight = torch.cat([edge_weight, val_edge_weight], 0)
-        
-
 
         full_A = ssp.csr_matrix((edge_weight, (edge_index[0], edge_index[1])), 
                         shape=(node_num, node_num)) 
