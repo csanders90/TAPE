@@ -87,3 +87,22 @@ def time_logger(func):
 def get_root_dir():
     file_dir = os.path.dirname(os.path.realpath(__file__))
     return os.path.join(file_dir, "..")
+
+import git
+import subprocess
+
+def get_git_repo_root_path():
+    try:
+        # Using git module
+        git_repo = git.Repo('.', search_parent_directories=True)
+        return git_repo.working_dir
+    except git.InvalidGitRepositoryError:
+        # Fallback to using subprocess if not a valid Git repository
+        result = subprocess.run(['git', 'rev-parse', '--show-toplevel'], capture_output=True, text=True)
+
+        if result.returncode == 0:
+            return result.stdout.strip()
+        else:
+            print("Error:", result.stderr)
+            return None
+

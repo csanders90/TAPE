@@ -7,7 +7,7 @@ import numpy as np
 import os, sys
 import time
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from torch_geometric.transforms import RandomLinkSplit
+from data_utils.link_split import RandomLinkSplit
 from data_utils.dataset import CustomPygDataset, CustomLinkDataset
 from heuristic.lsf import CN, AA, RA, InverseRA
 from heuristic.gsf import Ben_PPR, shortest_path, katz_apro, katz_close , SymPPR
@@ -18,12 +18,12 @@ import scipy.sparse as ssp
 from lpda.adjacency import plot_coo_matrix, plot_pos_neg_adj
 from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
 from eval import evaluate_auc, evaluate_hits, evaluate_mrr, get_metric_score, get_prediction
-
+from utils import get_git_repo_root_path
 
 def get_raw_text_products(use_text=False, seed=0):
-    root_path = '/pfs/work7/workspace/scratch/cc7738-nlp_graph/TAPE_chen/'
-    data = torch.load(root_path + 'dataset/ogbn_products_orig/ogbn-products_subset.pt')
-    text = pd.read_csv(root_path + 'dataset/ogbn_products_orig/ogbn-products_subset.csv')
+    root_path = get_git_repo_root_path()
+    data = torch.load(root_path + '/dataset/ogbn_products_orig/ogbn-products_subset.pt')
+    text = pd.read_csv(root_path + '/dataset/ogbn_products_orig/ogbn-products_subset.csv')
     text = [f'Product:{ti}; Description: {cont}\n'for ti,
             cont in zip(text['title'], text['content'])]
 
@@ -77,10 +77,6 @@ def ogbn_products_acc():
     plot_coo_matrix(neg_m, f'test_neg_index.png')
     
     A = ssp.csr_matrix((edge_weight.view(-1), (edge_index[0], edge_index[1])), shape=(num_nodes, num_nodes)) 
-
-    # eval acc
-    # test_acc = eval_heuristic_acc(A, test_index, labels)
-        
     
     evaluator_hit = Evaluator(name='ogbl-collab')
     evaluator_mrr = Evaluator(name='ogbl-citation2')

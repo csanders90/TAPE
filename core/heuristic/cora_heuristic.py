@@ -1,27 +1,29 @@
+import os, sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import torch 
 from torch_geometric.datasets import Planetoid
 import torch_geometric.transforms as T
-import os
 from torch_geometric.data import Data, InMemoryDataset
-import random
+
 from torch_geometric.transforms import RandomLinkSplit
 import numpy as np
 import scipy.sparse as ssp
-import os, sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from heuristic.lsf import CN, AA, RA, InverseRA
 from heuristic.gsf import Ben_PPR, shortest_path, katz_apro, katz_close , SymPPR
+
 import matplotlib.pyplot as plt
-from lpda.adjacency import plot_adjacency_matrix, compare_adj, draw_adjacency_matrix, plot_coo_matrix
-from lpda.adjacency import construct_sparse_adj
 
-FILE_PATH = '/pfs/work7/workspace/scratch/cc7738-nlp_graph/TAPE_chen/dataset'
+from lpda.adjacency import plot_coo_matrix, construct_sparse_adj
+
+from utils import get_git_repo_root_path
+from typing import Dict
 
 
-def load_lp_data_cora(data_name: str, 
-                 use_text: bool, 
-                 use_gpt: bool, 
-                 seed: int):
+FILE_PATH = get_git_repo_root_path() + '/'
+
+
+def load_lp_data_cora() -> None:
     """load text attribute graph in link predicton setting
 
     Args:
@@ -39,29 +41,43 @@ def load_lp_data_cora(data_name: str,
     labels = test_split.edge_label
     test_index = test_split.edge_label_index
     
-    edge_index = splits['train'].edge_index
+    edge_index = splits['test'].edge_index
     edge_weight = torch.ones(edge_index.size(1))
     num_nodes = dataset._data.num_nodes
     
-    A = ssp.csr_matrix((edge_weight.view(-1), (edge_index[0], edge_index[1])), shape=(num_nodes, num_nodes)) 
+    m = construct_sparse_adj(edge_index)
+    plot_coo_matrix(m, f'test_edge_index.png')
+    
+    full_A = ssp.csr_matrix((edge_weight.view(-1), (edge_index[0], edge_index[1])), shape=(num_nodes, num_nodes)) 
 
-    for use_lsf in ['CN', 'AA', 'RA', 'InverseRA']:
-        pos_test_pred, edge_index = eval(use_lsf)(A, test_index)
+    # only for debug
+    pos_test_index = test_index[:, splits['test'].edge_label == 1]
+    neg_test_index = test_index[:, splits['test'].edge_label == 0]
+
+    pos_m = construct_sparse_adj(pos_test_index)
+    plot_coo_matrix(pos_m, f'test_pos_index.png')
+    neg_m = construct_sparse_adj(neg_test_index)
+    plot_coo_matrix(neg_m, f'test_neg_index.png')
+    
+    result_acc = {}
+    for use_heuristic in ['CN', 'AA', 'RA', 'InverseRA']:
+        pos_test_pred, _ = eval(use_heuristic)(full_A, pos_test_index)
+        neg_test_pred, _ = eval(use_heuristic)(full_A, neg_test_index)
         
         plt.figure()
         plt.plot(pos_test_pred)
         plt.plot(labels)
-        plt.savefig(f'{use_lsf}.png')
+        plt.savefig(f'{use_heuristic}.png')
         
         acc = torch.sum(pos_test_pred == labels)/pos_test_pred.shape[0]
-        print(f" {use_lsf}: accuracy: {acc}")
+        print(f" {use_heuristic}: accuracy: {acc}")
+        result_acc.update({f'{use_heuristic}': acc})
         
-    m = construct_sparse_adj(edge_index)
-    plot_coo_matrix(m, f'test_edge_index.png')
             
     # 'shortest_path', 'katz_apro', 'katz_close', 'Ben_PPR'
     for use_gsf in ['Ben_PPR', 'SymPPR']:
-        scores, edge_reindex, labels = eval(use_gsf)(A, test_index, labels)
+        pos_test_pred, _ = eval(use_heuristic)(full_A, pos_test_index)
+        neg_test_pred, _ = eval(use_heuristic)(full_A, neg_test_index)
         
         # print(scores)
         # print(f" {use_heuristic}: accuracy: {scores}")
@@ -73,10 +89,11 @@ def load_lp_data_cora(data_name: str,
         
         acc = torch.sum(pred == labels)/labels.shape[0]
         print(f" {use_gsf}: acc: {acc}")
+        result_acc.update({f'{use_heuristic}': acc})
     
     
     for use_gsf in ['shortest_path', 'katz_apro', 'katz_close']:
-        scores = eval(use_gsf)(A, test_index)
+        scores = eval(use_gsf)(full_A, test_index)
         
         pred = torch.zeros(scores.shape)
         thres = scores.min()*10
@@ -85,18 +102,15 @@ def load_lp_data_cora(data_name: str,
         
         acc = torch.sum(pred == labels)/labels.shape[0]
         print(f" {use_gsf}: acc: {acc}")
-        
-        # plt.figure()
-        # plt.plot(scores, '*')
-        # plt.plot(labels, '-o')
-        # plt.savefig(f'{use_gsf}.png')
+        result_acc.update({f'{use_heuristic}': acc})
+
 
 
 
 
 def parse_cora():
     # load original data from cora orig without text features
-    path = FILE_PATH + '/cora_orig/cora'
+    path = FILE_PATH + 'dataset/cora_orig/cora'
     idx_features_labels = np.genfromtxt(
         "{}.content".format(path), dtype=np.dtype(str))
     data_X = idx_features_labels[:, 1:-1].astype(np.float32)
