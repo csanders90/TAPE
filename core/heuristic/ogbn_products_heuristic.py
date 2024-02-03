@@ -1,3 +1,4 @@
+# TODO: Not tested error 
 from ogb.nodeproppred import PygNodePropPredDataset
 import torch_geometric.transforms as T
 import torch
@@ -7,7 +8,7 @@ import numpy as np
 import os, sys
 import time
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from data_utils.link_split import RandomLinkSplit
+from torch_geometric.transforms import RandomLinkSplit
 from data_utils.dataset import CustomPygDataset, CustomLinkDataset
 from heuristic.lsf import CN, AA, RA, InverseRA
 from heuristic.gsf import Ben_PPR, shortest_path, katz_apro, katz_close , SymPPR

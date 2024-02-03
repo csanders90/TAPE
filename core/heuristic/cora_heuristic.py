@@ -18,12 +18,12 @@ from lpda.adjacency import plot_coo_matrix, construct_sparse_adj
 
 from utils import get_git_repo_root_path
 from typing import Dict
-
-
+from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
+from eval import evaluate_auc, evaluate_hits, evaluate_mrr, get_metric_score, get_prediction
 FILE_PATH = get_git_repo_root_path() + '/'
 
 
-def load_lp_data_cora() -> None:
+def eval_cora_mrr() -> None:
     """load text attribute graph in link predicton setting
 
     Args:
@@ -36,7 +36,67 @@ def load_lp_data_cora() -> None:
         _type_: _description_
     """
 
-    dataset, data_cited, splits = get_cora_casestudy()
+    dataset, data_cited, splits = get_cora_casestudy(undirected = True,
+                                                include_negatives = True,
+                                                val_pct = 0.15,
+                                                test_pct = 0.05,
+                                                split_labels = True)
+    
+    # ust test edge_index as full_A
+    full_edge_index = splits['test'].edge_index
+    full_edge_weight = torch.ones(full_edge_index.size(1))
+    num_nodes = dataset._data.num_nodes
+    
+    m = construct_sparse_adj(full_edge_index)
+    plot_coo_matrix(m, f'test_edge_index.png')
+    
+    full_A = ssp.csr_matrix((full_edge_weight.view(-1), (full_edge_index[0], full_edge_index[1])), shape=(num_nodes, num_nodes)) 
+
+    # only for debug
+    pos_test_index = splits['test'].pos_edge_label_index
+    neg_test_index = splits['test'].neg_edge_label_index
+    
+    pos_m = construct_sparse_adj(pos_test_index)
+    plot_coo_matrix(pos_m, f'test_pos_index.png')
+    neg_m = construct_sparse_adj(neg_test_index)
+    plot_coo_matrix(neg_m, f'test_neg_index.png')
+    
+    evaluator_hit = Evaluator(name='ogbl-collab')
+    evaluator_mrr = Evaluator(name='ogbl-citation2')
+    
+    result_dict = {}
+    for use_heuristic in ['CN', 'AA', 'RA', 'InverseRA']:
+        pos_test_pred, _ = eval(use_heuristic)(full_A, pos_test_index)
+        neg_test_pred, _ = eval(use_heuristic)(full_A, neg_test_index)
+        
+        result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
+        result_dict.update({f'{use_heuristic}': result})
+        
+    # 'shortest_path', 'katz_apro', 'katz_close', 'Ben_PPR'
+    for use_heuristic in ['Ben_PPR', 'SymPPR']:
+        pos_test_pred, _ = eval(use_heuristic)(full_A, pos_test_index)
+        neg_test_pred, _ = eval(use_heuristic)(full_A, neg_test_index)
+        result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
+        result_dict.update({f'{use_heuristic}': result})
+    
+    for use_heuristic in ['shortest_path', 'katz_apro', 'katz_close']:
+        pos_test_pred = eval(use_heuristic)(full_A, pos_test_index)
+        neg_test_pred = eval(use_heuristic)(full_A, neg_test_index)
+        result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
+
+        # calc mrr and hits@k
+        result_dict.update({f'{use_heuristic}': result})
+
+    return result_dict
+
+def eval_cora_acc() -> None:
+    
+    dataset, data_cited, splits = get_cora_casestudy(undirected = True,
+                                                include_negatives = True,
+                                                val_pct = 0.15,
+                                                test_pct = 0.05,
+                                                split_labels = False
+                                                )
     test_split = splits['test']
     labels = test_split.edge_label
     test_index = test_split.edge_label_index
@@ -44,43 +104,29 @@ def load_lp_data_cora() -> None:
     edge_index = splits['test'].edge_index
     edge_weight = torch.ones(edge_index.size(1))
     num_nodes = dataset._data.num_nodes
-    
+
     m = construct_sparse_adj(edge_index)
-    plot_coo_matrix(m, f'test_edge_index.png')
+    plot_coo_matrix(m, f'cora_test_edge_index.png')
     
-    full_A = ssp.csr_matrix((edge_weight.view(-1), (edge_index[0], edge_index[1])), shape=(num_nodes, num_nodes)) 
+    A = ssp.csr_matrix((edge_weight.view(-1), (edge_index[0], edge_index[1])), shape=(num_nodes, num_nodes)) 
 
-    # only for debug
-    pos_test_index = test_index[:, splits['test'].edge_label == 1]
-    neg_test_index = test_index[:, splits['test'].edge_label == 0]
-
-    pos_m = construct_sparse_adj(pos_test_index)
-    plot_coo_matrix(pos_m, f'test_pos_index.png')
-    neg_m = construct_sparse_adj(neg_test_index)
-    plot_coo_matrix(neg_m, f'test_neg_index.png')
-    
     result_acc = {}
-    for use_heuristic in ['CN', 'AA', 'RA', 'InverseRA']:
-        pos_test_pred, _ = eval(use_heuristic)(full_A, pos_test_index)
-        neg_test_pred, _ = eval(use_heuristic)(full_A, neg_test_index)
+    for use_lsf in ['CN', 'AA', 'RA', 'InverseRA']:
+        scores, edge_index = eval(use_lsf)(A, test_index)
         
         plt.figure()
-        plt.plot(pos_test_pred)
+        plt.plot(scores)
         plt.plot(labels)
-        plt.savefig(f'{use_heuristic}.png')
+        plt.savefig(f'{use_lsf}.png')
         
-        acc = torch.sum(pos_test_pred == labels)/pos_test_pred.shape[0]
-        print(f" {use_heuristic}: accuracy: {acc}")
-        result_acc.update({f'{use_heuristic}': acc})
+        acc = torch.sum(scores == labels)/scores.shape[0]
+        result_acc.update({f"{use_lsf}_acc" :acc})
         
             
     # 'shortest_path', 'katz_apro', 'katz_close', 'Ben_PPR'
     for use_gsf in ['Ben_PPR', 'SymPPR']:
-        pos_test_pred, _ = eval(use_heuristic)(full_A, pos_test_index)
-        neg_test_pred, _ = eval(use_heuristic)(full_A, neg_test_index)
+        scores, edge_reindex = eval(use_gsf)(A, test_index)
         
-        # print(scores)
-        # print(f" {use_heuristic}: accuracy: {scores}")
         pred = torch.zeros(scores.shape)
         cutoff = 0.05
         thres = scores.max()*cutoff 
@@ -88,12 +134,10 @@ def load_lp_data_cora() -> None:
         pred[scores > thres] = 1
         
         acc = torch.sum(pred == labels)/labels.shape[0]
-        print(f" {use_gsf}: acc: {acc}")
-        result_acc.update({f'{use_heuristic}': acc})
-    
+        result_acc.update({f"{use_gsf}_acc" :acc})
     
     for use_gsf in ['shortest_path', 'katz_apro', 'katz_close']:
-        scores = eval(use_gsf)(full_A, test_index)
+        scores = eval(use_gsf)(A, test_index)
         
         pred = torch.zeros(scores.shape)
         thres = scores.min()*10
@@ -102,12 +146,10 @@ def load_lp_data_cora() -> None:
         
         acc = torch.sum(pred == labels)/labels.shape[0]
         print(f" {use_gsf}: acc: {acc}")
-        result_acc.update({f'{use_heuristic}': acc})
 
-
-
-
-
+        result_acc.update({f"{use_gsf}_acc" :acc})
+    return result_acc
+        
 def parse_cora():
     # load original data from cora orig without text features
     path = FILE_PATH + 'dataset/cora_orig/cora'
@@ -131,7 +173,14 @@ def parse_cora():
 
 
 
-def get_cora_casestudy(SEED=0) -> InMemoryDataset:
+def get_cora_casestudy(SEED=0,
+                        undirected = True,
+                        include_negatives = True,
+                        val_pct = 0.15,
+                        test_pct = 0.05,
+                        split_labels = True
+                        ) -> InMemoryDataset:
+    
     data_X, data_Y, data_citeid, data_edges = parse_cora()
 
     # load data
@@ -158,13 +207,9 @@ def get_cora_casestudy(SEED=0) -> InMemoryDataset:
     dataset._data = data
 
     undirected = data.is_undirected()
-    undirected = True
-    include_negatives = True
-    val_pct = 0.15
-    test_pct = 0.05
-    
+
     transform = RandomLinkSplit(is_undirected=undirected, num_val=val_pct, num_test=test_pct,
-                                add_negative_train_samples=include_negatives)
+                                add_negative_train_samples=include_negatives, split_labels=split_labels)
     train_data, val_data, test_data = transform(dataset._data)
     splits = {'train': train_data, 'valid': val_data, 'test': test_data}
 
@@ -173,6 +218,11 @@ def get_cora_casestudy(SEED=0) -> InMemoryDataset:
 
 # main function 
 if __name__ == "__main__":
-    load_lp_data_cora()
-        
+    results_acc = eval_cora_acc()
+    results_mrr = eval_cora_mrr()
+
+    for key, val in results_mrr.items():
+        print(key, val)
+    for key, val in results_acc.items():
+        print(key, val)    
         
