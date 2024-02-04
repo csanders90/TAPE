@@ -16,10 +16,11 @@ import matplotlib.pyplot as plt
 
 from lpda.adjacency import plot_coo_matrix, construct_sparse_adj
 
-from utils import get_git_repo_root_path
+from utils import get_git_repo_root_path, append_acc_to_excel, append_mrr_to_excel
 from typing import Dict
 from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
 from eval import evaluate_auc, evaluate_hits, evaluate_mrr, get_metric_score, get_prediction
+
 FILE_PATH = get_git_repo_root_path() + '/'
 
 
@@ -89,6 +90,7 @@ def eval_cora_mrr() -> None:
 
     return result_dict
 
+
 def eval_cora_acc() -> None:
     
     dataset, data_cited, splits = get_cora_casestudy(undirected = True,
@@ -150,6 +152,7 @@ def eval_cora_acc() -> None:
         result_acc.update({f"{use_gsf}_acc" :acc})
     return result_acc
         
+        
 def parse_cora():
     # load original data from cora orig without text features
     path = FILE_PATH + 'dataset/cora_orig/cora'
@@ -170,7 +173,6 @@ def parse_cora():
     data_edges = np.array(edges[~(edges == None).max(1)], dtype='int')
     data_edges = np.vstack((data_edges, np.fliplr(data_edges)))
     return data_X, data_Y, data_citeid, np.unique(data_edges, axis=0).transpose()
-
 
 
 def get_cora_casestudy(SEED=0,
@@ -226,3 +228,11 @@ if __name__ == "__main__":
     for key, val in results_acc.items():
         print(key, val)    
         
+    root = FILE_PATH + 'results'
+    acc_file = root + '/cora_acc.csv'
+    mrr_file = root + '/cora_mrr.csv'
+    if not os.path.exists(root):
+        os.makedirs(root, exist_ok=True)
+    
+    append_acc_to_excel(results_acc, acc_file)
+    append_mrr_to_excel(results_mrr, mrr_file)
