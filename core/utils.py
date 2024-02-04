@@ -118,13 +118,17 @@ def process_value(v):
 
 def append_acc_to_excel(metrics_acc, root):
     # if not exists save the first row
-    csv_columns = ['Metric'] + list(k for k in metrics_acc)
+    csv_columns = ['Metric'] + list(k for k in metrics_acc) 
     if not os.path.exists(root):
         df = pd.DataFrame(None, columns=csv_columns)
         df.to_csv(root, index=False)
     # if not load the data
     else: 
-        Data = pd.read_csv(root)
+        try:
+            Data = pd.read_csv(root)[:1]
+        except:
+            Data = pd.DataFrame(None, columns=csv_columns)
+            Data.to_csv(root, index=False)
     
     # transform dict to df    
     name = uuid.uuid4()
@@ -136,6 +140,11 @@ def append_acc_to_excel(metrics_acc, root):
     v_lst = [f'Cora_{name}'] + acc_lst
     new_df = pd.DataFrame([v_lst], columns=csv_columns)
     Data = pd.concat([Data, new_df])
+    highest_values = Data.apply(lambda column: max(column, default=None))
+
+    Best_list = ['Best'] + highest_values[1:].tolist()
+    Best_df = pd.DataFrame([Best_list], columns=csv_columns)
+    Data = pd.concat([Data, Best_df])
     Data.to_csv(root,index=False)
 
     return Data
@@ -157,7 +166,7 @@ def append_mrr_to_excel(metrics_mrr, root):
         df.to_csv(root, index=False)
     else:
         try:
-            Data = pd.read_csv(root)
+            Data = pd.read_csv(root)[:1]
         except:
             Data = pd.DataFrame(None, columns=csv_columns)
             Data.to_csv(root, index=False)
@@ -165,6 +174,13 @@ def append_mrr_to_excel(metrics_mrr, root):
     
     new_df = pd.DataFrame(csv_numbers, columns = csv_columns)
     Data = pd.concat([Data, new_df])
+    
+    highest_values = Data.apply(lambda column: max(column, default=None))
+    Best_list = ['Best'] + highest_values[1:].tolist()
+    Best_df = pd.DataFrame([Best_list], columns=csv_columns)
+    Data = pd.concat([Data, Best_df])
+    
     Data.to_csv(root, index=False)
 
+    
     return Data
