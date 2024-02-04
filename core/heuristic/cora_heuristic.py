@@ -1,30 +1,27 @@
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-import torch 
-from torch_geometric.datasets import Planetoid
-import torch_geometric.transforms as T
-from torch_geometric.data import Data, InMemoryDataset
+# Import organization
 
-from torch_geometric.transforms import RandomLinkSplit
+from typing import Dict
 import numpy as np
 import scipy.sparse as ssp
-
+import torch
+import torch_geometric.transforms as T
+from torch_geometric.datasets import Planetoid
+from torch_geometric.data import Data, InMemoryDataset
+from torch_geometric.transforms import RandomLinkSplit
 from heuristic.lsf import CN, AA, RA, InverseRA
-from heuristic.gsf import Ben_PPR, shortest_path, katz_apro, katz_close , SymPPR
-
+from heuristic.gsf import Ben_PPR, shortest_path, katz_apro, katz_close, SymPPR
 import matplotlib.pyplot as plt
-
 from lpda.adjacency import plot_coo_matrix, construct_sparse_adj
-
 from utils import get_git_repo_root_path, append_acc_to_excel, append_mrr_to_excel
-from typing import Dict
 from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
 from eval import evaluate_auc, evaluate_hits, evaluate_mrr, get_metric_score, get_prediction
 
 FILE_PATH = get_git_repo_root_path() + '/'
 
 
-def eval_cora_mrr() -> None:
+def eval_cora_mrr(SEED) -> None:
     """load text attribute graph in link predicton setting
 
     Args:
