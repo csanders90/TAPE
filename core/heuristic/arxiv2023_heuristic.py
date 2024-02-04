@@ -199,8 +199,8 @@ if __name__ == "__main__":
     
         
     root = FILE_PATH + 'results'
-    acc_file = root + '/cora_acc.csv'
-    mrr_file = root + '/cora_mrr.csv'
+    acc_file = root + '/arxiv_2023_acc.csv'
+    mrr_file = root + '/arxiv_2023_mrr.csv'
     if not os.path.exists(root):
         os.makedirs(root, exist_ok=True)
     

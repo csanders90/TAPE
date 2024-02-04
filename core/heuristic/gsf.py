@@ -133,10 +133,7 @@ def shortest_path(A, edge_index, remove=False):
 
     scores = []
     G = nx.from_scipy_sparse_matrix(A)
-    add_flag1 = 0
-    add_flag2 = 0
     count = 0
-    count1 = count2 = 0
     print('remove: ', remove)
     for i in tqdm(range(edge_index.size(1))):
         s = edge_index[0][i].item()
@@ -146,41 +143,14 @@ def shortest_path(A, edge_index, remove=False):
             scores.append(999)
             continue
 
-        # if (s,t) in train_pos_list: train_pos_list.remove((s,t))
-        # if (t,s) in train_pos_list: train_pos_list.remove((t,s))
-        # G = nx.Graph(train_pos_list)
-        if remove:
-            if (s,t) in G.edges(): 
-                G.remove_edge(s,t)
-                add_flag1 = 1
-                count1 += 1
-            if (t,s) in G.edges(): 
-                G.remove_edge(t,s)
-                add_flag2 = 1
-                count2 += 1
-
         if nx.has_path(G, source=s, target=t):
 
             sp = nx.shortest_path_length(G, source=s, target=t)
-            # if sp == 0:
-            #     print(1)
+
         else:
             sp = 999
-        
-
-        if add_flag1 == 1: 
-            G.add_edge(s,t)
-            add_flag1 = 0
-
-        if add_flag2 == 1: 
-            G.add_edge(t, s)
-            add_flag2 = 0
 
         scores.append(1/(sp))
-        
-    print('equal number: ', count)
-    print('count1: ', count1)
-    print('count2: ', count2)
         
     return torch.FloatTensor(scores)
 
@@ -237,10 +207,6 @@ def katz_apro(A, edge_index, beta=0.005, path_len=3, remove=False):
         if add_flag2 == 1: 
             G.add_edge(t, s)
             add_flag2 = 0
-        
-    print('equal number: ', count)
-    print('count1: ', count1)
-    print('count2: ', count2)
 
     return torch.FloatTensor(scores)
 
