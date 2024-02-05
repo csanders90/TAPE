@@ -82,19 +82,19 @@ def eval_ogbn_products_acc(name='ogbn_products'):
     A = ssp.csr_matrix((edge_weight.view(-1), (edge_index[0], edge_index[1])), shape=(num_nodes, num_nodes)) 
 
     result_acc = {}
-    for use_lsf in ['CN', 'AA', 'RA']:
-        scores, edge_index = eval(use_lsf)(A, test_index)
+    for use_heuristic in ['CN', 'AA', 'RA']:
+        scores, edge_index = eval(use_heuristic)(A, test_index)
         
         plt.figure()
         plt.plot(scores)
         plt.plot(labels)
-        plt.savefig(f'{name}_{use_lsf}.png')
+        plt.savefig(f'{name}_{use_heuristic}.png')
         
         acc = torch.sum(scores == labels)/scores.shape[0]
-        result_acc.update({f"{name}_{use_lsf}_acc" :acc})
+        result_acc.update({f"{name}_{use_heuristic}_acc" :acc})
         
-    for use_gsf in ['Ben_PPR']:
-        scores, edge_reindex = eval(use_gsf)(A, test_index)
+    for use_heuristic in ['Ben_PPR']:
+        scores, edge_reindex = eval(use_heuristic)(A, test_index)
         
         # print(scores)
         # print(f" {use_heuristic}: accuracy: {scores}")
@@ -105,11 +105,11 @@ def eval_ogbn_products_acc(name='ogbn_products'):
         pred[scores > thres] = 1
         
         acc = torch.sum(pred == labels)/labels.shape[0]
-        result_acc.update({f"{name}_{use_lsf}_acc" :acc})
+        result_acc.update({f"{name}_{use_heuristic}_acc" :acc})
     
     # , 'katz_close'
-    for use_gsf in ['shortest_path', 'katz_apro']:
-        scores = eval(use_gsf)(A, test_index)
+    for use_heuristic in ['shortest_path', 'katz_apro']:
+        scores = eval(use_heuristic)(A, test_index)
         
         pred = torch.zeros(scores.shape)
         thres = scores.min()*10
@@ -117,7 +117,7 @@ def eval_ogbn_products_acc(name='ogbn_products'):
         pred[scores > thres] = 1
         
         acc = torch.sum(pred == labels)/labels.shape[0]
-        result_acc.update({f"{name}_{use_lsf}_acc" :acc})
+        result_acc.update({f"{name}_{use_heuristic}_acc" :acc})
     
     
     return result_acc
