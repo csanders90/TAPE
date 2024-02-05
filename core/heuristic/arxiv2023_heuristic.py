@@ -85,7 +85,7 @@ def eval_arxiv_23_acc() -> Dict:
     A = ssp.csr_matrix((edge_weight.view(-1), (edge_index[0], edge_index[1])), shape=(num_nodes, num_nodes)) 
 
     result_acc = {}
-    for use_lsf in ['CN', 'AA', 'RA', 'InverseRA']:
+    for use_lsf in ['CN', 'AA', 'RA']:
         scores, edge_index = eval(use_lsf)(A, test_index)
         
         plt.figure()
@@ -96,9 +96,7 @@ def eval_arxiv_23_acc() -> Dict:
         acc = torch.sum(scores == labels)/scores.shape[0]
         result_acc.update({f"{use_lsf}_acc" :acc})
         
-            
-    # 'shortest_path', 'katz_apro', 'katz_close', 'Ben_PPR'
-    for use_gsf in ['Ben_PPR', 'SymPPR']:
+    for use_gsf in ['Ben_PPR']:
         scores, edge_reindex = eval(use_gsf)(A, test_index)
         
         # print(scores)
@@ -110,10 +108,10 @@ def eval_arxiv_23_acc() -> Dict:
         pred[scores > thres] = 1
         
         acc = torch.sum(pred == labels)/labels.shape[0]
-        result_acc.update({f"{use_lsf}_acc" :acc})
+        result_acc.update({f"{use_gsf}_acc" :acc})
     
-    
-    for use_gsf in ['shortest_path', 'katz_apro', 'katz_close']:
+    # , 'katz_close'
+    for use_gsf in ['shortest_path', 'katz_apro']:
         scores = eval(use_gsf)(A, test_index)
         
         pred = torch.zeros(scores.shape)
@@ -122,8 +120,9 @@ def eval_arxiv_23_acc() -> Dict:
         pred[scores > thres] = 1
         
         acc = torch.sum(pred == labels)/labels.shape[0]
-        result_acc.update({f"{use_lsf}_acc" :acc})
-        
+        result_acc.update({f"{use_gsf}_acc" :acc})
+    
+    
     return result_acc
 
 def eval_cora_mrr() -> None:
@@ -191,14 +190,14 @@ if __name__ == "__main__":
     result_acc = eval_arxiv_23_acc()
     print(result_acc)
     result_mrr = eval_cora_mrr()
-    
+    print(result_mrr)
         
     root = FILE_PATH + 'results'
-    acc_file = root + '/arxiv_2023_acc.csv'
-    mrr_file = root + '/arxiv_2023_mrr.csv'
+    acc_file = root + f'/{name}_acc.csv'
+    mrr_file = root + f'/{name}_mrr.csv'
     if not os.path.exists(root):
         os.makedirs(root, exist_ok=True)
     
-    append_acc_to_excel(result_acc, acc_file)
+    append_acc_to_excel(result_acc, acc_file, name)
     append_mrr_to_excel(result_mrr, mrr_file)
     

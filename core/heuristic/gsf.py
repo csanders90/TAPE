@@ -193,12 +193,10 @@ def katz_apro(A, edge_index, beta=0.005, path_len=3, remove=False):
 
 
 def katz_close(A, edge_index, beta=0.005):
-
+    raise NotImplementedError
     scores = []
-    G = nx.from_scipy_sparse_matrix(A)
 
-    adj = nx.adjacency_matrix(G, nodelist=range(G.number_of_nodes()))
-    aux = adj.T.multiply(-beta).todense()
+    aux = A.T.multiply(-beta).todense()
     np.fill_diagonal(aux, 1+aux.diagonal())
     sim = np.linalg.inv(aux)
     np.fill_diagonal(sim, sim.diagonal()-1)
