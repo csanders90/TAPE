@@ -126,17 +126,9 @@ def eval_arxiv_23_acc() -> Dict:
         
     return result_acc
 
-def eval_cora_mrr(SEED) -> None:
+def eval_cora_mrr() -> None:
     """load text attribute graph in link predicton setting
 
-    Args:
-        dataset (_type_): _description_
-        use_text (_type_): _description_
-        use_gpt (_type_): _description_
-        seed (_type_): _description_
-
-    Returns:
-        _type_: _description_
     """
 
     dataset, text, splits = get_raw_text_arxiv_2023(undirected = True,
@@ -168,21 +160,23 @@ def eval_cora_mrr(SEED) -> None:
     evaluator_mrr = Evaluator(name='ogbl-citation2')
     
     result_dict = {}
-    for use_heuristic in ['CN', 'AA', 'RA', 'InverseRA']:
+    # , 'InverseRA'
+    for use_heuristic in ['CN', 'AA', 'RA']:
         pos_test_pred, _ = eval(use_heuristic)(full_A, pos_test_index)
         neg_test_pred, _ = eval(use_heuristic)(full_A, neg_test_index)
         
         result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
         result_dict.update({f'{use_heuristic}': result})
         
-    # 'shortest_path', 'katz_apro', 'katz_close', 'Ben_PPR'
-    for use_heuristic in ['Ben_PPR', 'SymPPR']:
+    # , 'SymPPR'
+    for use_heuristic in ['Ben_PPR']:
         pos_test_pred, _ = eval(use_heuristic)(full_A, pos_test_index)
         neg_test_pred, _ = eval(use_heuristic)(full_A, neg_test_index)
         result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
         result_dict.update({f'{use_heuristic}': result})
     
-    for use_heuristic in ['shortest_path', 'katz_apro', 'katz_close']:
+    #  'katz_close'
+    for use_heuristic in ['shortest_path', 'katz_apro']:
         pos_test_pred = eval(use_heuristic)(full_A, pos_test_index)
         neg_test_pred = eval(use_heuristic)(full_A, neg_test_index)
         result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
@@ -193,6 +187,7 @@ def eval_cora_mrr(SEED) -> None:
     return result_dict
 
 if __name__ == "__main__":
+    name = 'arxiv_2023'
     result_acc = eval_arxiv_23_acc()
     print(result_acc)
     result_mrr = eval_cora_mrr()

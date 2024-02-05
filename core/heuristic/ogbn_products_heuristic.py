@@ -160,7 +160,7 @@ def eval_heuristic_acc(A, test_index, labels):
             
     # 'shortest_path', 'katz_apro', 'katz_close', 'Ben_PPR'
     for use_gsf in ['Ben_PPR', 'SymPPR']:
-        scores, edge_reindex, labels = eval(use_gsf)(A, test_index, labels)
+        scores, edge_reindex = eval(use_gsf)(A, test_index)
         
         # print(scores)
         # print(f" {use_heuristic}: accuracy: {scores}")

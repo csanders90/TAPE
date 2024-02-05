@@ -125,7 +125,7 @@ def SymPPR(A, edge_index):
         srt_dst = visited[f'[{edge_index[0, idx]}, {edge_index[1, idx]}]']
         dst_srt = visited[f'[{edge_index[1, idx]}, {edge_index[0, idx]}]']
         scores.append(dst_srt + srt_dst)
-
+    print(f'evaluated SymPPR for {len(scores)} edges')
     return torch.FloatTensor(scores), edge_index
 
 
@@ -152,6 +152,7 @@ def shortest_path(A, edge_index, remove=False):
 
         scores.append(1/(sp))
         
+    print(f'evaluated shortest path for {len(scores)} edges')
     return torch.FloatTensor(scores)
 
 def katz_apro(A, edge_index, beta=0.005, path_len=3, remove=False):
@@ -160,9 +161,6 @@ def katz_apro(A, edge_index, beta=0.005, path_len=3, remove=False):
     G = nx.from_scipy_sparse_matrix(A)
     path_len = int(path_len)
     count = 0
-    add_flag1 = 0
-    add_flag2 = 0
-    count1 = count2 = 0
     betas = np.zeros(path_len)
     print('remove: ', remove)
     
@@ -179,17 +177,6 @@ def katz_apro(A, edge_index, beta=0.005, path_len=3, remove=False):
             count += 1
             scores.append(0)
             continue
-        
-        if remove:
-            if (s,t) in G.edges(): 
-                G.remove_edge(s,t)
-                add_flag1 = 1
-                count1 += 1
-                
-            if (t,s) in G.edges(): 
-                G.remove_edge(t,s)
-                add_flag2 = 1
-                count2 += 1
 
 
         paths = np.zeros(path_len)
@@ -199,15 +186,9 @@ def katz_apro(A, edge_index, beta=0.005, path_len=3, remove=False):
         kz = np.sum(betas * paths)
 
         scores.append(kz)
-        
-        if add_flag1 == 1: 
-            G.add_edge(s,t)
-            add_flag1 = 0
-
-        if add_flag2 == 1: 
-            G.add_edge(t, s)
-            add_flag2 = 0
-
+    
+            
+    print(f'evaluated katz apro for {len(scores)} edges')
     return torch.FloatTensor(scores)
 
 
@@ -227,7 +208,8 @@ def katz_close(A, edge_index, beta=0.005):
         t = edge_index[1][i].item()
 
         scores.append(sim[s,t])
-    
+
+    print(f'evaluated katz close for {len(scores)} edges')
     return torch.FloatTensor(scores)
 
 

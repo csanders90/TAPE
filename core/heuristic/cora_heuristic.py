@@ -21,7 +21,7 @@ from eval import evaluate_auc, evaluate_hits, evaluate_mrr, get_metric_score, ge
 FILE_PATH = get_git_repo_root_path() + '/'
 
 
-def eval_cora_mrr(SEED) -> None:
+def eval_cora_mrr() -> None:
     """load text attribute graph in link predicton setting
 
     Args:
@@ -217,6 +217,7 @@ def get_cora_casestudy(SEED=0,
 
 # main function 
 if __name__ == "__main__":
+    NAME = 'cora'
     results_acc = eval_cora_acc()
     results_mrr = eval_cora_mrr()
 
@@ -226,10 +227,10 @@ if __name__ == "__main__":
         print(key, val)    
         
     root = FILE_PATH + 'results'
-    acc_file = root + '/cora_acc.csv'
-    mrr_file = root + '/cora_mrr.csv'
+    acc_file = root + f'/{NAME}_acc.csv'
+    mrr_file = root +  f'/{NAME}_mrr.csv'
     if not os.path.exists(root):
         os.makedirs(root, exist_ok=True)
     
-    append_acc_to_excel(results_acc, acc_file)
+    append_acc_to_excel(results_acc, acc_file, NAME)
     append_mrr_to_excel(results_mrr, mrr_file)

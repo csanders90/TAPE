@@ -115,29 +115,26 @@ import uuid
 def process_value(v):
     return (lambda x: x.tolist() if isinstance(x, torch.Tensor) else x)(v)
 
-
-def append_acc_to_excel(metrics_acc, root):
+from IPython import embed
+def append_acc_to_excel(metrics_acc, root, name):
     # if not exists save the first row
     csv_columns = ['Metric'] + list(k for k in metrics_acc) 
-    if not os.path.exists(root):
-        df = pd.DataFrame(None, columns=csv_columns)
-        df.to_csv(root, index=False)
-    # if not load the data
-    else: 
-        try:
-            Data = pd.read_csv(root)[:1]
-        except:
-            Data = pd.DataFrame(None, columns=csv_columns)
-            Data.to_csv(root, index=False)
+
+    try:
+        Data = pd.read_csv(root)[:1]
+    except:
+        Data = pd.DataFrame(None, columns=csv_columns)
+        Data.to_csv(root, index=False)
     
     # transform dict to df    
-    name = uuid.uuid4()
-    acc_lst, mrr_lst = [], []
+    id = uuid.uuid4()
+    acc_lst = []
+    
     for k, v in metrics_acc.items():
         acc_lst.append(process_value(v))
         
     
-    v_lst = [f'Cora_{name}'] + acc_lst
+    v_lst = [f'{name}_{id}'] + acc_lst
     new_df = pd.DataFrame([v_lst], columns=csv_columns)
     Data = pd.concat([Data, new_df])
     highest_values = Data.apply(lambda column: max(column, default=None))
@@ -153,7 +150,6 @@ def append_acc_to_excel(metrics_acc, root):
 def append_mrr_to_excel(metrics_mrr, root):
     # if not exists save the first row
     # transform dict to df    
-    name = uuid.uuid4()
     csv_columns, csv_numbers = [], []
     for i, (k, v) in enumerate(metrics_mrr.items()): 
         if i == 0:
@@ -161,16 +157,13 @@ def append_mrr_to_excel(metrics_mrr, root):
         csv_numbers.append([k] + list(v.values()))
     
     print(csv_numbers)
-    if not os.path.exists(root):
-        df = pd.DataFrame(None, columns=csv_columns)
-        df.to_csv(root, index=False)
-    else:
-        try:
-            Data = pd.read_csv(root)[:1]
-        except:
-            Data = pd.DataFrame(None, columns=csv_columns)
-            Data.to_csv(root, index=False)
-    
+
+    try:
+        Data = pd.read_csv(root)[:1]
+    except:
+        Data = pd.DataFrame(None, columns=csv_columns)
+        Data.to_csv(root, index=False)
+
     
     new_df = pd.DataFrame(csv_numbers, columns = csv_columns)
     Data = pd.concat([Data, new_df])

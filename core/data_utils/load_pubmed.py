@@ -8,8 +8,10 @@ from sklearn.preprocessing import normalize
 import json
 import pandas as pd
 from torch_geometric.data import Data, InMemoryDataset
-
+from utils import get_git_repo_root_path
 # return pubmed dataset as pytorch geometric Data object together with 60/20/20 split, and list of pubmed IDs
+
+FILE = get_git_repo_root_path() + '/'
 
 
 def get_pubmed_casestudy(corrected=False, SEED=0):
@@ -72,7 +74,6 @@ def get_pubmed_casestudy(corrected=False, SEED=0):
     
     return dataset, data_pubid
 
-FILE = '/pfs/work7/workspace/scratch/cc7738-nlp_graph/TAPE_chen/'
 DATASET_PATH = path = FILE + 'dataset/PubMed_orig/data/'
 
 def parse_pubmed():
