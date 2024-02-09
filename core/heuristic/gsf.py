@@ -193,7 +193,6 @@ def katz_apro(A, edge_index, beta=0.005, path_len=3, remove=False):
 
 
 def katz_close(A, edge_index, beta=0.005):
-    raise NotImplementedError
     scores = []
 
     aux = A.T.multiply(-beta).todense()

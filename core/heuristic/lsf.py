@@ -29,7 +29,7 @@ def CN(A, edge_index, batch_size=100000):
 
 
 def InverseRA(A, edge_index, batch_size=100000):
-    raise NotImplementedError
+    
     """
     Inverse Adamic Adar
     :param A: scipy sparse adjacency matrix

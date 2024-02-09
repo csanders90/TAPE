@@ -29,7 +29,7 @@ import torch
 from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
 from eval import evaluate_auc, evaluate_hits, evaluate_mrr, get_metric_score, get_prediction
 from utils import get_git_repo_root_path, append_acc_to_excel, append_mrr_to_excel
-
+from heuristic.semantic_similarity import pairwise_prediction
 
 
 def get_raw_text_arxiv_2023(undirected = True,
@@ -121,7 +121,24 @@ def eval_arxiv_23_acc() -> Dict:
         
         acc = torch.sum(pred == labels)/labels.shape[0]
         result_acc.update({f"{use_gsf}_acc" :acc})
-    
+
+    for use_heuristic in ['pairwise_pred']:
+        for dist in ['dot']:
+            scores = pairwise_prediction(dataset._data.x, test_index, dist)
+            test_pred = torch.zeros(scores.shape)
+            cutoff = 0.25
+            thres = scores.max()*cutoff 
+            test_pred[scores <= thres] = 0
+            test_pred[scores > thres] = 1
+            acc = torch.sum(test_pred == labels)/labels.shape[0]
+            
+            plt.figure()
+            plt.plot(test_pred)
+            plt.plot(labels)
+            plt.savefig(f'{use_heuristic}.png')
+        
+        result_acc.update({f"{use_heuristic}_acc" :acc})
+        
     
     return result_acc
 
@@ -183,6 +200,13 @@ def eval_cora_mrr() -> None:
         # calc mrr and hits@k
         result_dict.update({f'{use_heuristic}': result})
 
+    for use_heuristic in ['pairwise_pred']:
+        for dist in ['dot']:
+            pos_test_pred = pairwise_prediction(dataset._data.x, pos_test_index, dist)
+            neg_test_pred = pairwise_prediction(dataset._data.x, neg_test_index, dist)
+            result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
+            result_dict.update({f'{use_heuristic}_{dist}': result})
+            
     return result_dict
 
 if __name__ == "__main__":

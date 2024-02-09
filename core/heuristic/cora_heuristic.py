@@ -12,6 +12,7 @@ from torch_geometric.data import Data, InMemoryDataset
 from torch_geometric.transforms import RandomLinkSplit
 from heuristic.lsf import CN, AA, RA, InverseRA
 from heuristic.gsf import Ben_PPR, shortest_path, katz_apro, katz_close, SymPPR
+from heuristic.semantic_similarity import pairwise_prediction
 import matplotlib.pyplot as plt
 from lpda.adjacency import plot_coo_matrix, construct_sparse_adj
 from utils import get_git_repo_root_path, append_acc_to_excel, append_mrr_to_excel
@@ -23,15 +24,6 @@ FILE_PATH = get_git_repo_root_path() + '/'
 
 def eval_cora_mrr() -> None:
     """load text attribute graph in link predicton setting
-
-    Args:
-        dataset (_type_): _description_
-        use_text (_type_): _description_
-        use_gpt (_type_): _description_
-        seed (_type_): _description_
-
-    Returns:
-        _type_: _description_
     """
 
     dataset, data_cited, splits = get_cora_casestudy(undirected = True,
@@ -63,27 +55,34 @@ def eval_cora_mrr() -> None:
     evaluator_mrr = Evaluator(name='ogbl-citation2')
     
     result_dict = {}
-    for use_heuristic in ['CN', 'AA', 'RA', 'InverseRA']:
-        pos_test_pred, _ = eval(use_heuristic)(full_A, pos_test_index)
-        neg_test_pred, _ = eval(use_heuristic)(full_A, neg_test_index)
+    # for use_heuristic in ['CN', 'AA', 'RA', 'InverseRA']:
+    #     pos_test_pred, _ = eval(use_heuristic)(full_A, pos_test_index)
+    #     neg_test_pred, _ = eval(use_heuristic)(full_A, neg_test_index)
         
-        result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
-        result_dict.update({f'{use_heuristic}': result})
+    #     result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
+    #     result_dict.update({f'{use_heuristic}': result})
         
-    # 'shortest_path', 'katz_apro', 'katz_close', 'Ben_PPR'
-    for use_heuristic in ['Ben_PPR', 'SymPPR']:
-        pos_test_pred, _ = eval(use_heuristic)(full_A, pos_test_index)
-        neg_test_pred, _ = eval(use_heuristic)(full_A, neg_test_index)
-        result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
-        result_dict.update({f'{use_heuristic}': result})
+    # # 'shortest_path', 'katz_apro', 'katz_close', 'Ben_PPR'
+    # for use_heuristic in ['Ben_PPR', 'SymPPR']:
+    #     pos_test_pred, _ = eval(use_heuristic)(full_A, pos_test_index)
+    #     neg_test_pred, _ = eval(use_heuristic)(full_A, neg_test_index)
+    #     result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
+    #     result_dict.update({f'{use_heuristic}': result})
     
-    for use_heuristic in ['shortest_path', 'katz_apro', 'katz_close']:
-        pos_test_pred = eval(use_heuristic)(full_A, pos_test_index)
-        neg_test_pred = eval(use_heuristic)(full_A, neg_test_index)
-        result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
+    # for use_heuristic in ['shortest_path', 'katz_apro', 'katz_close']:
+    #     pos_test_pred = eval(use_heuristic)(full_A, pos_test_index)
+    #     neg_test_pred = eval(use_heuristic)(full_A, neg_test_index)
+    #     result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
 
-        # calc mrr and hits@k
-        result_dict.update({f'{use_heuristic}': result})
+    #     # calc mrr and hits@k
+    #     result_dict.update({f'{use_heuristic}': result})
+
+    for use_heuristic in ['pairwise_pred']:
+        for dist in ['dot']:
+            pos_test_pred = pairwise_prediction(dataset._data.x, pos_test_index, dist)
+            neg_test_pred = pairwise_prediction(dataset._data.x, neg_test_index, dist)
+            result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
+            result_dict.update({f'{use_heuristic}_{dist}': result})
 
     return result_dict
 
@@ -147,6 +146,24 @@ def eval_cora_acc() -> None:
         print(f" {use_gsf}: acc: {acc}")
 
         result_acc.update({f"{use_gsf}_acc" :acc})
+
+    for use_heuristic in ['pairwise_pred']:
+        for dist in ['dot']:
+            scores = pairwise_prediction(dataset._data.x, test_index, dist)
+            test_pred = torch.zeros(scores.shape)
+            cutoff = 0.25
+            thres = scores.max()*cutoff 
+            test_pred[scores <= thres] = 0
+            test_pred[scores > thres] = 1
+            acc = torch.sum(test_pred == labels)/labels.shape[0]
+            
+            plt.figure()
+            plt.plot(test_pred)
+            plt.plot(labels)
+            plt.savefig(f'{use_heuristic}.png')
+        
+        result_acc.update({f"{use_heuristic}_acc" :acc})
+        
     return result_acc
         
         

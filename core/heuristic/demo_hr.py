@@ -25,7 +25,7 @@ from torch_geometric.utils import to_networkx, to_undirected
 from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
 
 from utils import *
-from fp import *
+from core.heuristic.semantic_similarity import *
 from evaluator import evaluate_hits, evaluate_mrr, evaluate_auc
 from gsf import *
 from lsf import *
