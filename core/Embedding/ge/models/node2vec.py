@@ -66,7 +66,6 @@ class Node2Vec:
 
         self._embeddings = {}
         for word in self.graph.nodes():
-            print(word)
             self._embeddings[word] = self.w2v_model.wv[word]
 
         return self._embeddings

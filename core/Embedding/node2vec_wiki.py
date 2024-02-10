@@ -51,12 +51,13 @@ def plot_embeddings(embeddings, label_path):
 
 if __name__ == "__main__":
     
-    G=nx.read_edgelist(f'{FILE_PATH}dataset/data_embed/wiki/Wiki_edgelist.txt',
+    G = nx.read_edgelist(f'{FILE_PATH}dataset/data_embed/wiki/Wiki_edgelist.txt',
                          create_using = nx.DiGraph(), nodetype = None, data = [('weight', int)])
     
     
     model = Node2Vec(G, walk_length=10, num_walks=80,
                      p=0.25, q=4, workers=1, use_rejection_sampling=0)
+    
     model.train(embed_size=64, window_size = 5, iter = 3)
     embeddings=model.get_embeddings()
     print(embeddings)
