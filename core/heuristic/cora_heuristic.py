@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 from lpda.adjacency import plot_coo_matrix, construct_sparse_adj
 from utils import get_git_repo_root_path, append_acc_to_excel, append_mrr_to_excel
 from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
-from eval import evaluate_auc, evaluate_hits, evaluate_mrr, get_metric_score, get_prediction
+from heuristic.eval import evaluate_auc, evaluate_hits, evaluate_mrr, get_metric_score, get_prediction
 
 FILE_PATH = get_git_repo_root_path() + '/'
 

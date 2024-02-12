@@ -118,6 +118,7 @@ def process_value(v):
 from IPython import embed
 def append_acc_to_excel(metrics_acc, root, name):
     # if not exists save the first row
+    
     csv_columns = ['Metric'] + list(k for k in metrics_acc) 
 
     try:
@@ -140,7 +141,7 @@ def append_acc_to_excel(metrics_acc, root, name):
     highest_values = Data.apply(lambda column: max(column, default=None))
 
     Best_list = ['Best'] + highest_values[1:].tolist()
-    Best_df = pd.DataFrame([Best_list], columns=csv_columns)
+    Best_df = pd.DataFrame([Best_list], columns=Data.columns)
     Data = pd.concat([Data, Best_df])
     Data.to_csv(root,index=False)
 

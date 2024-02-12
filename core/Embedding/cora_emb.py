@@ -30,71 +30,9 @@ import graphgps
 FILE_PATH = get_git_repo_root_path() + '/'
 
 
-def eval_cora_mrr(cfg) -> None:
-    """load text attribute graph in link predicton setting
-    """
-
-    dataset, data_cited, splits = get_cora_casestudy(undirected = True,
-                                                include_negatives = True,
-                                                val_pct = 0.15,
-                                                test_pct = 0.05,
-                                                split_labels = False)
-    
-    # ust test edge_index as full_A
-    full_edge_index = splits['test'].edge_index
-    full_edge_weight = torch.ones(full_edge_index.size(1))
-    num_nodes = dataset._data.num_nodes
-    
-    m = construct_sparse_adj(full_edge_index)
-    plot_coo_matrix(m, f'test_edge_index.png')
-    
-    full_A = ssp.csr_matrix((full_edge_weight.view(-1), (full_edge_index[0], full_edge_index[1])), shape=(num_nodes, num_nodes)) 
-
-    # only for debug
-    pos_test_index = splits['test'].pos_edge_label_index
-    neg_test_index = splits['test'].neg_edge_label_index
-    
-    pos_m = construct_sparse_adj(pos_test_index)
-    plot_coo_matrix(pos_m, f'test_pos_index.png')
-    neg_m = construct_sparse_adj(neg_test_index)
-    plot_coo_matrix(neg_m, f'test_neg_index.png')
-    
-    evaluator_hit = Evaluator(name='ogbl-collab')
-    evaluator_mrr = Evaluator(name='ogbl-citation2')
-    
-    result_dict = {}
-
-    # model 
-    for use_heuristic in ['node2vec']:
-        for dist in ['dot']:
-            pos_test_pred = pairwise_prediction(dataset._data.x, pos_test_index, dist)
-            neg_test_pred = pairwise_prediction(dataset._data.x, neg_test_index, dist)
-            result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
-            result_dict.update({f'{use_heuristic}_{dist}': result})
-
-    return result_dict
-
 from sklearn.manifold import TSNE
 
-def plot_embeddings(embeddings, Y):
 
-    emb_list = []
-    for k in embeddings:
-        emb_list.append(embeddings[k])
-    emb_list = np.array(emb_list)
-
-    model = TSNE(n_components=2)
-    node_pos = model.fit_transform(emb_list)
-
-    color_idx = {}
-    for i in range(len(X)):
-        color_idx.setdefault(Y[i][0], [])
-        color_idx[Y[i][0]].append(i)
-
-    for c, idx in color_idx.items():
-        plt.scatter(node_pos[idx, 0], node_pos[idx, 1], label=c)
-    plt.legend()
-    plt.savefig('embeddings_wiki.png')
 
 def eval_cora_mrr_acc(config) -> None:
     
@@ -125,7 +63,7 @@ def eval_cora_mrr_acc(config) -> None:
     ws = config.model.node2vec.window_size
     iter = config.model.node2vec.iter
 
-    result_acc = {}
+
     for use_emb in ['node2vec']:
         G = nx.from_scipy_sparse_matrix(A, create_using=nx.DiGraph())
         model = Node2Vec(G, walk_length=walk_length, 
@@ -140,13 +78,15 @@ def eval_cora_mrr_acc(config) -> None:
                     iter = iter)
         
         embeddings = model.get_embeddings()
+            
+        
         return  eval_embed(embeddings, splits)
 
 
         
     
         
-def eval_embed(embed,  splits):
+def eval_embed(embed,  splits, visual=True):
     """train the classifier and return the pred
 
     Args:
@@ -196,11 +136,27 @@ def eval_embed(embed,  splits):
     
     results_acc = {'node2vec_acc': acc}
     pos_test_pred = torch.tensor(y_pred[y_test == 1])
-    neg_test_pred =  torch.tensor(y_pred[y_test == 0])
+    neg_test_pred = torch.tensor(y_pred[y_test == 0])
     evaluator_hit = Evaluator(name='ogbl-collab')
     evaluator_mrr = Evaluator(name='ogbl-citation2')
     result_mrr = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
     results_mrr = {'node2vec_mrr': result_mrr}
+    
+    if visual:
+        model = TSNE(n_components=2,
+                    init="random",
+                    random_state=0,
+                    perplexity=100,
+                    n_iter=300)
+        node_pos = model.fit_transform(X_test)
+
+        color_dict = {'0.0': 'r', '1.0': 'b'}
+        color = [color_dict[str(i)] for i in y_test.tolist()]
+        plt.figure()
+        for idx in range(len(node_pos)):
+            plt.scatter(node_pos[idx, 0], node_pos[idx, 1], c=color[idx])
+        plt.legend()
+        plt.savefig(f'cora_node2vec.png')
     return y_pred, results_acc, results_mrr, y_test 
 
 
@@ -298,3 +254,4 @@ if __name__ == "__main__":
         os.makedirs(root, exist_ok=True)
     append_acc_to_excel(results_acc, acc_file, NAME)
     append_mrr_to_excel(results_mrr, mrr_file)
+
