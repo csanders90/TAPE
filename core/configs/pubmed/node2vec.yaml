@@ -26,6 +26,7 @@ model:
     
 num_threads: 11
 data:
+  name: pubmed
   undirected: True
   include_negatives: True
   val_pct: 0.15
