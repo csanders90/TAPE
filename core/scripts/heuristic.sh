@@ -17,3 +17,5 @@ python cora_heuristic.py
 python arxiv_heuristic.py
 python ogbn_products_heuristic.py
 python pubmed_heuristic.py
+
+python core/Embedding/pubmed_emb.py --cfg core/configs/node2vec.yaml

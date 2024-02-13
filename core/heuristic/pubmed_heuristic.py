@@ -32,12 +32,14 @@ from heuristic.semantic_similarity import pairwise_prediction
 FILE_PATH = get_git_repo_root_path() + '/'
 
 
-def get_pubmed_casestudy(corrected=False, SEED=0,
-                         undirected = True,
-                            include_negatives = True,
-                            val_pct = 0.15,
-                            test_pct = 0.05,
-                            split_labels = False):
+def get_pubmed_casestudy(config):
+    corrected = False
+    undirected = config.data.undirected
+    include_negatives = config.data.include_negatives
+    val_pct = config.data.val_pct
+    test_pct = config.data.test_pct
+    split_labels = config.data.split_labels
+    
     _, data_X, data_Y, data_pubid, data_edges = parse_pubmed()
     data_X = normalize(data_X, norm="l1")
 

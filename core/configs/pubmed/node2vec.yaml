@@ -25,7 +25,12 @@ model:
     iter: 3
     
 num_threads: 11
-
+data:
+  undirected: True
+  include_negatives: True
+  val_pct: 0.15
+  test_pct: 0.05
+  split_labels: False
 
 optim:
   optimizer: adam

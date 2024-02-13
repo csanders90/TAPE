@@ -11,7 +11,7 @@
 			"program": "${file}",
 			"console": "integratedTerminal",
 			"justMyCode": false,
-			"args": ["--cfg", "core/configs/node2vec.yaml"],
+			"args": ["--cfg", "core/configs/cora/node2vec.yaml"],
 		}
 	]
 }

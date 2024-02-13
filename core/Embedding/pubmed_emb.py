@@ -23,7 +23,7 @@ from yacs.config import CfgNode as CN
 import networkx as nx 
 import yaml
 from torch_geometric.graphgym.cmd_args import parse_args
-from torch_geometric.graphgym.config import (cfg, set_cfg)
+from torch_geometric.graphgym.config import (cfg)
 import graphgps 
 from cora_emb   import eval_embed, set_cfg
 from heuristic.pubmed_heuristic import get_pubmed_casestudy
@@ -41,11 +41,7 @@ data_loader = {
 def eval_pubmed_mrr_acc(config) -> None:
     """load text attribute graph in link predicton setting
     """
-    dataset, data_cited, splits = data_loader[config.data_name](undirected = True,
-                                                include_negatives = True,
-                                                val_pct = 0.15,
-                                                test_pct = 0.05,
-                                                split_labels =False)
+    dataset, data_cited, splits = data_loader[config.data.name](config)
     
     # ust test edge_index as full_A
     full_edge_index = splits['test'].edge_index
@@ -108,14 +104,13 @@ if __name__ == "__main__":
     # Set Pytorch environment
     torch.set_num_threads(cfg.num_threads)
     
-    cfg.data_name  = 'arxiv_2023'
     y_pred, results_acc, results_mrr, y_test  = eval_pubmed_mrr_acc(cfg)
 
     root = FILE_PATH + 'results'
-    acc_file = root + f'/{cfg.data_name}_acc.csv'
-    mrr_file = root +  f'/{cfg.data_name}_mrr.csv'
+    acc_file = root + f'/{cfg.data.name}_acc.csv'
+    mrr_file = root +  f'/{cfg.data.name}_mrr.csv'
     if not os.path.exists(root):
         os.makedirs(root, exist_ok=True)
-    append_acc_to_excel(results_acc, acc_file, cfg.data_name)
+    append_acc_to_excel(results_acc, acc_file, cfg.data.name)
     append_mrr_to_excel(results_mrr, mrr_file)
 
