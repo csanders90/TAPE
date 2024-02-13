@@ -18,4 +18,6 @@ python arxiv_heuristic.py
 python ogbn_products_heuristic.py
 python pubmed_heuristic.py
 
-python core/Embedding/pubmed_emb.py --cfg core/configs/node2vec.yaml
+python core/Embedding/node2vec_tag.py --cfg core/configs/cora/node2vec.yaml 
+python core/Embedding/node2vec_tag.py --cfg core/configs/pubmed/node2vec.yaml 
+python core/Embedding/node2vec_tag.py --cfg core/configs/arxiv_2023/node2vec.yaml 

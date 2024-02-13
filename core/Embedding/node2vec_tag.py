@@ -25,7 +25,6 @@ import yaml
 from torch_geometric.graphgym.cmd_args import parse_args
 from torch_geometric.graphgym.config import (cfg)
 import graphgps 
-from cora_emb   import eval_embed, set_cfg
 from heuristic.pubmed_heuristic import get_pubmed_casestudy
 from heuristic.cora_heuristic import get_cora_casestudy
 from heuristic.arxiv2023_heuristic import get_raw_text_arxiv_2023
@@ -37,6 +36,87 @@ data_loader = {
     'pubmed': get_pubmed_casestudy,
     'arxiv_2023': get_raw_text_arxiv_2023
 }
+
+
+def set_cfg(args):
+    with open(args.cfg_file, "r") as f:
+        cfg = CN.load_cfg(f)
+    return cfg
+
+
+        
+def eval_embed(embed,  splits, visual=True):
+    """train the classifier and return the pred
+
+    Args:
+        embed (np.array): embedding vector generated from the graph
+        test_index (torch.tensor): test edge index
+        edge_label (torch.tensor): test edge label
+
+    Returns:
+        prediction for edges 
+    """
+    # train loop
+    embed = np.asarray(list(embed.values()))
+    X_train_index, y_train = splits['train'].edge_label_index.T, splits['train'].edge_label
+    # dot product
+    X_train = embed[X_train_index]
+    X_train = np.multiply(X_train[:, 1], (X_train[:, 0]))
+    X_test_index, y_test = splits['test'].edge_label_index.T, splits['test'].edge_label
+    # dot product 
+    X_test = embed[X_test_index]
+    X_test = np.multiply(X_test[:, 1], (X_test[:, 0]))
+    
+    from sklearn.neural_network import MLPClassifier
+    clf = MLPClassifier(hidden_layer_sizes=(100,), 
+                        activation='relu', 
+                        solver='adam', 
+                        alpha=0.0001, 
+                        batch_size='auto', 
+                        learning_rate_init=0.001, 
+                        power_t=0.5, 
+                        max_iter=200, 
+                        shuffle=True, 
+                        random_state=None, 
+                        tol=0.0001, 
+                        verbose=False, 
+                        warm_start=False, 
+                        momentum=0.9, 
+                        nesterovs_momentum=True, 
+                        early_stopping=False, 
+                        validation_fraction=0.1, 
+                        epsilon=1e-08, 
+                        n_iter_no_change=10, 
+                        max_fun=15000).fit(X_train, y_train)
+
+    y_pred = clf.predict(X_test)
+
+    acc = clf.score(X_test, y_test)
+    
+    results_acc = {'node2vec_acc': acc}
+    pos_test_pred = torch.tensor(y_pred[y_test == 1])
+    neg_test_pred = torch.tensor(y_pred[y_test == 0])
+    evaluator_hit = Evaluator(name='ogbl-collab')
+    evaluator_mrr = Evaluator(name='ogbl-citation2')
+    result_mrr = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
+    results_mrr = {'node2vec_mrr': result_mrr}
+    
+    if visual:
+        model = TSNE(n_components=2,
+                    init="random",
+                    random_state=0,
+                    perplexity=100,
+                    n_iter=300)
+        node_pos = model.fit_transform(X_test)
+
+        color_dict = {'0.0': 'r', '1.0': 'b'}
+        color = [color_dict[str(i)] for i in y_test.tolist()]
+        plt.figure()
+        for idx in range(len(node_pos)):
+            plt.scatter(node_pos[idx, 0], node_pos[idx, 1], c=color[idx])
+        plt.legend()
+        plt.savefig(f'cora_node2vec.png')
+    return y_pred, results_acc, results_mrr, y_test 
 
 def eval_pubmed_mrr_acc(config) -> None:
     """load text attribute graph in link predicton setting
