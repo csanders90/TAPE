@@ -28,6 +28,7 @@ import graphgps
 from heuristic.pubmed_heuristic import get_pubmed_casestudy
 from heuristic.cora_heuristic import get_cora_casestudy
 from heuristic.arxiv2023_heuristic import get_raw_text_arxiv_2023
+from Embedding.node2vec_tagplus import node2vec
 
 FILE_PATH = get_git_repo_root_path() + '/'
 
@@ -118,6 +119,7 @@ def eval_embed(embed,  splits, visual=True):
         plt.savefig(f'cora_node2vec.png')
     return y_pred, results_acc, results_mrr, y_test 
 
+
 def eval_pubmed_mrr_acc(config) -> None:
     """load text attribute graph in link predicton setting
     """
@@ -150,7 +152,7 @@ def eval_pubmed_mrr_acc(config) -> None:
 
     # model 
     for use_heuristic in ['node2vec']:
-        G = nx.from_scipy_sparse_matrix(full_A, create_using=nx.DiGraph())
+        G = nx.from_scipy_sparse_matrix(full_A, create_using=nx.Graph())
         model = Node2Vec(G, walk_length=walk_length, 
                          num_walks=num_walks,
                         p=p, 
@@ -163,6 +165,7 @@ def eval_pubmed_mrr_acc(config) -> None:
                     iter = iter)
         
         embeddings = model.get_embeddings()
+
 
     return eval_embed(embeddings, splits)
 
