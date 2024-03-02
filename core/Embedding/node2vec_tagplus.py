@@ -1,21 +1,10 @@
-import os
-import sys
-from typing import Dict
+
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 # Import organization
 import numpy as np
 import scipy.sparse as ssp
 import torch
-import torch_geometric.transforms as T
-from torch_geometric.datasets import Planetoid
-from torch_geometric.data import Data, InMemoryDataset
-from torch_geometric.transforms import RandomLinkSplit
-
-from heuristic.lsf import CN, AA, RA, InverseRA
-from heuristic.gsf import Ben_PPR, shortest_path, katz_apro, katz_close, SymPPR
-from heuristic.semantic_similarity import pairwise_prediction
-
 import matplotlib.pyplot as plt
 from lpda.adjacency import plot_coo_matrix, construct_sparse_adj
 from utils import (
@@ -25,13 +14,8 @@ from utils import (
 )
 from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
 from heuristic.eval import (
-    evaluate_auc,
-    evaluate_hits,
-    evaluate_mrr,
     get_metric_score,
-    get_prediction
 )
-from Embedding.ge import Node2Vec
 from yacs.config import CfgNode as CN
 import networkx as nx
 import yaml
@@ -188,7 +172,6 @@ if __name__ == "__main__":
     # # Load args file
 
     cfg = set_cfg(args)
-    embed()
     cfg.merge_from_list(args.opts)
     
     # Set Pytorch environment

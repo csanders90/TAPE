@@ -9,17 +9,7 @@ import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 # Import organization
 import numpy as np
-import scipy.sparse as ssp
 import torch
-
-from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
-from heuristic.eval import (
-    evaluate_auc,
-    evaluate_hits,
-    evaluate_mrr,
-    get_metric_score,
-    get_prediction
-)
 
 from torch_geometric.graphgym.cmd_args import parse_args
 from torch_geometric.graphgym.config import cfg
@@ -46,7 +36,7 @@ def objective(ws,
             iter, 
             num_neg_samples):
     
-    cfg_file = "configs/pubmed/node2vec.yaml"
+    cfg_file = "core/configs/pubmed/node2vec.yaml"
     # # Load args file
     with open(cfg_file, "r") as f:
         args = CN.load_cfg(f)
@@ -115,10 +105,9 @@ instru = ng.p.Instrumentation(ws,
 
 print(instru.dimension)  # 5 dimensional space
 print(instru.args, instru.kwargs)
-
 objective(*instru.args)
 
-budget = 20 # How many episode we will do before concluding.
+budget = 4# How many episode we will do before concluding.
 for name in ["RandomSearch"]:
     optim = ng.optimizers.registry[name](parametrization=instru, budget=budget)
     for u in range(budget//2):

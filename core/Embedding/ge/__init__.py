@@ -1,2 +1,2 @@
-from .models import *
-from utils import *
+from ge.models import *
+from ge.utils import *

@@ -1,0 +1,20 @@
+wandb_version: 1
+
+embed_size:
+  value: 44
+iter:
+  value: 1
+num_neg_samples:
+  value: 3
+num_walks:
+  value: 80
+p:
+  value: 0.1534614991353189
+q:
+  value: 0.961510265689889
+walk_length:
+  value: 26
+window_size:
+  value: 10
+ws:
+  value: 7

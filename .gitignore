@@ -63,4 +63,4 @@ logs/
 results/
 output/
 prt_lm/
-core/wandb
+core/wandb/
