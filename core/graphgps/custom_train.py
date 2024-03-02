@@ -3,7 +3,7 @@ from yacs.config import CfgNode as CN
 
 
 def set_cfg_train(cfg):
-    """Weights & Biases tracker configuration.
+    """Weights & Biases tracker argsuration.
     """
 
     # WandB group

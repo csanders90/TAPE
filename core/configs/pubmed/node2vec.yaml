@@ -1,4 +1,4 @@
-# node2vec_config.yaml
+# node2vec_args.yaml
 
 out_dir: results
 metric_best: f1

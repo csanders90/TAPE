@@ -189,12 +189,12 @@ def parse_cora():
     return data_X, data_Y, data_citeid, np.unique(data_edges, axis=0).transpose()
 
 
-def get_cora_casestudy(config) -> InMemoryDataset:
-    undirected = config.data.undirected
-    include_negatives = config.data.include_negatives
-    val_pct = config.data.val_pct
-    test_pct = config.data.test_pct
-    split_labels = config.data.split_labels
+def get_cora_casestudy(args) -> InMemoryDataset:
+    undirected = args.data.undirected
+    include_negatives = args.data.include_negatives
+    val_pct = args.data.val_pct
+    test_pct = args.data.test_pct
+    split_labels = args.data.split_labels
     
     data_X, data_Y, data_citeid, data_edges = parse_cora()
 

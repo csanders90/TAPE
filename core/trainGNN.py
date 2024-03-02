@@ -1,7 +1,7 @@
 from core.GNNs.gnn_trainer import GNNTrainer
 from core.GNNs.dgl_gnn_trainer import DGLGNNTrainer
 import pandas as pd
-from core.config import cfg, update_cfg
+from core.args import cfg, update_cfg
 import time
 
 

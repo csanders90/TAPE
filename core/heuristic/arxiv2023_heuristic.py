@@ -32,12 +32,12 @@ from utils import get_git_repo_root_path, append_acc_to_excel, append_mrr_to_exc
 from heuristic.semantic_similarity import pairwise_prediction
 
 
-def get_raw_text_arxiv_2023(config):
-    undirected = config.data.undirected
-    include_negatives = config.data.include_negatives
-    val_pct = config.data.val_pct
-    test_pct = config.data.test_pct
-    split_labels = config.data.split_labels
+def get_raw_text_arxiv_2023(args):
+    undirected = args.data.undirected
+    include_negatives = args.data.include_negatives
+    val_pct = args.data.val_pct
+    test_pct = args.data.test_pct
+    split_labels = args.data.split_labels
     
     data = torch.load(FILE_PATH + 'dataset/arxiv_2023/graph.pt')
     

@@ -1,4 +1,4 @@
-from core.config import cfg, update_cfg
+from core.args import cfg, update_cfg
 from core.GNNs.ensemble_trainer import EnsembleTrainer
 import pandas as pd
 

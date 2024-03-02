@@ -121,60 +121,64 @@ def append_acc_to_excel(metrics_acc, root, name):
     
     csv_columns = ['Metric'] + list(k for k in metrics_acc) 
 
+    # load old csv
     try:
-        Data = pd.read_csv(root)[:1]
+        Data = pd.read_csv(root)[:-1]
     except:
         Data = pd.DataFrame(None, columns=csv_columns)
         Data.to_csv(root, index=False)
     
-    # transform dict to df    
-    id = uuid.uuid4()
+    # create new line 
+    uuid_val = uuid.uuid4()
     acc_lst = []
     
     for k, v in metrics_acc.items():
         acc_lst.append(process_value(v))
         
-    
-    v_lst = [f'{name}_{id}'] + acc_lst
+    # merge with old lines, 
+    v_lst = [f'{name}_{uuid_val}'] + acc_lst
     new_df = pd.DataFrame([v_lst], columns=csv_columns)
-    Data = pd.concat([Data, new_df])
-    highest_values = Data.apply(lambda column: max(column, default=None))
+    new_Data = pd.concat([Data, new_df])
+    
+    # best value
+    highest_values = new_Data.apply(lambda column: max(column, default=None))
 
+    # concat and save
     Best_list = ['Best'] + highest_values[1:].tolist()
     Best_df = pd.DataFrame([Best_list], columns=Data.columns)
-    Data = pd.concat([Data, Best_df])
-    Data.to_csv(root,index=False)
+    upt_Data = pd.concat([new_Data, Best_df])
+    upt_Data.to_csv(root,index=False)
 
-    return Data
+    return upt_Data
 
 
 def append_mrr_to_excel(metrics_mrr, root):
-    # if not exists save the first row
-    # transform dict to df    
+ 
+    uuid_val = uuid.uuid4()
     csv_columns, csv_numbers = [], []
     for i, (k, v) in enumerate(metrics_mrr.items()): 
         if i == 0:
             csv_columns = ['Metric'] + list(v.keys())
-        csv_numbers.append([k] + list(v.values()))
+        csv_numbers.append([f'{k}_{uuid_val}'] + list(v.values()))
     
     print(csv_numbers)
 
     try:
-        Data = pd.read_csv(root)[:1]
+        Data = pd.read_csv(root)[:-1]
     except:
         Data = pd.DataFrame(None, columns=csv_columns)
         Data.to_csv(root, index=False)
 
     
     new_df = pd.DataFrame(csv_numbers, columns = csv_columns)
-    Data = pd.concat([Data, new_df])
+    new_Data = pd.concat([Data, new_df])
     
-    highest_values = Data.apply(lambda column: max(column, default=None))
+    highest_values = new_Data.apply(lambda column: max(column, default=None))
     Best_list = ['Best'] + highest_values[1:].tolist()
     Best_df = pd.DataFrame([Best_list], columns=csv_columns)
-    Data = pd.concat([Data, Best_df])
+    upt_Data = pd.concat([new_Data, Best_df])
     
-    Data.to_csv(root, index=False)
+    upt_Data.to_csv(root, index=False)
 
     
-    return Data
+    return upt_Data

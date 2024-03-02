@@ -71,8 +71,8 @@ class LMTrainer():
         #     print("Initialize using previous ckpt...")
         #     self.model.load_state_dict(torch.load(prev_ckpt))
 
-        self.model.config.dropout = self.dropout
-        self.model.config.attention_dropout = self.att_dropout
+        self.model.args.dropout = self.dropout
+        self.model.args.attention_dropout = self.att_dropout
 
         trainable_params = sum(p.numel()
                                for p in self.model.parameters() if p.requires_grad)

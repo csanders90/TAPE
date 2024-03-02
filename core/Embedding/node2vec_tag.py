@@ -19,11 +19,11 @@ from utils import get_git_repo_root_path, append_acc_to_excel, append_mrr_to_exc
 from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
 from heuristic.eval import evaluate_auc, evaluate_hits, evaluate_mrr, get_metric_score, get_prediction
 from ge import Node2Vec
-from yacs.config import CfgNode as CN
+from yacs.args import CfgNode as CN
 import networkx as nx 
 import yaml
 from torch_geometric.graphgym.cmd_args import parse_args
-from torch_geometric.graphgym.config import (cfg)
+from torch_geometric.graphgym.args import (cfg)
 import graphgps 
 from heuristic.pubmed_heuristic import get_pubmed_casestudy
 from heuristic.cora_heuristic import get_cora_casestudy
@@ -120,10 +120,10 @@ def eval_embed(embed,  splits, visual=True):
     return y_pred, results_acc, results_mrr, y_test 
 
 
-def eval_pubmed_mrr_acc(config) -> None:
+def eval_pubmed_mrr_acc(args) -> None:
     """load text attribute graph in link predicton setting
     """
-    dataset, data_cited, splits = data_loader[config.data.name](config)
+    dataset, data_cited, splits = data_loader[args.data.name](args)
     
     # ust test edge_index as full_A
     full_edge_index = splits['test'].edge_index
@@ -140,15 +140,15 @@ def eval_pubmed_mrr_acc(config) -> None:
     
     result_dict = {}
     # Access individual parameters
-    walk_length = config.model.node2vec.walk_length
-    num_walks = config.model.node2vec.num_walks
-    p = config.model.node2vec.p
-    q = config.model.node2vec.q
-    workers = config.model.node2vec.workers
-    use_rejection_sampling = config.model.node2vec.use_rejection_sampling
-    embed_size = config.model.node2vec.embed_size
-    ws = config.model.node2vec.window_size
-    iter = config.model.node2vec.iter
+    walk_length = args.model.node2vec.walk_length
+    num_walks = args.model.node2vec.num_walks
+    p = args.model.node2vec.p
+    q = args.model.node2vec.q
+    workers = args.model.node2vec.workers
+    use_rejection_sampling = args.model.node2vec.use_rejection_sampling
+    embed_size = args.model.node2vec.embed_size
+    ws = args.model.node2vec.window_size
+    iter = args.model.node2vec.iter
 
     # model 
     for use_heuristic in ['node2vec']:
@@ -178,7 +178,7 @@ from heuristic.pubmed_heuristic import get_pubmed_casestudy
 # main function 
 if __name__ == "__main__":
     args = parse_args()
-    # Load config file
+    # Load args file
     
     cfg = set_cfg(args)
     cfg.merge_from_list(args.opts)

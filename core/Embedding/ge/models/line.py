@@ -96,7 +96,7 @@ class LINE:
         self._gen_sampling_table()
         self.reset_model()
 
-    def reset_training_config(self, batch_size, times):
+    def reset_training_args(self, batch_size, times):
         self.batch_size = batch_size
         self.steps_per_epoch = (
             (self.samples_per_epoch - 1) // self.batch_size + 1)*times
@@ -206,7 +206,7 @@ class LINE:
         return self._embeddings
 
     def train(self, batch_size=1024, epochs=1, initial_epoch=0, verbose=1, times=1):
-        self.reset_training_config(batch_size, times)
+        self.reset_training_args(batch_size, times)
         hist = self.model.fit_generator(self.batch_it, epochs=epochs, initial_epoch=initial_epoch, steps_per_epoch=self.steps_per_epoch,
                                         verbose=verbose)
 

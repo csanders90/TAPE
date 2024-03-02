@@ -8,17 +8,17 @@ from core.utils import init_random_state
 
 class BertClassifier(PreTrainedModel):
     def __init__(self, model, n_labels, dropout=0.0, seed=0, cla_bias=True, feat_shrink=''):
-        super().__init__(model.config)
+        super().__init__(model.args)
         self.bert_encoder = model
         self.dropout = nn.Dropout(dropout)
         self.feat_shrink = feat_shrink
-        hidden_dim = model.config.hidden_size
+        hidden_dim = model.args.hidden_size
         self.loss_func = nn.CrossEntropyLoss(
             label_smoothing=0.3, reduction='mean')
 
         if feat_shrink:
             self.feat_shrink_layer = nn.Linear(
-                model.config.hidden_size, int(feat_shrink), bias=cla_bias)
+                model.args.hidden_size, int(feat_shrink), bias=cla_bias)
             hidden_dim = int(feat_shrink)
         self.classifier = nn.Linear(hidden_dim, n_labels, bias=cla_bias)
         init_random_state(seed)
@@ -51,7 +51,7 @@ class BertClassifier(PreTrainedModel):
 
 class BertClaInfModel(PreTrainedModel):
     def __init__(self, model, emb, pred, feat_shrink=''):
-        super().__init__(model.config)
+        super().__init__(model.args)
         self.bert_classifier = model
         self.emb, self.pred = emb, pred
         self.feat_shrink = feat_shrink

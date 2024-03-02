@@ -63,8 +63,8 @@ class LMTrainer():
         #     print("Initialize using previous ckpt...")
         #     self.model.load_state_dict(torch.load(prev_ckpt))
 
-        self.model.config.dropout = self.dropout
-        self.model.config.attention_dropout = self.att_dropout
+        self.model.args.dropout = self.dropout
+        self.model.args.attention_dropout = self.att_dropout
 
         trainable_params = sum(p.numel()
                                for p in self.model.parameters() if p.requires_grad)
@@ -167,7 +167,7 @@ class LMTrainer():
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from core.LMs.lm_trainer import LMTrainer
-from core.config import cfg, update_cfg
+from core.args import cfg, update_cfg
 import pandas as pd
 
 

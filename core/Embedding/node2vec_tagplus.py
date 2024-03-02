@@ -31,7 +31,7 @@ from heuristic.eval import (
     get_metric_score,
     get_prediction
 )
-from ge import Node2Vec
+from Embedding.ge import Node2Vec
 from yacs.config import CfgNode as CN
 import networkx as nx
 import yaml
@@ -54,6 +54,10 @@ from sklearn.metrics import accuracy_score
 from sklearn.manifold import TSNE
 import random 
 from numba.typed import List
+from torchmetrics.functional.retrieval import retrieval_hit_rate
+from torchmetrics.retrieval import RetrievalHitRate
+from torch_geometric.utils import to_scipy_sparse_matrix
+from IPython import embed
 
 FILE_PATH = get_git_repo_root_path() + '/'
 
@@ -110,52 +114,6 @@ def sample_n2v_random_walks(adj, walk_length, walks_per_node, p, q):
 #@numba.jit(nopython=True)
 from numba.typed import List 
 from numba import njit 
-
-# def _n2v_random_walk(indptr,
-#                     indices,
-#                     walk_length,
-#                     walks_per_node,
-#                     p,
-#                     q):
-#     N = len(indptr) - 1 # num of nodes
-#     final_walks = List() # all walks of one node 
-#     for _ in range(walks_per_node):
-#         for n_iter in range(N):
-#             walk = np.zeros(walk_length+1, dtype=np.int32)
-#             walk[0] = n_iter          
-
-#             visited_set = None
-#             for il in range(walk_length):
-#                 # v_iter 's neighbors
-#                 neighbors = indices[indptr[n_iter]:indptr[n_iter+1]]
-                
-#                 sample_idx_arr = np.zeros(len(neighbors)+1, dtype=np.int32)
-#                 sample_prob_arr = np.zeros(len(neighbors)+1, dtype=np.float32)
-                
-#                 for i, samples in enumerate(neighbors):
-#                     sample_idx_arr[i] = samples
-                
-#                     if visited_set is not None:
-#                         if samples in visited_set:
-#                             sample_prob_arr[i] = 1
-#                         else:
-#                             sample_prob_arr[i] = 1/q
-#                     else:
-#                         sample_prob_arr[i] = 1/q 
-
-#                 visited_set = neighbors.copy()
-#                 sample_idx_arr[-1] = n_iter
-#                 sample_prob_arr[-1] = 1/p
-                    
-#                 sample_prob_arr = sample_prob_arr / np.sum(sample_prob_arr)
-#                 n_iter = random_choice(sample_idx_arr, sample_prob_arr)
-                
-#                 walk[il+1] = n_iter
-
-#             final_walks.append(walk)
-#     return np.array(final_walks)
-
-
 
 
 
@@ -222,141 +180,21 @@ def random_choice(arr: np.int64, p):
 
 
 
-def evaluate_node_classification(embedding_matrix, labels, train_mask, 
-                                 test_mask, normalize_embedding=True, max_iter=1000):
-        
-    """训练一个线性模型（比如逻辑回归模型）来预测节点的标签
-    
-    返回值说明
-    ----
-    preds: 模型预测的标签
-    test_acc: 模型预测的准确率
-    """
-    ######################################
-    if normalize_embedding:
-        embedding_matrix = normalize(embedding_matrix)
-        
-    # split embedding
-    feature_train = embedding_matrix[train_mask]
-    feature_test = embedding_matrix[test_mask]
-    labels_train = labels[train_mask]
-    labels_test = labels[test_mask]
-    
-    clf = LogisticRegression(solver='lbfgs',max_iter=max_iter, multi_class='auto')
-    clf.fit(feature_train, labels_train)
-    
-    preds = clf.predict(feature_test)
-    test_acc = accuracy_score(labels_test, preds)
-    ######################################   
-    return preds, test_acc
-
-# 请大家完成下面这个测试函数
-def evaluate_link_prediction(embed, splits, normalize_embedding=True, max_iter=1000):
-        
-    """训练一个线性模型（比如逻辑回归模型）来预测节点的标签
-    
-    返回值说明
-    ----
-    preds: 模型预测的标签
-    test_acc: 模型预测的准确率
-    """
-    ######################################
-    # train loop
-
-    X_train_index, y_train = splits['train'].edge_label_index.T, splits['train'].edge_label
-    # dot product
-    X_train = embed[X_train_index]
-    X_train = np.multiply(X_train[:, 1], (X_train[:, 0]))
-    X_test_index, y_test = splits['test'].edge_label_index.T, splits['test'].edge_label
-    # dot product 
-    X_test = embed[X_test_index]
-    X_test = np.multiply(X_test[:, 1], (X_test[:, 0]))
-    
-    
-    
-    clf = LogisticRegression(solver='lbfgs',max_iter=max_iter, multi_class='auto')
-    clf.fit(X_train, y_train)
-    
-    y_pred = clf.predict(X_test)
-
-    acc = clf.score(X_test, y_test)
-
-    
-    results_acc = {'node2vec_acc': acc}
-    pos_test_pred = torch.tensor(y_pred[y_test == 1])
-    neg_test_pred = torch.tensor(y_pred[y_test == 0])
-    evaluator_hit = Evaluator(name='ogbl-collab')
-    evaluator_mrr = Evaluator(name='ogbl-citation2')
-    result_mrr = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
-    results_mrr = {'node2vec_mrr': result_mrr}
-    
-    ######################################   
-    return y_pred, results_acc, results_mrr, y_test 
-
-def eval_pubmed_mrr_acc(config) -> None:
-    """load text attribute graph in link predicton setting
-    """
-    dataset, data_cited, splits = data_loader[config.data.name](config)
-    
-    # ust test edge_index as full_A
-    full_edge_index = splits['test'].edge_index
-    full_edge_weight = torch.ones(full_edge_index.size(1))
-    num_nodes = dataset._data.num_nodes
-    
-    m = construct_sparse_adj(full_edge_index)
-    plot_coo_matrix(m, f'test_edge_index.png')
-    
-    full_A = ssp.csr_matrix((full_edge_weight.view(-1), (full_edge_index[0], full_edge_index[1])), shape=(num_nodes, num_nodes)) 
-
-    evaluator_hit = Evaluator(name='ogbl-collab')
-    evaluator_mrr = Evaluator(name='ogbl-citation2')
-    
-    result_dict = {}
-    # Access individual parameters
-    walk_length = config.model.node2vec.walk_length
-    num_walks = config.model.node2vec.num_walks
-    p = config.model.node2vec.p
-    q = config.model.node2vec.q
-    workers = config.model.node2vec.workers
-    use_rejection_sampling = config.model.node2vec.use_rejection_sampling
-    embed_size = config.model.node2vec.embed_size
-    ws = config.model.node2vec.window_size
-    iter = config.model.node2vec.iter
-
-    # model 
-    for use_heuristic in ['node2vec']:
-        # G = nx.from_scipy_sparse_matrix(full_A, create_using=nx.Graph())
-        adj = to_scipy_sparse_matrix(full_edge_index)
-
-        embedding = node2vec(adj, embedding_dim=64, p=0.5, q=0.5)
-    
-
-
-    return evaluate_link_prediction(embedding, splits)
-
 
 # main function 
 if __name__ == "__main__":
-    from torch_geometric.datasets import Planetoid
-    from torch_geometric.utils import to_scipy_sparse_matrix
-    dataset = Planetoid(root='./data', name='Cora')# 将数据保存在data文件夹下
-    data = dataset[0]
-    adj = to_scipy_sparse_matrix(data.edge_index)
-
-    embedding = node2vec(adj, embedding_dim=64, p=0.5, q=0.5)
-    embedding.shape
 
     args = parse_args()
-    # Load config file
+    # # Load args file
+
+    cfg = set_cfg(args)
+    embed()
+    cfg.merge_from_list(args.opts)
     
-    config = set_cfg(args)
-    config.merge_from_list(args.opts)
-
-
     # Set Pytorch environment
-    torch.set_num_threads(config.num_threads)
+    torch.set_num_threads(cfg.num_threads)
     
-    dataset, data_cited, splits = data_loader[config.data.name](config)
+    dataset, data_cited, splits = data_loader[cfg.data.name](cfg)
     
     # ust test edge_index as full_A
     full_edge_index = splits['test'].edge_index
@@ -373,22 +211,23 @@ if __name__ == "__main__":
     
     result_dict = {}
     # Access individual parameters
-    walk_length = config.model.node2vec.walk_length
-    num_walks = config.model.node2vec.num_walks
-    p = config.model.node2vec.p
-    q = config.model.node2vec.q
-    workers = config.model.node2vec.workers
-    use_rejection_sampling = config.model.node2vec.use_rejection_sampling
-    embed_size = config.model.node2vec.embed_size
-    ws = config.model.node2vec.window_size
-    iter = config.model.node2vec.iter
+    walk_length = cfg.model.node2vec.walk_length
+    num_walks = cfg.model.node2vec.num_walks
+    p = cfg.model.node2vec.p
+    q = cfg.model.node2vec.q
+    workers = cfg.model.node2vec.workers
+    use_rejection_sampling = cfg.model.node2vec.use_rejection_sampling
+    embed_size = cfg.model.node2vec.embed_size
+    ws = cfg.model.node2vec.window_size
+    iter = cfg.model.node2vec.iter
     
     # G = nx.from_scipy_sparse_matrix(full_A, create_using=nx.Graph())
     adj = to_scipy_sparse_matrix(full_edge_index)
 
-    embed = node2vec(adj, embedding_dim=64, p=0.5, q=0.5)
+    embed = node2vec(adj, embedding_dim=embed_size, p=p, q=q)
         
-    
+    # TODO different methods to generate node embeddings
+    # embedding method 
     X_train_index, y_train = splits['train'].edge_label_index.T, splits['train'].edge_label
     # dot product
     X_train = embed[X_train_index]
@@ -399,21 +238,49 @@ if __name__ == "__main__":
     X_test = np.multiply(X_test[:, 1], (X_test[:, 0]))
     
     
-    
-    clf = LogisticRegression(solver='lbfgs',max_iter=iter, multi_class='auto')
+    clf = LogisticRegression(solver='lbfgs', max_iter=iter, multi_class='auto')
     clf.fit(X_train, y_train)
     
-    y_pred = clf.predict(X_test)
+    y_pred = clf.predict_proba(X_test)
 
     acc = clf.score(X_test, y_test)
 
+    plt.figure()
+    plt.plot(y_pred, label='pred')
+    plt.plot(y_test, label='test')
+    plt.savefig('node2vec_pred.png')
     
     results_acc = {'node2vec_acc': acc}
     pos_test_pred = torch.tensor(y_pred[y_test == 1])
     neg_test_pred = torch.tensor(y_pred[y_test == 0])
+    
     evaluator_hit = Evaluator(name='ogbl-collab')
     evaluator_mrr = Evaluator(name='ogbl-citation2')
-    result_mrr = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
+    pos_pred = pos_test_pred[:, 1]
+    neg_pred = neg_test_pred[:, 1]
+    result_mrr = get_metric_score(evaluator_hit, evaluator_mrr, pos_pred, neg_pred)
     results_mrr = {'node2vec_mrr': result_mrr}
-
     print(results_acc, results_mrr)
+    
+
+    root = FILE_PATH + 'results'
+    acc_file = root + f'/{cfg.data.name}_acc.csv'
+    mrr_file = root +  f'/{cfg.data.name}_mrr.csv'
+    if not os.path.exists(root):
+        os.makedirs(root, exist_ok=True)
+    append_acc_to_excel(results_acc, acc_file, cfg.data.name)
+    append_mrr_to_excel(results_mrr, mrr_file)
+    
+    # TEST CODE
+    # indexes = torch.tensor(y_test.numpy().astype(int))
+    # preds = torch.tensor(y_pred[np.arange(len(indexes)), indexes])
+    # target = y_test != 0
+    
+    # hr2 = RetrievalHitRate(top_k=10)
+    # hits = hr2(preds, target, indexes=indexes)
+
+    # y_test = (y_test == 1)
+    # y_pred = torch.tensor(y_pred[:, 1])
+    # hits = [retrieval_hit_rate(y_pred, y_test, top_k=k) for k in [1, 3, 10, 100]]
+
+    

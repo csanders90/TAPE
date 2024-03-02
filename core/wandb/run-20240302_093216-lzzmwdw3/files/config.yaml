@@ -1,0 +1,73 @@
+wandb_version: 1
+
+_wandb:
+  desc: null
+  value:
+    code_path: code/core/Embedding/wb_tune.py
+    python_version: 3.8.17
+    cli_version: 0.16.3
+    framework: huggingface
+    huggingface_version: 4.31.0
+    is_jupyter_run: false
+    is_kaggle_kernel: false
+    start_time: 1709368336.015247
+    t:
+      1:
+      - 1
+      - 2
+      - 3
+      - 5
+      - 11
+      - 49
+      - 53
+      - 55
+      - 77
+      2:
+      - 1
+      - 2
+      - 3
+      - 5
+      - 11
+      - 49
+      - 53
+      - 55
+      - 77
+      3:
+      - 2
+      - 16
+      - 23
+      - 24
+      - 37
+      4: 3.8.17
+      5: 0.16.3
+      6: 4.31.0
+      8:
+      - 5
+      13: linux-x86_64
+embed_size:
+  desc: null
+  value: 127
+iter:
+  desc: null
+  value: 1
+num_neg_samples:
+  desc: null
+  value: 5
+num_walks:
+  desc: null
+  value: 40
+p:
+  desc: null
+  value: 0.9680077870842666
+q:
+  desc: null
+  value: 0.48583371048232094
+walk_length:
+  desc: null
+  value: 26
+window_size:
+  desc: null
+  value: 5
+ws:
+  desc: null
+  value: 9
