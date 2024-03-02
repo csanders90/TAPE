@@ -12,16 +12,13 @@ from utils import (
     append_acc_to_excel,
     append_mrr_to_excel
 )
-from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
+from ogb.linkproppred import Evaluator
 from heuristic.eval import (
     get_metric_score,
 )
 from yacs.config import CfgNode as CN
-import networkx as nx
-import yaml
 from torch_geometric.graphgym.cmd_args import parse_args
 from torch_geometric.graphgym.config import cfg
-import graphgps
 from heuristic.pubmed_heuristic import get_pubmed_casestudy
 from heuristic.cora_heuristic import get_cora_casestudy
 from heuristic.arxiv2023_heuristic import get_raw_text_arxiv_2023
@@ -38,8 +35,6 @@ from sklearn.metrics import accuracy_score
 from sklearn.manifold import TSNE
 import random 
 from numba.typed import List
-from torchmetrics.functional.retrieval import retrieval_hit_rate
-from torchmetrics.retrieval import RetrievalHitRate
 from torch_geometric.utils import to_scipy_sparse_matrix
 from IPython import embed
 

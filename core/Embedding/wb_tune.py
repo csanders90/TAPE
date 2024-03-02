@@ -11,7 +11,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 import numpy as np
 import scipy.sparse as ssp
 import torch
-
+from utils import (
+    get_git_repo_root_path
+)
 
 import numpy as np
 from sklearn.linear_model import LogisticRegression
@@ -23,13 +25,14 @@ from Embedding.node2vec_tagplus import node2vec, data_loader
 from yacs.config import CfgNode as CN
 
 wandb.login()
+FILE_PATH = get_git_repo_root_path() + '/'
 
-# 1: Define objective/training function
+
 def objective(config=None):
     with wandb.init(config=config):
         config = wandb.config
         
-        cfg_file = "/hkfs/work/workspace_haic/scratch/cc7738-TAG/TAPE/core/configs/pubmed/node2vec.yaml"
+        cfg_file = FILE_PATH + "core/configs/pubmed/node2vec.yaml"
         # # Load args file
         with open(cfg_file, "r") as f:
             args = CN.load_cfg(f)
@@ -44,14 +47,14 @@ def objective(config=None):
         
         # Access individual parameters
         walk_length = config.walk_length
-        num_walks = config.num_walks
-        p = config.p
-        q = config.q
+        num_walks = 80
+        p = 0.5 
+        q = 0.5
         
-        embed_size = config.embed_size
-        ws = config.window_size
-        iter = config.iter
-        num_neg_samples = config.num_neg_samples
+        embed_size = 64
+        ws = 5
+        iter = 100
+        num_neg_samples = 1
         
         # G = nx.from_scipy_sparse_matrix(full_A, create_using=nx.Graph())
         adj = to_scipy_sparse_matrix(full_edge_index)
@@ -66,7 +69,6 @@ def objective(config=None):
                          p=p,
                          q=q)
     
-        # TODO different methods to generate node embeddings
         # embedding method 
         X_train_index, y_train = splits['train'].edge_label_index.T, splits['train'].edge_label
         # dot product
@@ -87,22 +89,20 @@ def objective(config=None):
     return score
 
 
-
-
 # 2: Define the search space
 sweep_config = {
-    "method": "random",
+    "method": "bayes",
     "metric": {"goal": "maximize", "name": "score"},
     "parameters": {
         "walk_length": {"max": 30, "min": 5, 'distribution': 'int_uniform'},
-        "num_walks": {"values": [40, 60, 80]},
-        "embed_size": {"max": 128, "min": 32, 'distribution': 'int_uniform'},
-        "window_size": {"max": 10, "min": 2, 'distribution': 'int_uniform'},
-        "p": {"max": 1, "min": 0.1, 'distribution': 'uniform'},
-        "q": {"max": 1, "min": 0.1, 'distribution': 'uniform'},
-        "ws": {"values": [3, 5, 7]},
-        "iter": {"values": [1, 3, 7]},
-        "num_neg_samples": {"values": [1, 3, 5]},
+        # "num_walks": {"values": [40, 60, 80]},
+        # "embed_size": {"max": 128, "min": 32, 'distribution': 'int_uniform'},
+        "window_size": {"max": 10, "min": 1, 'distribution': 'int_uniform'},
+        # "p": {"max": 1, "min": 0.0, 'distribution': 'uniform'},
+        # "q": {"max": 1, "min": 0.0, 'distribution': 'uniform'},
+        # "ws": {"values": [3, 5, 7]},
+        # "iter": {"values": [1, 3, 7]},
+        # "num_neg_samples": {"values": [1, 3, 5]},
     },
 }
 
@@ -113,5 +113,3 @@ import pprint
 pprint.pprint(sweep_config)
 wandb.agent(sweep_id, objective, count=40)
 
-
-# 1: Define objective/training function
