@@ -39,6 +39,7 @@ from torch_geometric.utils import to_scipy_sparse_matrix
 from IPython import embed
 from joblib import Parallel, delayed
 import itertools
+from IPython import embed
 
 FILE_PATH = get_git_repo_root_path() + '/'
 
@@ -60,8 +61,14 @@ def partition_num(num, workers):
     else:
         return [num//workers]*workers + [num % workers]
     
-def node2vec(adj, embedding_dim, walk_length, walks_per_node,
-                num_neg_samples, p, q):
+def node2vec(workers, 
+             adj, 
+             embedding_dim, 
+             walk_length, 
+             walks_per_node,
+             num_neg_samples, 
+             p, 
+             q):
     """
     参数说明
     -------------
@@ -75,16 +82,24 @@ def node2vec(adj, embedding_dim, walk_length, walks_per_node,
     p: node2vec的p参数
     q: node2vec的q参数
     """
-    # walks = sample_n2v_random_walks(adj, walk_length, walks_per_node, p=p, q=q) # 利用随机游走提取共现信息
-
-    workers = 10 
-    results = Parallel(n_jobs=workers, verbose=0, )(
-        delayed(sample_n2v_random_walks)(adj, walk_length, num, p=p, q=q) for num in
-        partition_num(walks_per_node, workers))
-
-    walks = list(itertools.chain(*results))
+    if workers == 1:
+        adj = sp.csr_matrix(adj)
+        walks = _n2v_random_walk_iterator(adj.indptr,
+                                    adj.indices,
+                                    walk_length,
+                                    walks_per_node,
+                                    p,
+                                    q)
         
-    # walks = [list(map(str, walk)) for walk in walks]
+    else:
+    
+        results = Parallel(n_jobs=workers, verbose=0, )(
+            delayed(sample_n2v_random_walks)(adj, walk_length, num, p=p, q=q) for num in
+            partition_num(walks_per_node, workers))
+        walks = np.asarray(list(itertools.chain(*results)))
+            
+        walks = [list(map(str, walk)) for walk in walks]
+    
     model = Word2Vec(walks, vector_size=embedding_dim, 
                      negative=num_neg_samples, compute_loss=True)   # 映射函数、重构器、目标
     embedding = model.wv.vectors[np.fromiter(map(int, model.wv.index_to_key), np.int32).argsort()] # 从词向量中取出节点嵌入
@@ -275,7 +290,8 @@ if __name__ == "__main__":
     # G = nx.from_scipy_sparse_matrix(full_A, create_using=nx.Graph())
     adj = to_scipy_sparse_matrix(full_edge_index)
 
-    embed = node2vec(adj, 
+    embed = node2vec(workers, 
+                     adj, 
                      embedding_dim=embed_size, 
                      walk_length=walk_length,
                      walks_per_node=walks_per_node,
@@ -283,6 +299,7 @@ if __name__ == "__main__":
                      p=p, 
                      q=q)
     
+    print(f"embedding size {embed.shape}")
     # TODO different methods to generate node embeddings
     # embedding method 
     X_train_index, y_train = splits['train'].edge_label_index.T, splits['train'].edge_label

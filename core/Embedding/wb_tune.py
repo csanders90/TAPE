@@ -60,25 +60,24 @@ def objective(config=None):
         
         # Access individual parameters
         walk_length = config.walk_length
-        num_walks = 10
+        num_walks = config.num_walks
         p = 0.5 
         q = 0.5
         
         embed_size = 64
-        ws = config.ws
+        
         iter = 100
         num_neg_samples = 1
-        
+        workers = 10
         # G = nx.from_scipy_sparse_matrix(full_A, create_using=nx.Graph())
         adj = to_scipy_sparse_matrix(full_edge_index)
         print(f"adj shape", adj.shape)
         
-        embed = node2vec(adj, 
+        embed = node2vec(workers,
+                         adj, 
                          embedding_dim=embed_size,
                          walk_length=walk_length, 
                          walks_per_node=num_walks,
-                         workers=8, 
-                         window_size=ws, 
                          num_neg_samples=num_neg_samples,
                          p=p,
                          q=q)
@@ -137,9 +136,8 @@ sweep_config = {
     "metric": {"goal": "maximize", "name": "score"},
     "parameters": {
         "walk_length": {"max": 30, "min": 5, 'distribution': 'int_uniform'},
-        # "num_walks": {"values": [40, 60, 80]},
         # "embed_size": {"max": 128, "min": 32, 'distribution': 'int_uniform'},
-        "ws": {"max": 10, "min": 1, 'distribution': 'int_uniform'},
+        "num_walks": {"max": 20, "min": 10, 'distribution': 'int_uniform'},
         # "p": {"max": 1, "min": 0.0, 'distribution': 'uniform'},
         # "q": {"max": 1, "min": 0.0, 'distribution': 'uniform'},
         # "ws": {"values": [3, 5, 7]},
