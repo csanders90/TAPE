@@ -37,6 +37,8 @@ import random
 from numba.typed import List
 from torch_geometric.utils import to_scipy_sparse_matrix
 from IPython import embed
+from joblib import Parallel, delayed
+import itertools
 
 FILE_PATH = get_git_repo_root_path() + '/'
 
@@ -52,8 +54,14 @@ def set_cfg(args):
         cfg = CN.load_cfg(f)
     return cfg
 
-def node2vec(adj, embedding_dim=64, walk_length=30, walks_per_node=10,
-                  workers=8, window_size=10, num_neg_samples=1, p=4, q=1):
+def partition_num(num, workers):
+    if num % workers == 0:
+        return [num//workers]*workers
+    else:
+        return [num//workers]*workers + [num % workers]
+    
+def node2vec(adj, embedding_dim, walk_length, walks_per_node,
+                num_neg_samples, p, q):
     """
     参数说明
     -------------
@@ -67,13 +75,24 @@ def node2vec(adj, embedding_dim=64, walk_length=30, walks_per_node=10,
     p: node2vec的p参数
     q: node2vec的q参数
     """
-    walks = sample_n2v_random_walks(adj, walk_length, walks_per_node, p=p, q=q) # 利用随机游走提取共现信息
-    walks = [list(map(str, walk)) for walk in walks]
+    # walks = sample_n2v_random_walks(adj, walk_length, walks_per_node, p=p, q=q) # 利用随机游走提取共现信息
+
+    workers = 10 
+    results = Parallel(n_jobs=workers, verbose=0, )(
+        delayed(sample_n2v_random_walks)(adj, walk_length, num, p=p, q=q) for num in
+        partition_num(walks_per_node, workers))
+
+    walks = list(itertools.chain(*results))
+        
+    # walks = [list(map(str, walk)) for walk in walks]
     model = Word2Vec(walks, vector_size=embedding_dim, 
                      negative=num_neg_samples, compute_loss=True)   # 映射函数、重构器、目标
     embedding = model.wv.vectors[np.fromiter(map(int, model.wv.index_to_key), np.int32).argsort()] # 从词向量中取出节点嵌入
+    
     return embedding
 
+
+    
 def sample_n2v_random_walks(adj, walk_length, walks_per_node, p, q):
     """
     返回值的类型
@@ -95,11 +114,10 @@ from numba.typed import List
 from numba import njit 
 
 
-
 # ### 用numba加速的版本
 # # 建议debug阶段把下面这行注释掉，debug通过后再把取消下面这行的注释
 @numba.jit(nopython=True)
-def _n2v_random_walk(indptr,
+def _n2v_random_walk_iterator(indptr,
                     indices,
                     walk_length,
                     walks_per_node,
@@ -139,9 +157,53 @@ def _n2v_random_walk(indptr,
                 n_iter = random_choice(sample_idx_arr, sample_prob_arr)
                 
                 walk[il+1] = n_iter
-            yield walk # 用yield来构造一个generator
+            yield walk 
 
 
+def _n2v_random_walk(indptr,
+                    indices,
+                    walk_length,
+                    walks_per_node,
+                    p,
+                    q):
+    N = len(indptr) - 1 # 节点数量
+    final_walk = []
+    for _ in range(walks_per_node):
+        for n_iter in range(N):
+            walk = np.zeros(walk_length+1, dtype=np.int32)
+            walk[0] = n_iter   
+
+            visited_set = None
+            for il in range(walk_length):
+                # v_iter 's neighbors
+                neighbors = indices[indptr[n_iter]:indptr[n_iter+1]]
+                
+                sample_idx_arr = np.zeros(len(neighbors)+1, dtype=np.int32)
+                sample_prob_arr = np.zeros(len(neighbors)+1, dtype=np.float32)
+                
+                for i, samples in enumerate(neighbors):
+                    sample_idx_arr[i] = samples
+                
+                    if visited_set is not None:
+                        if samples in visited_set:
+                            sample_prob_arr[i] = 1
+                        else:
+                            sample_prob_arr[i] = 1/q
+                    else:
+                        sample_prob_arr[i] = 1/q 
+
+                visited_set = neighbors.copy()
+                sample_idx_arr[-1] = n_iter
+                sample_prob_arr[-1] = 1/p
+                    
+                sample_prob_arr = sample_prob_arr / np.sum(sample_prob_arr)
+                n_iter = random_choice(sample_idx_arr, sample_prob_arr)
+                
+                walk[il+1] = n_iter
+            
+            final_walk.append(walk)
+        return np.array(final_walk)
+            
 @numba.jit(nopython=True)
 def random_choice(arr: np.int64, p):
     """
@@ -163,12 +225,22 @@ def random_choice(arr: np.int64, p):
 # main function 
 if __name__ == "__main__":
 
-    args = parse_args()
-    # # Load args file
+    # args = parse_args()
+    # # # Load args file
 
-    cfg = set_cfg(args)
-    cfg.merge_from_list(args.opts)
+    # cfg = set_cfg(args)
+    # cfg.merge_from_list(args.opts)
     
+    # # Set Pytorch environment
+    # torch.set_num_threads(cfg.num_threads)
+
+    FILE_PATH = get_git_repo_root_path() + '/'
+
+    cfg_file = FILE_PATH + "core/configs/pubmed/node2vec.yaml"
+    # # Load args file
+    with open(cfg_file, "r") as f:
+        cfg = CN.load_cfg(f)
+
     # Set Pytorch environment
     torch.set_num_threads(cfg.num_threads)
     
@@ -190,7 +262,7 @@ if __name__ == "__main__":
     result_dict = {}
     # Access individual parameters
     walk_length = cfg.model.node2vec.walk_length
-    num_walks = cfg.model.node2vec.num_walks
+    walks_per_node = cfg.model.node2vec.num_walks
     p = cfg.model.node2vec.p
     q = cfg.model.node2vec.q
     workers = cfg.model.node2vec.workers
@@ -198,12 +270,19 @@ if __name__ == "__main__":
     embed_size = cfg.model.node2vec.embed_size
     ws = cfg.model.node2vec.window_size
     iter = cfg.model.node2vec.iter
+    num_neg_samples = cfg.model.node2vec.num_neg_samples 
     
     # G = nx.from_scipy_sparse_matrix(full_A, create_using=nx.Graph())
     adj = to_scipy_sparse_matrix(full_edge_index)
 
-    embed = node2vec(adj, embedding_dim=embed_size, p=p, q=q)
-        
+    embed = node2vec(adj, 
+                     embedding_dim=embed_size, 
+                     walk_length=walk_length,
+                     walks_per_node=walks_per_node,
+                     num_neg_samples=num_neg_samples,
+                     p=p, 
+                     q=q)
+    
     # TODO different methods to generate node embeddings
     # embedding method 
     X_train_index, y_train = splits['train'].edge_label_index.T, splits['train'].edge_label
@@ -249,16 +328,4 @@ if __name__ == "__main__":
     append_acc_to_excel(results_acc, acc_file, cfg.data.name)
     append_mrr_to_excel(results_mrr, mrr_file)
     
-    # TEST CODE
-    # indexes = torch.tensor(y_test.numpy().astype(int))
-    # preds = torch.tensor(y_pred[np.arange(len(indexes)), indexes])
-    # target = y_test != 0
-    
-    # hr2 = RetrievalHitRate(top_k=10)
-    # hits = hr2(preds, target, indexes=indexes)
 
-    # y_test = (y_test == 1)
-    # y_pred = torch.tensor(y_pred[:, 1])
-    # hits = [retrieval_hit_rate(y_pred, y_test, top_k=k) for k in [1, 3, 10, 100]]
-
-    
