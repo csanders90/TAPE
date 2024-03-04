@@ -100,8 +100,11 @@ def node2vec(workers,
             
         walks = [list(map(str, walk)) for walk in walks]
     
+    # params window: window size
+    
     model = Word2Vec(walks, vector_size=embedding_dim, 
-                     negative=num_neg_samples, compute_loss=True)   # 映射函数、重构器、目标
+                     negative=num_neg_samples, compute_loss=True,
+                     workers = workers)   # 映射函数、重构器、目标
     embedding = model.wv.vectors[np.fromiter(map(int, model.wv.index_to_key), np.int32).argsort()] # 从词向量中取出节点嵌入
     
     return embedding
@@ -300,7 +303,7 @@ if __name__ == "__main__":
                      q=q)
     
     print(f"embedding size {embed.shape}")
-    # TODO different methods to generate node embeddings
+
     # embedding method 
     X_train_index, y_train = splits['train'].edge_label_index.T, splits['train'].edge_label
     # dot product

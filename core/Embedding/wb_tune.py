@@ -59,10 +59,10 @@ def objective(config=None):
         print("full_edge_index", full_edge_index.shape)
         
         # Access individual parameters
-        walk_length = config.walk_length
-        num_walks = config.num_walks
-        p = 0.5 
-        q = 0.5
+        walk_length = 13
+        num_walks = 15
+        p = config.p
+        q = config.q
         
         embed_size = 64
         
@@ -135,11 +135,10 @@ sweep_config = {
     "method": "bayes",
     "metric": {"goal": "maximize", "name": "score"},
     "parameters": {
-        "walk_length": {"max": 30, "min": 5, 'distribution': 'int_uniform'},
+        # "walk_length": {"max": 18, "min": 17, 'distribution': 'int_uniform'},
         # "embed_size": {"max": 128, "min": 32, 'distribution': 'int_uniform'},
-        "num_walks": {"max": 20, "min": 10, 'distribution': 'int_uniform'},
-        # "p": {"max": 1, "min": 0.0, 'distribution': 'uniform'},
-        # "q": {"max": 1, "min": 0.0, 'distribution': 'uniform'},
+        "p": {"max": 5, "min": 0.0, 'distribution': 'uniform'},
+        "q": {"max": 2, "min": 0.0, 'distribution': 'uniform'},
         # "ws": {"values": [3, 5, 7]},
         # "iter": {"values": [1, 3, 7]},
         # "num_neg_samples": {"values": [1, 3, 5]},
