@@ -33,7 +33,8 @@ from utils import (
 
 
 FILE_PATH = get_git_repo_root_path() + '/'
-
+global dataset 
+dataset = 'cora'
 cfg_file = FILE_PATH + "core/configs/pubmed/node2vec.yaml"
 # # Load args file
 with open(cfg_file, "r") as f:
@@ -42,7 +43,7 @@ with open(cfg_file, "r") as f:
 # Set Pytorch environment
 torch.set_num_threads(args.num_threads)
 
-_, _, splits = data_loader['cora'](args)
+_, _, splits = data_loader[dataset](args)
         
 # embedding method 
 X_train_index, y_train = splits['train'].edge_label_index.T, splits['train'].edge_label
@@ -173,7 +174,7 @@ sweep_config = {
 }
 
 # 3: Start the sweep
-sweep_id = wandb.sweep(sweep=sweep_config, project="embedding-sweep-cora")
+sweep_id = wandb.sweep(sweep=sweep_config, project=f"embedding-sweep-{dataset}")
 import pprint
 
 pprint.pprint(sweep_config)
