@@ -1,45 +1,36 @@
-
+# Standard library imports
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-# Import organization
+
+# Third-party library imports
+import numba
 import numpy as np
-import scipy.sparse as ssp
+import scipy.sparse as sp
+from gensim.models import Word2Vec
+from sklearn.linear_model import LogisticRegression
+from IPython import embed
+from joblib import Parallel, delayed
+
+# External module imports
 import torch
 import matplotlib.pyplot as plt
+from ogb.linkproppred import Evaluator
+from yacs.config import CfgNode as CN
+from torch_geometric.graphgym.cmd_args import parse_args
+from torch_geometric.graphgym.config import cfg
+from torch_geometric.utils import to_scipy_sparse_matrix
+import itertools 
+
+from heuristic.eval import get_metric_score
+from heuristic.pubmed_heuristic import get_pubmed_casestudy
+from heuristic.cora_heuristic import get_cora_casestudy
+from heuristic.arxiv2023_heuristic import get_raw_text_arxiv_2023
 from lpda.adjacency import plot_coo_matrix, construct_sparse_adj
 from utils import (
     get_git_repo_root_path,
     append_acc_to_excel,
     append_mrr_to_excel
 )
-from ogb.linkproppred import Evaluator
-from heuristic.eval import (
-    get_metric_score,
-)
-from yacs.config import CfgNode as CN
-from torch_geometric.graphgym.cmd_args import parse_args
-from torch_geometric.graphgym.config import cfg
-from heuristic.pubmed_heuristic import get_pubmed_casestudy
-from heuristic.cora_heuristic import get_cora_casestudy
-from heuristic.arxiv2023_heuristic import get_raw_text_arxiv_2023
-
-import numba
-from numba import njit, typed, types
-
-import numpy as np
-import scipy.sparse as sp
-from gensim.models import Word2Vec
-from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import normalize
-from sklearn.metrics import accuracy_score
-from sklearn.manifold import TSNE
-import random 
-from numba.typed import List
-from torch_geometric.utils import to_scipy_sparse_matrix
-from IPython import embed
-from joblib import Parallel, delayed
-import itertools
-from IPython import embed
 
 FILE_PATH = get_git_repo_root_path() + '/'
 
@@ -126,10 +117,6 @@ def sample_n2v_random_walks(adj, walk_length, walks_per_node, p, q):
                                     p,
                                     q)
     return random_walks 
-
-#@numba.jit(nopython=True)
-from numba.typed import List 
-from numba import njit 
 
 
 # ### 用numba加速的版本
