@@ -61,12 +61,6 @@ def node2vec(workers,
             num_neg_samples, 
             p, 
             q, 
-            epoch, 
-            sg, 
-            hs,
-            window, 
-            min_count,
-            shrink_window
             ):
     """
     参数说明
@@ -99,22 +93,21 @@ def node2vec(workers,
             
         walks = [list(map(str, walk)) for walk in walks]
     
-    # params window: window size
     
     model = Word2Vec(walks, 
                      vector_size=embedding_dim, 
                      negative=num_neg_samples, 
                      compute_loss=True,
                      workers = workers,
-                     epoch=epoch, 
-                     sg=sg, 
-                     hs=hs,
-                     window=window, 
-                     min_count=min_count,
-                     shrink_window=shrink_window
+                    #  epochs=epoch, 
+                    #  sg=sg, 
+                    #  hs=hs,
+                    #  window=window, 
+                    #  min_count=min_count, 
+                    #  shrink_windows=shrink_window
                      )  
 
-    embedding = model.wv.vectors[np.fromiter(map(int, model.wv.index_to_key), np.int32).argsort()] # 从词向量中取出节点嵌入
+    embedding = model.wv.vectors[np.fromiter(map(int, model.wv.index_to_key), np.int32).argsort()] 
     
     return embedding
 
@@ -295,21 +288,27 @@ if __name__ == "__main__":
     window = cfg.model.node2vec.window
     min_count = cfg.model.node2vec.min_count
     shrink_window = cfg.model.node2vec.shrink_window
+    epoch = cfg.model.node2vec.epoch
+    sg = cfg.model.node2vec.sg 
+    hs = cfg.model.node2vec.hs
     
     # G = nx.from_scipy_sparse_matrix(full_A, create_using=nx.Graph())
     adj = to_scipy_sparse_matrix(full_edge_index)
 
     embed = node2vec(workers, 
-                     adj, 
-                     embedding_dim=embed_size, 
-                     walk_length=walk_length,
-                     walks_per_node=walks_per_node,
-                     num_neg_samples=num_neg_samples,
-                     p=p, 
-                     q=q,
-                     window=window, 
-                     min_count=min_count,
-                     shrink_window=shrink_window)
+                    adj, 
+                    embedding_dim=embed_size, 
+                    walk_length=walk_length,
+                    walks_per_node=walks_per_node,
+                    num_neg_samples=num_neg_samples,
+                    p=p, 
+                    q=q,
+                    window=window, 
+                    epoch=epoch, 
+                    sg=sg, 
+                    hs=hs,
+                    min_count=min_count,
+                    shrink_window=shrink_window)
     
     print(f"embedding size {embed.shape}")
 

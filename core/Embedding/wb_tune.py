@@ -31,7 +31,6 @@ from utils import (
     append_mrr_to_excel
 )
 
-wandb.login()
 
 FILE_PATH = get_git_repo_root_path() + '/'
 
@@ -43,7 +42,7 @@ with open(cfg_file, "r") as f:
 # Set Pytorch environment
 torch.set_num_threads(args.num_threads)
 
-_, _, splits = data_loader[args.data.name](args)
+_, _, splits = data_loader['cora'](args)
         
 # embedding method 
 X_train_index, y_train = splits['train'].edge_label_index.T, splits['train'].edge_label
@@ -59,20 +58,23 @@ def objective(config=None):
         print("full_edge_index", full_edge_index.shape)
         
         # Access individual parameters
-        walk_length = 13
-        num_walks = 15
+        walk_length = config.wl
+        num_walks = config.num_walks
         p = config.p
         q = config.q
         
-        embed_size = 64
+        embed_size = 64 # config.emb_size
         
-        iter = 100
+        max_iter = 100
         num_neg_samples = 1
         workers = 10
-        epoch = config.epoch
-        sg = config.sg 
-        hs = config.hs
-             
+        # epoch = config.epoch
+        # sg = config.sg 
+        # hs = config.hs
+        # min_count = config.min_count 
+        # window = config.window
+        # shrink_window = config.shrink_window
+        
         # G = nx.from_scipy_sparse_matrix(full_A, create_using=nx.Graph())
         adj = to_scipy_sparse_matrix(full_edge_index)
         print(f"adj shape", adj.shape)
@@ -85,9 +87,13 @@ def objective(config=None):
                          num_neg_samples=num_neg_samples,
                          p=p,
                          q=q,
-                         epoch=epoch,
-                         hs=hs,
-                         sg=sg)
+                        #  epoch=int(epoch),
+                        #  hs=hs,
+                        #  sg=sg,
+                        #  min_count=min_count,
+                        #  window=window, 
+                        #  shrink_window=shrink_window
+                         )
         
         print(f"embed.shape: {embed.shape}")
 
@@ -102,7 +108,7 @@ def objective(config=None):
             X_test = np.multiply(X_test[:, 1], (X_test[:, 0]))
             
             
-            clf = LogisticRegression(solver='lbfgs',max_iter=iter, multi_class='auto')
+            clf = LogisticRegression(solver='lbfgs',max_iter=max_iter, multi_class='auto')
             clf.fit(X_train, y_train)
 
             acc = clf.score(X_test, y_test)
@@ -140,24 +146,34 @@ def objective(config=None):
 
 # 2: Define the search space
 sweep_config = {
-    "method": "bayes",
-    "metric": {"goal": "maximize", "name": "score"},
-    "parameters": {
-        # "walk_length": {"max": 18, "min": 17, 'distribution': 'int_uniform'},
-        # "embed_size": {"max": 128, "min": 32, 'distribution': 'int_uniform'},
-        "p": {"max": 5, "min": 0.0, 'distribution': 'uniform'},
-        "q": {"max": 2, "min": 0.0, 'distribution': 'uniform'},
-        # "ws": {"values": [3, 5, 7]},
-        # "iter": {"values": [1, 3, 7]},
+        "method": "bayes",
+        "metric": {"goal": "maximize", "name": "score"},
+        "parameters": {
+        "wl": {"max": 18, "min": 17, 'distribution': 'int_uniform'},
+        "num_walks": {"values": [40, 60, 80]},
+        
+        "p": {"max": 1, "min": 0.75, 'distribution': 'uniform'},
+        "q": {"max": 0.75, "min": 0.0, 'distribution': 'uniform'},
+        
+        "ws": {"values": [3, 5, 7]},
+        
+        # "iter": {"values": [100, 300, 700]},
         # "num_neg_samples": {"values": [1, 3, 5]},
-        "epoch": {"max": 20, "min": 5, 'distribution': 'uniform'},
-        "sg": {"values": [0, 1]},
-        "hs": {"values": [0, 1]},
+        
+        
+        # "embed_size": {"max": 128, "min": 32, 'distribution': 'int_uniform'},
+        
+        # "epoch": {"max": 20, "min": 5, 'distribution': 'uniform'},
+        # "sg": {"values": [0, 1]},
+        # "hs": {"values": [0, 1]},
+        # "window": {"values": [3, 5, 7]},
+        # "min_count": {"values": [3, 5, 7]},
+        # "shrink_window": {"values": [True, False]}
     },
 }
 
 # 3: Start the sweep
-sweep_id = wandb.sweep(sweep=sweep_config, project="embedding-sweep")
+sweep_id = wandb.sweep(sweep=sweep_config, project="embedding-sweep-cora")
 import pprint
 
 pprint.pprint(sweep_config)
