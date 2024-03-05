@@ -25,6 +25,9 @@ model:
     iter: 3
     num_neg_samples: 1 
     walks_per_node: 20
+    window: 5
+    min_count: 5
+    shrink_window: 1
 
 num_threads: 11
 data:

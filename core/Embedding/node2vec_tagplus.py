@@ -54,17 +54,20 @@ def partition_num(num, workers):
         return [num//workers]*workers + [num % workers]
     
 def node2vec(workers, 
-             adj, 
-             embedding_dim, 
-             walk_length, 
-             walks_per_node,
-             num_neg_samples, 
-             p, 
-             q, 
-             epoch, 
-             sg, 
-             hs
-             ):
+            adj, 
+            embedding_dim, 
+            walk_length, 
+            walks_per_node,
+            num_neg_samples, 
+            p, 
+            q, 
+            epoch, 
+            sg, 
+            hs,
+            window, 
+            min_count,
+            shrink_window
+            ):
     """
     参数说明
     -------------
@@ -105,8 +108,12 @@ def node2vec(workers,
                      workers = workers,
                      epoch=epoch, 
                      sg=sg, 
-                     hs=hs
+                     hs=hs,
+                     window=window, 
+                     min_count=min_count,
+                     shrink_window=shrink_window
                      )  
+
     embedding = model.wv.vectors[np.fromiter(map(int, model.wv.index_to_key), np.int32).argsort()] # 从词向量中取出节点嵌入
     
     return embedding
@@ -285,6 +292,9 @@ if __name__ == "__main__":
     ws = cfg.model.node2vec.window_size
     iter = cfg.model.node2vec.iter
     num_neg_samples = cfg.model.node2vec.num_neg_samples 
+    window = cfg.model.node2vec.window
+    min_count = cfg.model.node2vec.min_count
+    shrink_window = cfg.model.node2vec.shrink_window
     
     # G = nx.from_scipy_sparse_matrix(full_A, create_using=nx.Graph())
     adj = to_scipy_sparse_matrix(full_edge_index)
@@ -296,7 +306,10 @@ if __name__ == "__main__":
                      walks_per_node=walks_per_node,
                      num_neg_samples=num_neg_samples,
                      p=p, 
-                     q=q)
+                     q=q,
+                     window=window, 
+                     min_count=min_count,
+                     shrink_window=shrink_window)
     
     print(f"embedding size {embed.shape}")
 
