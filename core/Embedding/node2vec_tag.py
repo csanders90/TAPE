@@ -128,6 +128,7 @@ def eval_pubmed_mrr_acc(args) -> None:
     evaluator_hit = Evaluator(name='ogbl-collab')
     evaluator_mrr = Evaluator(name='ogbl-citation2')
     
+        
     result_dict = {}
     # Access individual parameters
     walk_length = args.model.node2vec.walk_length

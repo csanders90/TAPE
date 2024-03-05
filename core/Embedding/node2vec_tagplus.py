@@ -60,7 +60,11 @@ def node2vec(workers,
              walks_per_node,
              num_neg_samples, 
              p, 
-             q):
+             q, 
+             epoch, 
+             sg, 
+             hs
+             ):
     """
     参数说明
     -------------
@@ -94,9 +98,15 @@ def node2vec(workers,
     
     # params window: window size
     
-    model = Word2Vec(walks, vector_size=embedding_dim, 
-                     negative=num_neg_samples, compute_loss=True,
-                     workers = workers)   # 映射函数、重构器、目标
+    model = Word2Vec(walks, 
+                     vector_size=embedding_dim, 
+                     negative=num_neg_samples, 
+                     compute_loss=True,
+                     workers = workers,
+                     epoch=epoch, 
+                     sg=sg, 
+                     hs=hs
+                     )  
     embedding = model.wv.vectors[np.fromiter(map(int, model.wv.index_to_key), np.int32).argsort()] # 从词向量中取出节点嵌入
     
     return embedding
@@ -120,8 +130,6 @@ def sample_n2v_random_walks(adj, walk_length, walks_per_node, p, q):
     return random_walks 
 
 
-# ### 用numba加速的版本
-# # 建议debug阶段把下面这行注释掉，debug通过后再把取消下面这行的注释
 @numba.jit(nopython=True)
 def _n2v_random_walk_iterator(indptr,
                     indices,

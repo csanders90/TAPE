@@ -69,6 +69,10 @@ def objective(config=None):
         iter = 100
         num_neg_samples = 1
         workers = 10
+        epoch = config.epoch
+        sg = config.sg 
+        hs = config.hs
+             
         # G = nx.from_scipy_sparse_matrix(full_A, create_using=nx.Graph())
         adj = to_scipy_sparse_matrix(full_edge_index)
         print(f"adj shape", adj.shape)
@@ -80,7 +84,11 @@ def objective(config=None):
                          walks_per_node=num_walks,
                          num_neg_samples=num_neg_samples,
                          p=p,
-                         q=q)
+                         q=q,
+                         epoch=epoch,
+                         hs=hs,
+                         sg=sg)
+        
         print(f"embed.shape: {embed.shape}")
 
         if X_train_index.max() < embed.shape[0]:
@@ -142,6 +150,9 @@ sweep_config = {
         # "ws": {"values": [3, 5, 7]},
         # "iter": {"values": [1, 3, 7]},
         # "num_neg_samples": {"values": [1, 3, 5]},
+        "epoch": {"max": 20, "min": 5, 'distribution': 'uniform'},
+        "sg": {"values": [0, 1]},
+        "hs": {"values": [0, 1]},
     },
 }
 
