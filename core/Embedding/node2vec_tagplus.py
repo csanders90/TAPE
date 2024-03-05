@@ -20,6 +20,7 @@ from torch_geometric.graphgym.cmd_args import parse_args
 from torch_geometric.graphgym.config import cfg
 from torch_geometric.utils import to_scipy_sparse_matrix
 import itertools 
+import scipy.sparse as ssp
 
 from heuristic.eval import get_metric_score
 from heuristic.pubmed_heuristic import get_pubmed_casestudy
