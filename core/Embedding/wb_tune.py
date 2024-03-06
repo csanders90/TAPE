@@ -50,6 +50,7 @@ def set_cfg(FILE_PATH, args):
 args = parse_args()
 # Load args file
 
+print(args)
 cfg = set_cfg(FILE_PATH, args)
 cfg.merge_from_list(args.opts)
 
@@ -155,39 +156,21 @@ def objective(config=None):
             wandb.log({"score": acc})
         else:
             wandb.log({"score": 0})
+            
        
+    print("acc", acc)
     return 
 
+import yaml
+with open(FILE_PATH + args.sweep_file, "r") as yaml_file:
+    # Load the YAML content into a Python dictionary
+    sweep_config = yaml.safe_load(yaml_file)
+    
 
-
-# 2: Define the search space
-sweep_config = {
-        "method": "bayes",
-        "metric": {"goal": "maximize", "name": "score"},
-        "parameters": {
-        "wl": {"max": 20, "min": 10, 'distribution': 'int_uniform'},
-        "num_walks": {"values": [10, 20, 30]},
-        
-        "p": {"max": 5, "min": 0, 'distribution': 'uniform'},
-        "q": {"max": 4, "min": 0.0, 'distribution': 'uniform'},
-        
-        "ws": {"values": [3, 5, 7]},
-        
-        # "iter": {"values": [100, 300, 700]},
-        # "num_neg_samples": {"values": [1, 3, 5]},
-        # "embed_size": {"max": 128, "min": 32, 'distribution': 'int_uniform'},
-        # "epoch": {"max": 20, "min": 5, 'distribution': 'uniform'},
-        # "sg": {"values": [0, 1]},
-        # "hs": {"values": [0, 1]},
-        # "window": {"values": [3, 5, 7]},
-        # "min_count": {"values": [3, 5, 7]},
-        # "shrink_window": {"values": [True, False]}
-    },
-}
 
 # 3: Start the sweep
 sweep_id = wandb.sweep(sweep=sweep_config, project=f"embedding-sweep-{cfg.data.name}")
 import pprint
 
 pprint.pprint(sweep_config)
-wandb.agent(sweep_id, objective, count=40)
+wandb.agent(sweep_id, objective, count=60)

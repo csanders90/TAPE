@@ -35,7 +35,7 @@ model:
 
 num_threads: 11
 data:
-  name: pubmed
+  name: arxiv_2023
   undirected: True
   include_negatives: True
   val_pct: 0.15
