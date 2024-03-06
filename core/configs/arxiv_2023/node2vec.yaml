@@ -16,17 +16,26 @@ model:
   node2vec:
     walk_length: 10
     num_walks: 80
-    p: 0.5
-    q: 0.5
-    workers: 1
+    p: 2.5
+    q: 1.1
+    workers: 10
     use_rejection_sampling: 0
     embed_size: 64
     window_size: 5
-    iter: 3
-    
+    max_iter: 100
+    num_neg_samples: 1 
+    walks_per_node: 20
+    window: 5
+    min_count: 5
+    shrink_window: True
+    epoch: 5
+    sg: 0
+    hs: 0
+
+
 num_threads: 11
 data:
-  name: arxiv_2023
+  name: pubmed
   undirected: True
   include_negatives: True
   val_pct: 0.15

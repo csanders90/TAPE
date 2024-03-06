@@ -20,6 +20,8 @@ from sklearn.manifold import TSNE
 import random 
 from numba.typed import List
 from torch_geometric.utils import to_scipy_sparse_matrix    
+from torch_geometric.graphgym.cmd_args import parse_args
+from torch_geometric.graphgym.config import (cfg)
 from Embedding.node2vec_tagplus import node2vec, data_loader
 from yacs.config import CfgNode as CN
 from heuristic.eval import (
@@ -31,24 +33,37 @@ from utils import (
     append_mrr_to_excel
 )
 
-
 FILE_PATH = get_git_repo_root_path() + '/'
-global dataset 
-dataset = 'cora'
-cfg_file = FILE_PATH + "core/configs/pubmed/node2vec.yaml"
-# # Load args file
-with open(cfg_file, "r") as f:
-    args = CN.load_cfg(f)
+def set_cfg(FILE_PATH, args):
+    with open(FILE_PATH + args.cfg_file, "r") as f:
+        cfg = CN.load_cfg(f)
+    return cfg
+
+
+# global dataset 
+# dataset = 'cora'
+# cfg_file = FILE_PATH + "core/configs/pubmed/node2vec.yaml"
+# # # Load args file
+# with open(cfg_file, "r") as f:
+#     args = CN.load_cfg(f)
+
+args = parse_args()
+# Load args file
+
+cfg = set_cfg(FILE_PATH, args)
+cfg.merge_from_list(args.opts)
+
 
 # Set Pytorch environment
-torch.set_num_threads(args.num_threads)
+torch.set_num_threads(cfg.num_threads)
 
-_, _, splits = data_loader[dataset](args)
+_, _, splits = data_loader[cfg.data.name](cfg)
         
 # embedding method 
 X_train_index, y_train = splits['train'].edge_label_index.T, splits['train'].edge_label
         
 print("X_train_index range", X_train_index.max(), X_train_index.min())
+
 
 def objective(config=None):
     with wandb.init(config=config, settings=wandb.Settings(_service_wait=300)):
@@ -64,11 +79,10 @@ def objective(config=None):
         p = config.p
         q = config.q
         
-        embed_size = 64 # config.emb_size
-        
-        max_iter = 100
-        num_neg_samples = 1
-        workers = 10
+        embed_size =  cfg.model.node2vec.embed_size # config.emb_size
+        max_iter = cfg.model.node2vec.max_iter
+        num_neg_samples = cfg.model.node2vec.num_neg_samples
+        workers = cfg.model.node2vec.workers
         # epoch = config.epoch
         # sg = config.sg 
         # hs = config.hs
@@ -130,19 +144,20 @@ def objective(config=None):
         
 
             root = FILE_PATH + 'results'
-            acc_file = root + f'/{args.data.name}_acc.csv'
-            mrr_file = root +  f'/{args.data.name}_mrr.csv'
+            acc_file = root + f'/{cfg.data.name}_acc.csv'
+            mrr_file = root +  f'/{cfg.data.name}_mrr.csv'
             if not os.path.exists(root):
                 os.makedirs(root, exist_ok=True)
-            append_acc_to_excel(results_acc, acc_file, args.data.name)
+            append_acc_to_excel(results_acc, acc_file, cfg.data.name)
             append_mrr_to_excel(results_mrr, mrr_file)
 
             print(results_acc, '\n', results_mrr)
             wandb.log({"score": acc})
         else:
             wandb.log({"score": 0})
-        del result_mrr, results_acc, acc
+       
     return 
+
 
 
 # 2: Define the search space
@@ -150,20 +165,17 @@ sweep_config = {
         "method": "bayes",
         "metric": {"goal": "maximize", "name": "score"},
         "parameters": {
-        "wl": {"max": 18, "min": 17, 'distribution': 'int_uniform'},
-        "num_walks": {"values": [40, 60, 80]},
+        "wl": {"max": 20, "min": 10, 'distribution': 'int_uniform'},
+        "num_walks": {"values": [10, 20, 30]},
         
-        "p": {"max": 1, "min": 0.75, 'distribution': 'uniform'},
-        "q": {"max": 0.75, "min": 0.0, 'distribution': 'uniform'},
+        "p": {"max": 5, "min": 0, 'distribution': 'uniform'},
+        "q": {"max": 4, "min": 0.0, 'distribution': 'uniform'},
         
         "ws": {"values": [3, 5, 7]},
         
         # "iter": {"values": [100, 300, 700]},
         # "num_neg_samples": {"values": [1, 3, 5]},
-        
-        
         # "embed_size": {"max": 128, "min": 32, 'distribution': 'int_uniform'},
-        
         # "epoch": {"max": 20, "min": 5, 'distribution': 'uniform'},
         # "sg": {"values": [0, 1]},
         # "hs": {"values": [0, 1]},
@@ -174,9 +186,8 @@ sweep_config = {
 }
 
 # 3: Start the sweep
-sweep_id = wandb.sweep(sweep=sweep_config, project=f"embedding-sweep-{dataset}")
+sweep_id = wandb.sweep(sweep=sweep_config, project=f"embedding-sweep-{cfg.data.name}")
 import pprint
 
 pprint.pprint(sweep_config)
 wandb.agent(sweep_id, objective, count=40)
-
