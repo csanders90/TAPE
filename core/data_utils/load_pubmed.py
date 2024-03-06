@@ -7,8 +7,11 @@ import torch_geometric.transforms as T
 from sklearn.preprocessing import normalize
 import json
 import pandas as pd
-
+from torch_geometric.data import Data, InMemoryDataset
+from utils import get_git_repo_root_path
 # return pubmed dataset as pytorch geometric Data object together with 60/20/20 split, and list of pubmed IDs
+
+FILE = get_git_repo_root_path() + '/'
 
 
 def get_pubmed_casestudy(corrected=False, SEED=0):
@@ -24,42 +27,56 @@ def get_pubmed_casestudy(corrected=False, SEED=0):
     # load data
     data_name = 'PubMed'
     # path = osp.join(osp.dirname(osp.realpath(__file__)), 'dataset')
-    dataset = Planetoid('dataset', data_name, transform=T.NormalizeFeatures())
+    dataset = Planetoid('./dataset', data_name, transform=T.NormalizeFeatures())
     data = dataset[0]
 
     # replace dataset matrices with the PubMed-Diabetes data, for which we have the original pubmed IDs
-    data.x = torch.tensor(data_X)
-    data.edge_index = torch.tensor(data_edges)
-    data.y = torch.tensor(data_Y)
-
+    x = torch.tensor(data_X)
+    edge_index = torch.tensor(data_edges)
+    y = torch.tensor(data_Y)
+    num_nodes = data.num_nodes
+    
     # split data
     node_id = np.arange(data.num_nodes)
     np.random.shuffle(node_id)
 
-    data.train_id = np.sort(node_id[:int(data.num_nodes * 0.6)])
-    data.val_id = np.sort(
+    train_id = np.sort(node_id[:int(data.num_nodes * 0.6)])
+    val_id = np.sort(
         node_id[int(data.num_nodes * 0.6):int(data.num_nodes * 0.8)])
-    data.test_id = np.sort(node_id[int(data.num_nodes * 0.8):])
+    test_id = np.sort(node_id[int(data.num_nodes * 0.8):])
 
     if corrected:
         is_mistake = np.loadtxt(
             'pubmed_casestudy/pubmed_mistake.txt', dtype='bool')
-        data.train_id = [i for i in data.train_id if not is_mistake[i]]
-        data.val_id = [i for i in data.val_id if not is_mistake[i]]
-        data.test_id = [i for i in data.test_id if not is_mistake[i]]
+        train_id = [i for i in train_id if not is_mistake[i]]
+        val_id = [i for i in val_id if not is_mistake[i]]
+        test_id = [i for i in test_id if not is_mistake[i]]
 
-    data.train_mask = torch.tensor(
-        [x in data.train_id for x in range(data.num_nodes)])
-    data.val_mask = torch.tensor(
-        [x in data.val_id for x in range(data.num_nodes)])
-    data.test_mask = torch.tensor(
-        [x in data.test_id for x in range(data.num_nodes)])
+    train_mask = torch.tensor(
+        [x in train_id for x in range(data.num_nodes)])
+    val_mask = torch.tensor(
+        [x in val_id for x in range(data.num_nodes)])
+    test_mask = torch.tensor(
+        [x in test_id for x in range(data.num_nodes)])
 
-    return data, data_pubid
+    data = Data(x=x,
+        edge_index=edge_index,
+        y=y,
+        num_nodes=num_nodes,
+        train_mask=train_mask,
+        test_mask=test_mask,
+        val_mask=val_mask,
+        node_attrs=x, 
+        edge_attrs = None, 
+        graph_attrs = None
+    )        
+    dataset._data = data
+    
+    return dataset, data_pubid
 
+DATASET_PATH = path = FILE + 'dataset/PubMed_orig/data/'
 
 def parse_pubmed():
-    path = 'dataset/PubMed_orig/data/'
 
     n_nodes = 19717
     n_features = 500
@@ -73,7 +90,7 @@ def parse_pubmed():
     feature_to_index = {}
 
     # parse nodes
-    with open(path + 'Pubmed-Diabetes.NODE.paper.tab', 'r') as node_file:
+    with open(DATASET_PATH + 'Pubmed-Diabetes.NODE.paper.tab', 'r') as node_file:
         # first two lines are headers
         node_file.readline()
         node_file.readline()
@@ -108,7 +125,7 @@ def parse_pubmed():
     # parse graph
     data_A = np.zeros((n_nodes, n_nodes), dtype='float32')
 
-    with open(path + 'Pubmed-Diabetes.DIRECTED.cites.tab', 'r') as edge_file:
+    with open(DATASET_PATH+ 'Pubmed-Diabetes.DIRECTED.cites.tab', 'r') as edge_file:
         # first two lines are headers
         edge_file.readline()
         edge_file.readline()
@@ -139,7 +156,7 @@ def get_raw_text_pubmed(use_text=False, seed=0):
     if not use_text:
         return data, None
 
-    f = open('dataset/PubMed_orig/pubmed.json')
+    f = open(FILE + 'dataset/PubMed_orig/pubmed.json')
     pubmed = json.load(f)
     df_pubmed = pd.DataFrame.from_dict(pubmed)
 
@@ -150,10 +167,3 @@ def get_raw_text_pubmed(use_text=False, seed=0):
         t = 'Title: ' + ti + '\n'+'Abstract: ' + ab
         text.append(t)
     return data, text
-
-
-if __name__ == "__main__":
-    data, data_pubid = get_pubmed_casestudy()
-    data, text = get_raw_text_pubmed(use_text=True, seed=0)
-    print(data)
-    print(text)

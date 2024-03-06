@@ -6,8 +6,6 @@ import json
 import numpy as np
 import os
 import time
-import os, sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from core.utils import time_logger
 
 FILE = 'dataset/ogbn_products_orig/ogbn-products.csv'
@@ -51,13 +49,14 @@ def _process():
 
 
 def get_raw_text_products(use_text=False, seed=0):
-    data = torch.load('dataset/ogbn_products/ogbn-products_subset.pt')
-    text = pd.read_csv('dataset/ogbn_products_orig/ogbn-products_subset.csv')
+    root_path = '/pfs/work7/workspace/scratch/cc7738-nlp_graph/TAPE_chen/'
+    data = torch.load(root_path + 'dataset/ogbn_products_orig/ogbn-products_subset.pt')
+    text = pd.read_csv(root_path + 'dataset/ogbn_products_orig/ogbn-products_subset.csv')
     text = [f'Product:{ti}; Description: {cont}\n'for ti,
             cont in zip(text['title'], text['content'])]
 
     data.edge_index = data.adj_t.to_symmetric()
-
+    
     if not use_text:
         return data, None
 

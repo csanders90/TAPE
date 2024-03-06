@@ -83,3 +83,102 @@ def time_logger(func):
         return ret
 
     return wrapper
+
+def get_root_dir():
+    file_dir = os.path.dirname(os.path.realpath(__file__))
+    return os.path.join(file_dir, "..")
+
+import git
+import subprocess
+
+def get_git_repo_root_path():
+    try:
+        # Using git module
+        git_repo = git.Repo('.', search_parent_directories=True)
+        return git_repo.working_dir
+    except git.InvalidGitRepositoryError:
+        # Fallback to using subprocess if not a valid Git repository
+        result = subprocess.run(['git', 'rev-parse', '--show-toplevel'], capture_output=True, text=True)
+
+        if result.returncode == 0:
+            return result.stdout.strip()
+        else:
+            print("Error:", result.stderr)
+            return None
+
+import pandas as pd
+import torch 
+import csv
+import uuid
+
+# Define a function that uses the lambda function
+def process_value(v):
+    return (lambda x: x.tolist() if isinstance(x, torch.Tensor) else x)(v)
+
+from IPython import embed
+def append_acc_to_excel(metrics_acc, root, name):
+    # if not exists save the first row
+    
+    csv_columns = ['Metric'] + list(k for k in metrics_acc) 
+
+    # load old csv
+    try:
+        Data = pd.read_csv(root)[:-1]
+    except:
+        Data = pd.DataFrame(None, columns=csv_columns)
+        Data.to_csv(root, index=False)
+    
+    # create new line 
+    uuid_val = uuid.uuid4()
+    acc_lst = []
+    
+    for k, v in metrics_acc.items():
+        acc_lst.append(process_value(v))
+        
+    # merge with old lines, 
+    v_lst = [f'{name}_{uuid_val}'] + acc_lst
+    new_df = pd.DataFrame([v_lst], columns=csv_columns)
+    new_Data = pd.concat([Data, new_df])
+    
+    # best value
+    highest_values = new_Data.apply(lambda column: max(column, default=None))
+
+    # concat and save
+    Best_list = ['Best'] + highest_values[1:].tolist()
+    Best_df = pd.DataFrame([Best_list], columns=Data.columns)
+    upt_Data = pd.concat([new_Data, Best_df])
+    upt_Data.to_csv(root,index=False)
+
+    return upt_Data
+
+
+def append_mrr_to_excel(metrics_mrr, root):
+ 
+    uuid_val = uuid.uuid4()
+    csv_columns, csv_numbers = [], []
+    for i, (k, v) in enumerate(metrics_mrr.items()): 
+        if i == 0:
+            csv_columns = ['Metric'] + list(v.keys())
+        csv_numbers.append([f'{k}_{uuid_val}'] + list(v.values()))
+    
+    print(csv_numbers)
+
+    try:
+        Data = pd.read_csv(root)[:-1]
+    except:
+        Data = pd.DataFrame(None, columns=csv_columns)
+        Data.to_csv(root, index=False)
+
+    
+    new_df = pd.DataFrame(csv_numbers, columns = csv_columns)
+    new_Data = pd.concat([Data, new_df])
+    
+    highest_values = new_Data.apply(lambda column: max(column, default=None))
+    Best_list = ['Best'] + highest_values[1:].tolist()
+    Best_df = pd.DataFrame([Best_list], columns=csv_columns)
+    upt_Data = pd.concat([new_Data, Best_df])
+    
+    upt_Data.to_csv(root, index=False)
+
+    
+    return upt_Data

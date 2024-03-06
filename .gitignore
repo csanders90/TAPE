@@ -63,3 +63,6 @@ logs/
 results/
 output/
 prt_lm/
+core/wandb/
+wandb/
+core/Embedding/wandb

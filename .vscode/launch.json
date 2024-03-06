@@ -3,17 +3,16 @@
 	// Hover to view descriptions of existing attributes.
 	// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
 	"version": "0.2.0",
-	"configurations": [
+	"argsurations": [
 		{
 			"name": "Python: Current File",
 			"type": "python",
 			"request": "launch",
 			"program": "${file}",
 			"console": "integratedTerminal",
-			"justMyCode": true, 
-			"args": ["dataset", "cora"]
+			"justMyCode": false,
+			"args": ["--cfg", "core/configs/cora/node2vec.yaml", "--sweep", "core/configs/cora/sweep.yaml"],
 		}
 	]
 }
-
 // python -m core.trainLM dataset ogbn-arxiv

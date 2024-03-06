@@ -1,9 +1,10 @@
 import torch
 import numpy as np
-
+import os, sys
+sys.path.insert(0, '/pfs/work7/workspace/scratch/cc7738-nlp_graph/TAPE_chen/core')
 from transformers import AutoTokenizer, AutoModel, TrainingArguments, Trainer, IntervalStrategy
 from core.LMs.model import BertClassifier, BertClaInfModel
-from core.data_utils.dataset import Dataset
+from core.data_utils.dataset import CustomPygDataset
 from core.data_utils.load import load_data
 from core.utils import init_path, time_logger
 
@@ -40,17 +41,16 @@ class LMTrainer():
         self.ckpt_dir = f'prt_lm/{self.dataset_name}{self.use_gpt_str}/{self.model_name}-seed{self.seed}'
 
         # Preprocess data
-        data, text = load_data(
+        data, num_classes, text = load_data(
             dataset=self.dataset_name, use_text=True, use_gpt=cfg.lm.train.use_gpt, seed=self.seed)
-        
-        self.data = data 
-        self.num_nodes = data.x.size(0)
-        self.n_labels = data.y.unique().size(0)
+        self.data = data
+        self.num_nodes = data.y.size(0)
+        self.n_labels = num_classes
 
         tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         X = tokenizer(text, padding=True, truncation=True, max_length=512)
 
-        dataset = Dataset(X, data.y.tolist())
+        dataset = CustomPygDataset(X, data.y.tolist())
         self.inf_dataset = dataset
 
         self.train_dataset = torch.utils.data.Subset(
@@ -71,8 +71,8 @@ class LMTrainer():
         #     print("Initialize using previous ckpt...")
         #     self.model.load_state_dict(torch.load(prev_ckpt))
 
-        self.model.config.dropout = self.dropout
-        self.model.config.attention_dropout = self.att_dropout
+        self.model.args.dropout = self.dropout
+        self.model.args.attention_dropout = self.att_dropout
 
         trainable_params = sum(p.numel()
                                for p in self.model.parameters() if p.requires_grad)
@@ -107,7 +107,6 @@ class LMTrainer():
             fp16=True,
             dataloader_drop_last=True,
         )
-        
         self.trainer = Trainer(
             model=self.model,
             args=args,
