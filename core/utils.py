@@ -116,7 +116,7 @@ def process_value(v):
     return (lambda x: x.tolist() if isinstance(x, torch.Tensor) else x)(v)
 
 from IPython import embed
-def append_acc_to_excel(metrics_acc, root, name):
+def append_acc_to_excel(uuid_val, metrics_acc, root, name):
     # if not exists save the first row
     
     csv_columns = ['Metric'] + list(k for k in metrics_acc) 
@@ -129,7 +129,6 @@ def append_acc_to_excel(metrics_acc, root, name):
         Data.to_csv(root, index=False)
     
     # create new line 
-    uuid_val = uuid.uuid4()
     acc_lst = []
     
     for k, v in metrics_acc.items():
@@ -152,9 +151,8 @@ def append_acc_to_excel(metrics_acc, root, name):
     return upt_Data
 
 
-def append_mrr_to_excel(metrics_mrr, root):
+def append_mrr_to_excel(uuid_val, metrics_mrr, root):
  
-    uuid_val = uuid.uuid4()
     csv_columns, csv_numbers = [], []
     for i, (k, v) in enumerate(metrics_mrr.items()): 
         if i == 0:
