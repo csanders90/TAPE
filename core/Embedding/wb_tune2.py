@@ -43,6 +43,7 @@ def initialize_config(args):
     
     return cfg
 
+# TODO how to save wandb files 
 def wandb_record_files(path):
     record_or_not = False
     record_lst = [args.sweep_file, 
@@ -83,12 +84,29 @@ def process_edge_index(full_edge_index):
     print("full_edge_index", full_edge_index.shape)
     return to_scipy_sparse_matrix(full_edge_index)
 
+def condition(p, q, method, data):
+    # for arxiv  p < q for others p > q
+    if method == 'node2vec':
+        if data == 'cora' or data == 'pubmed':
+            return p > q
+        if data == 'arxiv_2023':
+            return p < q
+
+    if method == 'deepwalk':
+        if p == q:
+            return True 
+        else:
+            return False
+    
+
+
 def perform_node2vec_embedding(adj, config, splits):
     pprint.pprint(config)
     walk_length = config.wl
     num_walks = config.num_walks
-    p = config.p
-    q = config.q
+    # for deepwalk p = q = 1
+    p = 1
+    q = 1
 
     embed_size = cfg.model.node2vec.embed_size
     num_neg_samples = cfg.model.node2vec.num_neg_samples
@@ -98,7 +116,7 @@ def perform_node2vec_embedding(adj, config, splits):
     print("X_train_index range", X_train_index.max(), X_train_index.min())
     X_test_index, y_test = splits['test'].edge_label_index.T, splits['test'].edge_label
     
-    if p > q: # for arxiv  p < q for others p > q
+    if condition(p, q, 'deepwalk', cfg.data.name): # for arxiv  p < q for others p > q
         embed = node2vec(workers,
                          adj,
                          embedding_dim=embed_size,

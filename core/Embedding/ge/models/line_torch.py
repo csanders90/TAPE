@@ -1,72 +1,52 @@
-# -*- coding:utf-8 -*-
-
-"""
-
-
-
-Author:
-
-    Weichen Shen,wcshen1994@163.com
-
-
-
-Reference:
-
-    [1] Tang J, Qu M, Wang M, et al. Line: Large-scale information network embedding[C]//Proceedings of the 24th International Conference on World Wide Web. International World Wide Web Conferences Steering Committee, 2015: 1067-1077.(https://arxiv.org/pdf/1503.03578.pdf)
-
-
-
-"""
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.autograd import Variable
+import torch
+import torch.optim as optim
+import torch.nn.functional as F
+from torch.utils.data import DataLoader
 import math
 import random
 
 import numpy as np
-import tensorflow as tf
-from tensorflow.python.keras import backend as K
-from tensorflow.python.keras.layers import Embedding, Input, Lambda
-from tensorflow.python.keras.models import Model
 
 from ..alias import create_alias_table, alias_sample
 from ..utils import preprocess_nxgraph
 
+class LineLoss(nn.Module):
+    def forward(self, y_true, y_pred):
+        return -torch.mean(torch.log(torch.sigmoid(y_true * y_pred)))
 
-def line_loss(y_true, y_pred):
-    return -K.mean(K.log(K.sigmoid(y_true*y_pred)))
+class LINEModel(nn.Module):
+    def __init__(self, num_nodes, embedding_size, order='second'):
+        super(LINEModel, self).__init__()
 
+        self.first_emb = nn.Embedding(num_nodes, embedding_size)
+        self.second_emb = nn.Embedding(num_nodes, embedding_size)
+        self.context_emb = nn.Embedding(num_nodes, embedding_size)
 
-def create_model(numNodes, embedding_size, order='second'):
+        self.order = order
 
-    v_i = Input(shape=(1,))
-    v_j = Input(shape=(1,))
+    def forward(self, v_i, v_j):
+        v_i_emb = self.first_emb(v_i)
+        v_j_emb = self.first_emb(v_j)
 
-    first_emb = Embedding(numNodes, embedding_size, name='first_emb')
-    second_emb = Embedding(numNodes, embedding_size, name='second_emb')
-    context_emb = Embedding(numNodes, embedding_size, name='context_emb')
+        v_i_emb_second = self.second_emb(v_i)
+        v_j_context_emb = self.context_emb(v_j)
 
-    v_i_emb = first_emb(v_i)
-    v_j_emb = first_emb(v_j)
+        first_order = torch.sum(v_i_emb * v_j_emb, dim=-1)
+        second_order = torch.sum(v_i_emb_second * v_j_context_emb, dim=-1)
 
-    v_i_emb_second = second_emb(v_i)
-    v_j_context_emb = context_emb(v_j)
-
-    first = Lambda(lambda x: tf.reduce_sum(
-        x[0]*x[1], axis=-1, keepdims=False), name='first_order')([v_i_emb, v_j_emb])
-    second = Lambda(lambda x: tf.reduce_sum(
-        x[0]*x[1], axis=-1, keepdims=False), name='second_order')([v_i_emb_second, v_j_context_emb])
-
-    if order == 'first':
-        output_list = [first]
-    elif order == 'second':
-        output_list = [second]
-    else:
-        output_list = [first, second]
-
-    model = Model(inputs=[v_i, v_j], outputs=output_list)
-
-    return model, {'first': first_emb, 'second': second_emb}
+        if self.order == 'first':
+            return first_order
+        elif self.order == 'second':
+            return second_order
+        else:
+            return [first_order, second_order]
 
 
-class LINE:
+class LINE_torch:
     def __init__(self, graph, embedding_size=8, negative_ratio=5, order='second',):
         """
 
@@ -94,19 +74,14 @@ class LINE:
         self.samples_per_epoch = self.edge_size*(1+negative_ratio)
 
         self._gen_sampling_table()
-        self.reset_model()
+        self.model, self.embedding_dict = LINEModel(
+            self.node_size, self.rep_size, self.order)
 
     def reset_training_args(self, batch_size, times):
         self.batch_size = batch_size
         self.steps_per_epoch = (
             (self.samples_per_epoch - 1) // self.batch_size + 1)*times
 
-    def reset_model(self, opt='adam'):
-
-        self.model, self.embedding_dict = create_model(
-            self.node_size, self.rep_size, self.order)
-        self.model.compile(opt, line_loss)
-        self.batch_it = self.batch_iter(self.node2idx)
 
     def _gen_sampling_table(self):
 
@@ -135,7 +110,7 @@ class LINE:
                      numEdges / total_sum for edge in self.graph.edges()]
 
         self.edge_accept, self.edge_alias = create_alias_table(norm_prob)
-
+        
     def batch_iter(self, node2idx):
 
         edges = [(node2idx[x[0]], node2idx[x[1]]) for x in self.graph.edges()]
@@ -189,6 +164,7 @@ class LINE:
                 shuffle_indices = np.random.permutation(np.arange(data_size))
                 start_index = 0
                 end_index = min(start_index + self.batch_size, data_size)
+                
 
     def get_embeddings(self,):
         self._embeddings = {}
@@ -202,12 +178,57 @@ class LINE:
         idx2node = self.idx2node
         for i, embedding in enumerate(embeddings):
             self._embeddings[idx2node[i]] = embedding
-
-        return self._embeddings
+            
 
     def train(self, batch_size=1024, epochs=1, initial_epoch=0, verbose=1, times=1):
         self.reset_training_args(batch_size, times)
-        hist = self.model.fit(self.batch_it, epochs=epochs, initial_epoch=initial_epoch, steps_per_epoch=self.steps_per_epoch,
-                                        verbose=verbose)
 
-        return hist
+        criterion = torch.nn.CrossEntropyLoss()
+        optimizer = optim.SGD(self.model.parameters(), lr=self.learning_rate)
+
+        for epoch in range(initial_epoch, initial_epoch + epochs):
+            running_loss = 0.0
+            for i, data in enumerate(self.batch_it, 0):
+                inputs, labels = data
+                optimizer.zero_grad()
+
+                outputs = self.model(inputs)
+                loss = criterion(outputs, labels)
+                loss.backward()
+                optimizer.step()
+
+                running_loss += loss.item()
+
+            if verbose and (epoch + 1) % verbose == 0:
+                print(f'Epoch {epoch + 1}, Loss: {running_loss / self.steps_per_epoch}')
+
+        print('Finished Training')
+
+
+# # Example usage:
+# num_nodes = 100  # Replace with your actual number of nodes
+# embedding_size = 64  # Replace with your desired embedding size
+# order = 'second'  # Replace with 'first' or 'both' if needed
+
+# model = LINEModel(num_nodes, embedding_size, order=order)
+# criterion = LineLoss()
+# optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+
+# # Convert your TensorFlow inputs to PyTorch tensors
+# v_i_tensor = torch.LongTensor([1, 2, 3])  # Replace with your actual data
+# v_j_tensor = torch.LongTensor([4, 5, 6])  # Replace with your actual data
+
+# # Convert tensors to PyTorch Variables if you're not using PyTorch 1.6+
+# v_i_var = Variable(v_i_tensor)
+# v_j_var = Variable(v_j_tensor)
+
+# # Forward pass
+# output = model(v_i_var, v_j_var)
+
+# # Compute loss
+# loss = criterion(output, torch.ones_like(output))
+
+# # Backward pass and optimization
+# optimizer.zero_grad()
+# loss.backward()
+# optimizer.step()
