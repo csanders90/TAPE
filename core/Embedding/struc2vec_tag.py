@@ -1,45 +1,16 @@
 import os, sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 import numpy as np
-from ge.classify import read_node_label,Classifier
-from ge import Struc2Vec
-from sklearn.linear_model import LogisticRegression
-import matplotlib.pyplot as plt
 import networkx as nx
-from sklearn.manifold import TSNE
-
-
-import numpy as np
-import os, sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from ge.classify import read_node_label, Classifier
-from ge import LINE
-from ge import LINE_torch
-from sklearn.linear_model import LogisticRegression
-
 import matplotlib.pyplot as plt
-import networkx as nx
-from sklearn.manifold import TSNE
-
-
-# Third-party library imports
-import numpy as np
-from sklearn.linear_model import LogisticRegression
-from IPython import embed
-from joblib import Parallel, delayed
-
-# External module imports
 import torch
-import matplotlib.pyplot as plt
-from ogb.linkproppred import Evaluator
-from yacs.config import CfgNode as CN
+import scipy.sparse as ssp
+from sklearn.linear_model import LogisticRegression
+from sklearn.manifold import TSNE
 from torch_geometric.graphgym.cmd_args import parse_args
 from torch_geometric.graphgym.config import cfg
 from torch_geometric.utils import to_scipy_sparse_matrix
-import itertools 
-import scipy.sparse as ssp
-
+from ogb.linkproppred import Evaluator
+from yacs.config import CfgNode as CN
 from heuristic.eval import get_metric_score
 from heuristic.pubmed_heuristic import get_pubmed_casestudy
 from heuristic.cora_heuristic import get_cora_casestudy
@@ -51,6 +22,18 @@ from utils import (
     append_mrr_to_excel
 )
 
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from ge.classify import read_node_label, Classifier
+from ge import Struc2Vec
+import itertools
+
+
+data_loader = {
+    'cora': get_cora_casestudy,
+    'pubmed': get_pubmed_casestudy,
+    'arxiv_2023': get_raw_text_arxiv_2023
+}
 
 def evaluate_embeddings(embeddings):
 
@@ -108,13 +91,6 @@ def plot_embeddings(embeddings,):
 
     plt.show()
 
-
-data_loader = {
-    'cora': get_cora_casestudy,
-    'pubmed': get_pubmed_casestudy,
-    'arxiv_2023': get_raw_text_arxiv_2023
-}
-
 if __name__ == "__main__":
     # G = nx.read_edgelist('../data/flight/brazil-airports.edgelist', create_using=nx.DiGraph(), nodetype=None,
     #                      data=[('weight', int)])
@@ -164,7 +140,9 @@ if __name__ == "__main__":
     full_edge_index = splits['test'].edge_index
     full_edge_weight = torch.ones(full_edge_index.size(1))
     num_nodes = dataset._data.num_nodes
-
+    
+    m = construct_sparse_adj(full_edge_index)
+    plot_coo_matrix(m, f'test_edge_index.png')
     
     full_A = ssp.csr_matrix((full_edge_weight.view(-1), (full_edge_index[0], full_edge_index[1])), shape=(num_nodes, num_nodes)) 
 
@@ -178,7 +156,7 @@ if __name__ == "__main__":
 
     G = nx.from_scipy_sparse_array(adj)
     
-    model = Struc2Vec(G, 10, 80, workers=4, verbose=40, )
+    model = Struc2Vec(G, 10, 80, workers=20, verbose=40, )
     model.train(embed_size=2)
 
     embeddings = model.get_embeddings()

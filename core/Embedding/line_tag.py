@@ -100,9 +100,19 @@ if __name__ == "__main__":
     # Set Pytorch environment
     torch.set_num_threads(cfg.num_threads)
     
+    if torch.cuda.is_available():
+        # Get the number of available CUDA devices
+        num_cuda_devices = torch.cuda.device_count()
+
+        if num_cuda_devices > 0:
+            # Set the first CUDA device as the active device
+            torch.cuda.set_device(0)
+            device = 'cuda'
+    else:
+        device = 'cpu'
+        
     dataset, data_cited, splits = data_loader[cfg.data.name](cfg)
     
-    # ust test edge_index as full_A
     full_edge_index = splits['test'].edge_index
     full_edge_weight = torch.ones(full_edge_index.size(1))
     num_nodes = dataset._data.num_nodes
@@ -117,18 +127,12 @@ if __name__ == "__main__":
     
     result_dict = {}
     # Access individual parameters
-    # G = nx.from_scipy_sparse_matrix(full_A, create_using=nx.Graph())
+
     adj = to_scipy_sparse_matrix(full_edge_index)
-    import pandas as pd
 
-    df = pd.DataFrame()
-    df['source'] = [str(i) for i in [0, 1, 2, 3, 4, 4, 6, 7, 7, 9]]
-    df['target'] = [str(i) for i in [1, 4, 4, 4, 6, 7, 5, 8, 9, 8]]
-
-    G = nx.from_pandas_edgelist(df, create_using=nx.Graph())
-
-    model = LINE_torch(G, embedding_size=2, order='all')
-    model.train(batch_size=1024, epochs=2000, verbose=2)
+    G = nx.from_scipy_sparse_array(adj)
+    model = LINE_torch(G, embedding_size=2, order='all', device=device)
+    model.train(batch_size=1024, epochs=5, verbose=2)
 
     embeddings = model.get_embeddings()
     # print(embeddings)

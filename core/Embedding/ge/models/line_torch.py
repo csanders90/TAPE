@@ -13,10 +13,13 @@ import numpy as np
 
 from ..alias import create_alias_table, alias_sample
 from ..utils import preprocess_nxgraph
+from tqdm import tqdm 
 
 class LineLoss(nn.Module):
     def forward(self, y_true, y_pred):
-        return -torch.mean(torch.log(torch.sigmoid(y_true * y_pred)))
+        order1 = -torch.mean(torch.log(torch.sigmoid(y_true[0] * y_pred[0])))
+        order2 = -torch.mean(torch.log(torch.sigmoid(y_true[1] * y_pred[1])))
+        return order1+order2
 
 class LINEModel(nn.Module):
     def __init__(self, num_nodes, embedding_size, order='second'):
@@ -47,7 +50,7 @@ class LINEModel(nn.Module):
 
 
 class LINE_torch:
-    def __init__(self, graph, embedding_size=8, negative_ratio=5, order='second',):
+    def __init__(self, graph, embedding_size=8, negative_ratio=5, order='second', device='cuda:0'):
         """
 
         :param graph:
@@ -74,9 +77,16 @@ class LINE_torch:
         self.samples_per_epoch = self.edge_size*(1+negative_ratio)
 
         self._gen_sampling_table()
-        self.model, self.embedding_dict = LINEModel(
-            self.node_size, self.rep_size, self.order)
+        
+        self.model = LINEModel(self.node_size, self.rep_size, self.order).to(device)
+        self.batch_it = self.batch_iter(self.node2idx)
 
+        self.criterion = LineLoss()
+        
+        print(self.model.parameters)
+        self.optimizer = optim.Adam(self.model.parameters(), lr = 1e-5)
+        self.device = device 
+        
     def reset_training_args(self, batch_size, times):
         self.batch_size = batch_size
         self.steps_per_epoch = (
@@ -126,6 +136,7 @@ class LINE_torch:
         count = 0
         start_index = 0
         end_index = min(start_index + self.batch_size, data_size)
+        
         while True:
             if mod == 0:
 
@@ -148,9 +159,10 @@ class LINE_torch:
                         self.node_accept, self.node_alias))
 
             if self.order == 'all':
-                yield ([np.array(h), np.array(t)], [sign, sign])
+                yield ([torch.IntTensor(h), torch.IntTensor(t)], [torch.LongTensor(sign), torch.LongTensor(sign)])
             else:
-                yield ([np.array(h), np.array(t)], [sign])
+                yield ([torch.IntTensor(h), torch.IntTensor(t)], [torch.LongTensor(sign)])
+                
             mod += 1
             mod %= mod_size
             if mod == 0:
@@ -167,14 +179,15 @@ class LINE_torch:
                 
 
     def get_embeddings(self,):
+        
+        self.embedding_dict =  {'first': self.model.first_emb, 'second': self.model.first_emb}
         self._embeddings = {}
         if self.order == 'first':
             embeddings = self.embedding_dict['first'].get_weights()[0]
         elif self.order == 'second':
             embeddings = self.embedding_dict['second'].get_weights()[0]
         else:
-            embeddings = np.hstack((self.embedding_dict['first'].get_weights()[
-                                   0], self.embedding_dict['second'].get_weights()[0]))
+            embeddings = torch.hstack((self.embedding_dict['first'].weight, self.embedding_dict['second'].weight))
         idx2node = self.idx2node
         for i, embedding in enumerate(embeddings):
             self._embeddings[idx2node[i]] = embedding
@@ -183,21 +196,29 @@ class LINE_torch:
     def train(self, batch_size=1024, epochs=1, initial_epoch=0, verbose=1, times=1):
         self.reset_training_args(batch_size, times)
 
-        criterion = torch.nn.CrossEntropyLoss()
-        optimizer = optim.SGD(self.model.parameters(), lr=self.learning_rate)
-
         for epoch in range(initial_epoch, initial_epoch + epochs):
             running_loss = 0.0
-            for i, data in enumerate(self.batch_it, 0):
+            for i in range(self.steps_per_epoch):
+                data = next(self.batch_it)
                 inputs, labels = data
-                optimizer.zero_grad()
+                if self.model.order == 'all':
+                    inputs[0] = inputs[0].to(self.device)
+                    inputs[1] = inputs[1].to(self.device)
+                    labels[0] = labels[0].to(self.device)
+                    labels[1] = labels[1].to(self.device)
+                    
+                self.optimizer.zero_grad()
 
-                outputs = self.model(inputs)
-                loss = criterion(outputs, labels)
+                outputs = self.model(inputs[0], inputs[1])
+                if self.model.order == 'all':
+                    outputs[0] = outputs[0].to(self.device)
+                    
+                loss = self.criterion(labels, outputs)
                 loss.backward()
-                optimizer.step()
+                self.optimizer.step()
 
                 running_loss += loss.item()
+                # print(f"running loss", loss.item())
 
             if verbose and (epoch + 1) % verbose == 0:
                 print(f'Epoch {epoch + 1}, Loss: {running_loss / self.steps_per_epoch}')

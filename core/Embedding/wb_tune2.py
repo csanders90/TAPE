@@ -198,16 +198,12 @@ def run_experiment(config=None):
         X_train, y_train, X_test, y_test = embedding_results
         acc = train_and_evaluate_logistic_regression(id, X_train, y_train, X_test, y_test, cfg.model.node2vec.max_iter)
         run.log({"score": acc})
-        # run.log_code(include_fn=wandb_record_files)
-        run.log_code(
-        "../",
-        include_fn=lambda path: path.endswith(".py") or path.endswith(".yaml"),
-        exclude_fn=lambda path, root: os.path.relpath(path, root).startswith("dataset/"),
-    )
+        run.log_code("../", include_fn=wandb_record_files)
+
     else:
         run.log({"score": 0})
 
 
-sweep_id = wandb.sweep(sweep=sweep_config, project=f"embedding-sweep-{cfg.data.name}")
+sweep_id = wandb.sweep(sweep=sweep_config, project=f"deepwalk-sweep-{cfg.data.name}")
 wandb.agent(sweep_id, run_experiment, count=60)
 

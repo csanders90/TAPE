@@ -1,5 +1,7 @@
 
 import numpy as np
+import os, sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from ge.classify import read_node_label, Classifier
 from ge import SDNE
@@ -61,6 +63,10 @@ if __name__ == "__main__":
 
     G = nx.from_pandas_edgelist(df, create_using=nx.Graph())
 
+
+    # Set Pytorch environment
+
+    
     model = SDNE(G, hidden_size=[4,2],)
     # model.train(batch_size=3000, epochs=40, verbose=2)
 
@@ -71,5 +77,5 @@ if __name__ == "__main__":
     for k, i in embeddings.items():
         x.append(i[0])
         y.append(i[1])
-    plt.scatter(x, y)
-    plt.show()
+        plt.scatter(x, y)
+        plt.show()

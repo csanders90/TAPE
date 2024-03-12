@@ -135,7 +135,7 @@ def append_acc_to_excel(uuid_val, metrics_acc, root, name):
         acc_lst.append(process_value(v))
         
     # merge with old lines, 
-    v_lst = [f'{name}_{uuid_val}'] + acc_lst
+    v_lst = [f'{name}_{uuid_val}_deepwalk'] + acc_lst
     new_df = pd.DataFrame([v_lst], columns=csv_columns)
     new_Data = pd.concat([Data, new_df])
     
