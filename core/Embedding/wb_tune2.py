@@ -100,7 +100,7 @@ def condition(p, q, method, data):
     
 
 
-def perform_node2vec_embedding(adj, config, splits):
+def perform_node2vec_embedding(adj, config, splits, method):
     pprint.pprint(config)
     walk_length = config.wl
     num_walks = config.num_walks
@@ -116,7 +116,7 @@ def perform_node2vec_embedding(adj, config, splits):
     print("X_train_index range", X_train_index.max(), X_train_index.min())
     X_test_index, y_test = splits['test'].edge_label_index.T, splits['test'].edge_label
     
-    if condition(p, q, 'deepwalk', cfg.data.name): # for arxiv  p < q for others p > q
+    if condition(p, q,  method, cfg.data.name): # for arxiv  p < q for others p > q
         embed = node2vec(workers,
                          adj,
                          embedding_dim=embed_size,
@@ -139,7 +139,7 @@ def perform_node2vec_embedding(adj, config, splits):
 
     return None
 
-def train_and_evaluate_logistic_regression(id, X_train, y_train, X_test, y_test, max_iter):
+def train_and_evaluate_logistic_regression(id, X_train, y_train, X_test, y_test, max_iter, method):
     clf = LogisticRegression(solver='lbfgs', max_iter=max_iter, multi_class='auto')
     clf.fit(X_train, y_train)
 
@@ -163,8 +163,8 @@ def train_and_evaluate_logistic_regression(id, X_train, y_train, X_test, y_test,
     mrr_file = root + f'/{cfg.data.name}_mrr.csv'
     if not os.path.exists(root):
         os.makedirs(root, exist_ok=True)
-    append_acc_to_excel(id, results_acc, acc_file, cfg.data.name)
-    append_mrr_to_excel(id, results_mrr, mrr_file)
+    append_acc_to_excel(id, results_acc, acc_file, cfg.data.name, method)
+    append_mrr_to_excel(id, results_mrr, mrr_file, method)
 
     print(results_acc, '\n', results_mrr)
     return acc
@@ -193,10 +193,11 @@ def run_experiment(config=None):
     full_edge_index = splits['test'].edge_index
     adj = process_edge_index(full_edge_index)
 
-    embedding_results = perform_node2vec_embedding(adj, wandb_config, splits)
+    method = 'deepwalk'
+    embedding_results = perform_node2vec_embedding(adj, wandb_config, splits, method)
     if embedding_results:
         X_train, y_train, X_test, y_test = embedding_results
-        acc = train_and_evaluate_logistic_regression(id, X_train, y_train, X_test, y_test, cfg.model.node2vec.max_iter)
+        acc = train_and_evaluate_logistic_regression(id, X_train, y_train, X_test, y_test, cfg.model.node2vec.max_iter, method)
         run.log({"score": acc})
         run.log_code("../", include_fn=wandb_record_files)
 

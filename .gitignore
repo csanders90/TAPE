@@ -60,7 +60,6 @@ gpt_preds/
 
 # logs and results
 logs/
-results/
 output/
 prt_lm/
 core/wandb/

@@ -1,4 +1,6 @@
 import os, sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -22,12 +24,11 @@ from utils import (
     append_mrr_to_excel
 )
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
+import uuid
 from ge.classify import read_node_label, Classifier
 from ge import Struc2Vec
 import itertools
-
+import wandb
 
 data_loader = {
     'cora': get_cora_casestudy,
@@ -35,88 +36,13 @@ data_loader = {
     'arxiv_2023': get_raw_text_arxiv_2023
 }
 
-def evaluate_embeddings(embeddings):
 
-    X, Y = read_node_label('../data/flight/labels-brazil-airports.txt',skip_head=True)
-
-    tr_frac = 0.8
-
-    print("Training classifier using {:.2f}% nodes...".format(
-
-        tr_frac * 100))
-
-    clf = Classifier(embeddings=embeddings, clf=LogisticRegression())
-
-    clf.split_train_evaluate(X, Y, tr_frac)
-
-
-
-
-
-def plot_embeddings(embeddings,):
-
-    X, Y = read_node_label('../data/flight/labels-brazil-airports.txt',skip_head=True)
-
-    emb_list = []
-
-    for k in X:
-
-        emb_list.append(embeddings[k])
-
-    emb_list = np.array(emb_list)
-
-
-
-    model = TSNE(n_components=2)
-
-    node_pos = model.fit_transform(emb_list)
-
-
-
-    color_idx = {}
-
-    for i in range(len(X)):
-
-        color_idx.setdefault(Y[i][0], [])
-
-        color_idx[Y[i][0]].append(i)
-
-
-
-    for c, idx in color_idx.items():
-
-        plt.scatter(node_pos[idx, 0], node_pos[idx, 1], label=c)  # c=node_colors)
-
-    plt.legend()
-
-    plt.show()
 
 if __name__ == "__main__":
-    # G = nx.read_edgelist('../data/flight/brazil-airports.edgelist', create_using=nx.DiGraph(), nodetype=None,
-    #                      data=[('weight', int)])
-    #
-    # # nx.draw(G, node_size=10, font_size=10, font_color="blue", font_weight="bold")
-    # # plt.show()
-    # # print(G)
-    #
-    # model = Struc2Vec(G, 10, 80, workers=4, verbose=40, )
-    # model.train(embed_size=64)
-    # embeddings = model.get_embeddings()
-    #
-    # evaluate_embeddings(embeddings)
-    # plot_embeddings(embeddings)
-
-    # import pandas as pd
-
-    # df = pd.DataFrame()
-    # df['source'] = [str(i) for i in [0, 1, 2, 3, 4, 4, 6, 7, 7, 9]]
-    # df['target'] = [str(i) for i in [1, 4, 4, 4, 6, 7, 5, 8, 9, 8]]
-
-    # G = nx.from_pandas_edgelist(df, create_using=nx.Graph())
 
     FILE_PATH = get_git_repo_root_path() + '/'
 
-    cfg_file = FILE_PATH + "core/configs/pubmed/node2vec.yaml"
+    cfg_file = FILE_PATH + "core/configs/arxiv_2023/struc2vec.yaml"
     # # Load args file
     with open(cfg_file, "r") as f:
         cfg = CN.load_cfg(f)
@@ -134,37 +60,90 @@ if __name__ == "__main__":
             device = 'cuda'
     else:
         device = 'cpu'
-        
+    
     dataset, data_cited, splits = data_loader[cfg.data.name](cfg)
-    
-    full_edge_index = splits['test'].edge_index
-    full_edge_weight = torch.ones(full_edge_index.size(1))
-    num_nodes = dataset._data.num_nodes
-    
-    m = construct_sparse_adj(full_edge_index)
-    plot_coo_matrix(m, f'test_edge_index.png')
-    
-    full_A = ssp.csr_matrix((full_edge_weight.view(-1), (full_edge_index[0], full_edge_index[1])), shape=(num_nodes, num_nodes)) 
-
-    evaluator_hit = Evaluator(name='ogbl-collab')
-    evaluator_mrr = Evaluator(name='ogbl-citation2')
-    
-    result_dict = {}
     # Access individual parameters
-
-    adj = to_scipy_sparse_matrix(full_edge_index)
-
-    G = nx.from_scipy_sparse_array(adj)
+    max_iter = cfg.model.struc2vec.max_iter
     
-    model = Struc2Vec(G, 10, 80, workers=20, verbose=40, )
-    model.train(embed_size=2)
+    if not os.path.exists(f'core/Embedding/structure_{cfg.data.name}_thomasha.npz'):
+        
+        full_edge_index = splits['test'].edge_index
+        full_edge_weight = torch.ones(full_edge_index.size(1))
+        num_nodes = dataset._data.num_nodes
+        
+        m = construct_sparse_adj(full_edge_index)
+        plot_coo_matrix(m, f'test_edge_index.png')
+        
+        full_A = ssp.csr_matrix((full_edge_weight.view(-1), (full_edge_index[0], full_edge_index[1])), shape=(num_nodes, num_nodes)) 
 
-    embeddings = model.get_embeddings()
-    # print(embeddings)
-    x, y = [], []
-    print(sorted(embeddings.items(), key=lambda x: x[0]))
-    for k, i in embeddings.items():
-        x.append(i[0])
-        y.append(i[1])
-    plt.scatter(x, y)
-    plt.savefig('structure2vec.png')
+        evaluator_hit = Evaluator(name='ogbl-collab')
+        evaluator_mrr = Evaluator(name='ogbl-citation2')
+    
+        result_dict = {}
+        
+        adj = to_scipy_sparse_matrix(full_edge_index)
+
+        G = nx.from_scipy_sparse_array(adj)
+        
+        # three parameters
+        model = Struc2Vec(G, 10, 80, workers=20, verbose=40, )
+        model.train(embed_size=128, window_size=5, workers=20, iter=5)
+
+        embed = model.get_embeddings()
+        print(embed.shape)
+        np.savez(f'structure_{cfg.data.name}_thomasha.npz', my_array=embed)
+
+    # Load the array back from the npz file
+    else:
+        embed = np.load('core/Embedding/structure_arxiv_2023_thomasha.npz')['my_array']
+
+        print(f"embedding size {embed.shape}")
+
+        # embedding method 
+        X_train_index, y_train = splits['train'].edge_label_index.T, splits['train'].edge_label
+        # dot product
+        X_train = embed[X_train_index]
+        X_train = np.multiply(X_train[:, 1], (X_train[:, 0]))
+        X_test_index, y_test = splits['test'].edge_label_index.T, splits['test'].edge_label
+        # dot product 
+        X_test = embed[X_test_index]
+        X_test = np.multiply(X_test[:, 1], (X_test[:, 0]))
+        
+    
+        clf = LogisticRegression(solver='lbfgs', max_iter=max_iter, multi_class='auto')
+        clf.fit(X_train, y_train)
+        
+        y_pred = clf.predict_proba(X_test)
+
+        acc = clf.score(X_test, y_test)
+
+        plt.figure()
+        plt.plot(y_pred, label='pred')
+        plt.plot(y_test, label='test')
+        plt.savefig('node2vec_pred.png')
+        
+        results_acc = {'node2vec_acc': acc}
+        pos_test_pred = torch.tensor(y_pred[y_test == 1])
+        neg_test_pred = torch.tensor(y_pred[y_test == 0])
+        
+        evaluator_hit = Evaluator(name='ogbl-collab')
+        evaluator_mrr = Evaluator(name='ogbl-citation2')
+        pos_pred = pos_test_pred[:, 1]
+        neg_pred = neg_test_pred[:, 1]
+        result_mrr = get_metric_score(evaluator_hit, evaluator_mrr, pos_pred, neg_pred)
+        results_mrr = {'node2vec_mrr': result_mrr}
+        print(results_acc, results_mrr)
+    
+
+        root = FILE_PATH + 'results'
+        acc_file = root + f'/{cfg.data.name}_acc.csv'
+        mrr_file = root +  f'/{cfg.data.name}_mrr.csv'
+        if not os.path.exists(root):
+            os.makedirs(root, exist_ok=True)
+        
+        id = wandb.util.generate_id()
+        append_acc_to_excel(id, results_acc, acc_file, cfg.data.name, 'struc2vec')
+        append_mrr_to_excel(id, results_mrr, mrr_file, 'struc2vec')
+        
+    
+

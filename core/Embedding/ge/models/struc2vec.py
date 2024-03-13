@@ -35,8 +35,31 @@ from ..utils import partition_dict, preprocess_nxgraph
 from ..walker import BiasedWalker
 
 
+import time
+
+def measure_time(func):
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        end_time = time.time()
+        execution_time = end_time - start_time
+        print(f"{func.__name__} took {execution_time:.4f} seconds to run.")
+        return result
+    return wrapper
+
 class Struc2Vec():
-    def __init__(self, graph, walk_length=10, num_walks=100, workers=1, verbose=0, stay_prob=0.3, opt1_reduce_len=True, opt2_reduce_sim_calc=True, opt3_num_layers=None, temp_path='./temp_struc2vec/', reuse=False):
+    def __init__(self, 
+                 graph, 
+                 walk_length=10, 
+                 num_walks=100, 
+                 workers=20, 
+                 verbose=0, 
+                 stay_prob=0.3, 
+                 opt1_reduce_len=True, 
+                 opt2_reduce_sim_calc=True, 
+                 opt3_num_layers=None, 
+                 temp_path='./temp_struc2vec/',
+                 reuse=True):
         self.graph = graph
         self.idx2node, self.node2idx = preprocess_nxgraph(graph)
         self.idx = list(range(len(self.idx2node)))
@@ -48,6 +71,8 @@ class Struc2Vec():
         self.resue = reuse
         self.temp_path = temp_path
 
+        self.workers = workers 
+        
         if not os.path.exists(self.temp_path):
             os.mkdir(self.temp_path)
         if not reuse:
@@ -62,7 +87,7 @@ class Struc2Vec():
 
         self._embeddings = {}
 
-    def create_context_graph(self, max_num_layers, workers=1, verbose=0,):
+    def create_context_graph(self, max_num_layers, workers=20, verbose=0,):
 
         pair_distances = self._compute_structural_distance(
             max_num_layers, workers, verbose,)
@@ -73,6 +98,7 @@ class Struc2Vec():
             layers_adj, layers_distances)
         pd.to_pickle(layers_alias, self.temp_path + 'layers_alias.pkl')
         pd.to_pickle(layers_accept, self.temp_path + 'layers_accept.pkl')
+
 
     def prepare_biased_walk(self,):
 
@@ -124,26 +150,37 @@ class Struc2Vec():
 
         return model
 
-    def get_embeddings(self,):
-        if self.w2v_model is None:
-            print("model not train")
-            return {}
-
-        self._embeddings = {}
-        for word in self.graph.nodes():
-            self._embeddings[word] = self.w2v_model.wv[word]
-
-        return self._embeddings
-
     def _compute_ordered_degreelist(self, max_num_layers):
 
         degreeList = {}
         vertices = self.idx  # self.g.nodes()
-        for v in vertices:
-            degreeList[v] = self._get_order_degreelist_node(v, max_num_layers)
+        # for v in vertices:
+        #     degreeList[v] = self._get_order_degreelist_node(v, max_num_layers)
+        results = Parallel(n_jobs=20)(
+            delayed(self._get_order_degreelist_node)(v, max_num_layers) for v in vertices
+        )
+
+        # Process the results and update degreeList
+        degreeList = {v: order_degreelist_node for v, order_degreelist_node in results}
         return degreeList
 
+
     def _get_order_degreelist_node(self, root, max_num_layers=None):
+        """Generate the degree list for a given node up to a specified maximum number of layers.
+
+        Args:
+            root (int): The node from which the degree list is generated.
+            max_num_layers (int, optional): Maximum number of layers to consider. Defaults to None.
+
+        Returns:
+            dict: A dictionary containing the ordered degree sequence for each layer.
+
+        Params:
+            degree_list: A data structure to store the degree frequencies.
+
+        Returns:
+            _type_: _description_
+        """
         if max_num_layers is None:
             max_num_layers = float('inf')
 
@@ -155,17 +192,17 @@ class Struc2Vec():
         visited[root] = True
 
         while (len(queue) > 0 and level <= max_num_layers):
-
+            # queue of current node's neighbors
             count = len(queue)
             if self.opt1_reduce_len:
                 degree_list = {}
             else:
                 degree_list = []
+                
             while (count > 0):
-
                 top = queue.popleft()
                 node = self.idx2node[top]
-                degree = len(self.graph[node])
+                degree = self.graph.degree[node]
 
                 if self.opt1_reduce_len:
                     degree_list[degree] = degree_list.get(degree, 0) + 1
@@ -177,6 +214,8 @@ class Struc2Vec():
                     if not visited[nei_idx]:
                         visited[nei_idx] = True
                         queue.append(nei_idx)
+                print(queue)
+                        
                 count -= 1
             if self.opt1_reduce_len:
                 orderd_degree_list = [(degree, freq)
@@ -187,8 +226,9 @@ class Struc2Vec():
             ordered_degree_sequence_dict[level] = orderd_degree_list
             level += 1
 
-        return ordered_degree_sequence_dict
+        return root, ordered_degree_sequence_dict
 
+    @measure_time
     def _compute_structural_distance(self, max_num_layers, workers=1, verbose=0,):
 
         if os.path.exists(self.temp_path+'structural_dist.pkl'):
@@ -235,16 +275,28 @@ class Struc2Vec():
         return structural_dist
 
     def _create_vectors(self):
-        degrees = {}  # sotre v list of degree
+        """
+        Create a dictionary of degrees and their corresponding vertices.
+        
+        degrees_sorted: The sorted array of unique degrees.
+        index - 1: The degree that comes before the current degree in the sorted order.
+        index + 1: The degree that comes after the current degree in the sorted order.
+        
+        Returns:
+            dict: A dictionary where keys are degrees and values are dictionaries with 'vertices', 'before', and 'after'.
+        """
+        degrees = {}  # store v list of degree
         degrees_sorted = set()  # store degree
         G = self.graph
         for v in self.idx:
-            degree = len(G[self.idx2node[v]])
+            degree = len(G[self.idx2node[v]]) # v degree
             degrees_sorted.add(degree)
             if (degree not in degrees):
                 degrees[degree] = {}
                 degrees[degree]['vertices'] = []
             degrees[degree]['vertices'].append(v)
+
+        # sorted degrees of all nodes, vertices 
         degrees_sorted = np.array(list(degrees_sorted), dtype='int')
         degrees_sorted = np.sort(degrees_sorted)
 
@@ -316,6 +368,30 @@ class Struc2Vec():
         return layers_accept, layers_alias
 
 
+    def get_dict_embeddings(self, ):
+        if self.w2v_model is None:
+            print("model not train")
+            return {}
+
+        self._embeddings = {}
+        for word in self.graph.nodes():
+            self._embeddings[word] = self.w2v_model.wv[word]
+
+        return self._embeddings
+    
+    def get_embeddings(self,):
+        if self.w2v_model is None:
+            print("model not train")
+            return {}
+
+        # self._embeddings = {}
+        # for word in self.graph.nodes():
+        #     self._embeddings[word] = self.w2v_model.wv[word]
+        
+        embedding = self.w2v_model.wv.vectors[np.fromiter(map(int, self.w2v_model.wv.index_to_key), np.int32).argsort()] 
+
+        return embedding
+
 def cost(a, b):
     ep = 0.5
     m = max(a, b) + ep
@@ -360,7 +436,6 @@ def get_vertices(v, degree_v, degrees, n_nodes):
     vertices = []
     try:
         c_v = 0
-
         for v2 in degrees[degree_v]['vertices']:
             if (v != v2):
                 vertices.append(v2)  # same degree
