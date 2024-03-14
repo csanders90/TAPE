@@ -7,7 +7,7 @@ import scipy.sparse as ssp
 import torch
 import matplotlib.pyplot as plt
 from lpda.adjacency import plot_coo_matrix, construct_sparse_adj
-from utils import get_git_repo_root_path, append_acc_to_excel, append_mrr_to_excel
+from core.Embedding.tune_utils import get_git_repo_root_path, append_acc_to_excel, append_mrr_to_excel
 from ogb.linkproppred import Evaluator
 from heuristic.eval import get_metric_score
 from ge import Node2Vec

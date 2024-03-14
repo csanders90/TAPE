@@ -1,3 +1,5 @@
+import time 
+
 def preprocess_nxgraph(graph):
     node2idx = {}
     idx2node = []
@@ -8,6 +10,15 @@ def preprocess_nxgraph(graph):
         node_size += 1
     return idx2node, node2idx
 
+def measure_time(func):
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        end_time = time.time()
+        execution_time = end_time - start_time
+        print(f"{func.__name__} took {execution_time:.4f} seconds to run.")
+        return result
+    return wrapper
 
 def partition_dict(vertices, workers):
     batch_size = (len(vertices) - 1) // workers + 1

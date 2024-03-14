@@ -8,7 +8,7 @@ from joblib import Parallel, delayed
 from tqdm import trange
 
 from .alias import alias_sample, create_alias_table
-from .utils import partition_num
+from .utils import partition_num, measure_time
 
 
 class RandomWalker:
@@ -206,7 +206,8 @@ class BiasedWalker:
         self.idx = list(range(len(self.idx2node)))
         self.temp_path = temp_path
         pass
-
+    
+    @measure_time
     def simulate_walks(self, num_walks, walk_length, stay_prob=0.3, workers=1, verbose=0):
 
         layers_adj = pd.read_pickle(self.temp_path+'layers_adj.pkl')

@@ -31,21 +31,11 @@ from joblib import Parallel, delayed
 from tqdm import tqdm
 
 from ..alias import create_alias_table
-from ..utils import partition_dict, preprocess_nxgraph
+from ..utils import partition_dict, preprocess_nxgraph, measure_time
 from ..walker import BiasedWalker
-
-
+from pathlib import Path
+from tqdm import tqdm 
 import time
-
-def measure_time(func):
-    def wrapper(*args, **kwargs):
-        start_time = time.time()
-        result = func(*args, **kwargs)
-        end_time = time.time()
-        execution_time = end_time - start_time
-        print(f"{func.__name__} took {execution_time:.4f} seconds to run.")
-        return result
-    return wrapper
 
 class Struc2Vec():
     def __init__(self, 
@@ -77,10 +67,10 @@ class Struc2Vec():
         self.workers = workers 
         
         if not os.path.exists(self.temp_path):
-            os.mkdir(self.temp_path)
+            Path(self.temp_path).mkdir(parents=True, exist_ok=False)
         if not reuse:
             shutil.rmtree(self.temp_path)
-            os.mkdir(self.temp_path)
+            Path(self.temp_path).mkdir(parents=True, exist_ok=False)
             
         if os.path.exists(self.temp_path + f'{data}_walks.pkl'):
                 self.sentence = pd.read_pickle(self.temp_path + f'{data}_walks.pkl')
@@ -95,6 +85,7 @@ class Struc2Vec():
             
         self._embeddings = {}
 
+    @measure_time
     def create_context_graph(self, max_num_layers, workers=20, verbose=0,):
 
         pair_distances = self._compute_structural_distance(
@@ -107,7 +98,7 @@ class Struc2Vec():
         pd.to_pickle(layers_alias, self.temp_path + f'{self.data}_layers_alias.pkl')
         pd.to_pickle(layers_accept, self.temp_path + f'{self.data}_layers_accept.pkl')
 
-
+    @measure_time
     def prepare_biased_walk(self,):
 
         sum_weights = {}
@@ -140,7 +131,7 @@ class Struc2Vec():
         pd.to_pickle(average_weight, self.temp_path + f'{self.data}_average_weight')
         pd.to_pickle(gamma, self.temp_path + f'{self.data}_gamma.pkl')
 
-
+    
     def train(self, embed_size, window_size, workers=20):
 
         try:
@@ -170,7 +161,7 @@ class Struc2Vec():
         # for v in vertices:
         #     degreeList[v] = self._get_order_degreelist_node(v, max_num_layers)
         results = Parallel(n_jobs=20)(
-            delayed(self._get_order_degreelist_node)(v, max_num_layers) for v in vertices
+            delayed(self._get_order_degreelist_node)(v, max_num_layers) for v in tqdm(vertices)
         )
 
         # Process the results and update degreeList
@@ -240,7 +231,7 @@ class Struc2Vec():
 
         return root, ordered_degree_sequence_dict
 
-
+    @measure_time
     def _compute_structural_distance(self, max_num_layers, workers=1, verbose=0,):
 
         if os.path.exists(self.temp_path+f'{self.data}_structural_dist.pkl'):
