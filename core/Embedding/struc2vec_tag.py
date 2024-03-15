@@ -95,8 +95,7 @@ if __name__ == "__main__":
     
     model.train(embed_size=128, 
                 window_size=5, 
-                workers=20, 
-                iter=5)
+                workers=20)
 
     embed = model.get_embeddings()
 

@@ -81,24 +81,25 @@ class Struc2Vec():
             self.sentences = self.walker.simulate_walks(
                 num_walks, walk_length, stay_prob, workers, verbose)
             
-            pd.to_pickle(self.sentences, self.temp_path + f'{data}_walks.pkl')
+            print(f"{len(self.sentences)} sentences are generated.")
+            pd.to_pickle(self.sentences, self.temp_path + 'walks.pkl')
+            print(f"\n and saved into {self.temp_path} + walks.pkl")
+            self.sentence_path =  f"{self.temp_path} + walks.pkl"
             
         self._embeddings = {}
 
-    @measure_time
     def create_context_graph(self, max_num_layers, workers=20, verbose=0,):
 
         pair_distances = self._compute_structural_distance(
             max_num_layers, workers, verbose,)
         layers_adj, layers_distances = self._get_layer_rep(pair_distances)
-        pd.to_pickle(layers_adj, self.temp_path + f'{self.data}_layers_adj.pkl')
+        pd.to_pickle(layers_adj, self.temp_path + f'layers_adj.pkl')
 
         layers_accept, layers_alias = self._get_transition_probs(
             layers_adj, layers_distances)
-        pd.to_pickle(layers_alias, self.temp_path + f'{self.data}_layers_alias.pkl')
-        pd.to_pickle(layers_accept, self.temp_path + f'{self.data}_layers_accept.pkl')
+        pd.to_pickle(layers_alias, self.temp_path + f'layers_alias.pkl')
+        pd.to_pickle(layers_accept, self.temp_path + f'layers_accept.pkl')
 
-    @measure_time
     def prepare_biased_walk(self,):
 
         sum_weights = {}
@@ -106,9 +107,9 @@ class Struc2Vec():
         average_weight = {}
         gamma = {}
         layer = 0
-        while (os.path.exists(self.temp_path+ f'{self.data}_norm_weights_distance-layer-' + str(layer)+'.pkl')):
+        while (os.path.exists(self.temp_path+ f'norm_weights_distance-layer-' + str(layer)+'.pkl')):
             probs = pd.read_pickle(
-                self.temp_path+ f'{self.data}_norm_weights_distance-layer-' + str(layer)+'.pkl')
+                self.temp_path+ f'norm_weights_distance-layer-' + str(layer)+'.pkl')
             for v, list_weights in probs.items():
                 sum_weights.setdefault(layer, 0)
                 sum_edges.setdefault(layer, 0)
@@ -128,14 +129,14 @@ class Struc2Vec():
 
             layer += 1
 
-        pd.to_pickle(average_weight, self.temp_path + f'{self.data}_average_weight')
-        pd.to_pickle(gamma, self.temp_path + f'{self.data}_gamma.pkl')
+        pd.to_pickle(average_weight, self.temp_path + f'average_weight')
+        pd.to_pickle(gamma, self.temp_path + f'gamma.pkl')
 
     
     def train(self, embed_size, window_size, workers=20):
 
         try:
-            pd.read_pickle(self.temp_path+f'{self.data}_walks.pkl')
+            sentences = pd.read_pickle(self.temp_path+f'walks.pkl')
         except:
             sentences = self.sentences
 
@@ -158,14 +159,14 @@ class Struc2Vec():
 
         degreeList = {}
         vertices = self.idx  # self.g.nodes()
-        # for v in vertices:
-        #     degreeList[v] = self._get_order_degreelist_node(v, max_num_layers)
-        results = Parallel(n_jobs=20)(
-            delayed(self._get_order_degreelist_node)(v, max_num_layers) for v in tqdm(vertices)
-        )
+        for v in tqdm(vertices):
+            degreeList[v] = self._get_order_degreelist_node(v, max_num_layers)
+        # results = Parallel(n_jobs=20)(
+        #     delayed(self._get_order_degreelist_node)(v, max_num_layers) for v in tqdm(vertices)
+        # )
 
         # Process the results and update degreeList
-        degreeList = {v: order_degreelist_node for v, order_degreelist_node in results}
+        # degreeList = {v: order_degreelist_node for v, order_degreelist_node in results}
         return degreeList
 
 
@@ -234,20 +235,20 @@ class Struc2Vec():
     @measure_time
     def _compute_structural_distance(self, max_num_layers, workers=1, verbose=0,):
 
-        if os.path.exists(self.temp_path+f'{self.data}_structural_dist.pkl'):
+        if os.path.exists(self.temp_path+f'structural_dist.pkl'):
             structural_dist = pd.read_pickle(
-                self.temp_path+f'{self.data}_structural_dist.pkl')
+                self.temp_path+f'structural_dist.pkl')
         else:
             if self.opt1_reduce_len:
                 dist_func = cost_max
             else:
                 dist_func = cost
 
-            if os.path.exists(self.temp_path + f'{self.data}_degreelist.pkl'):
-                degreeList = pd.read_pickle(self.temp_path + f'{self.data}_degreelist.pkl')
+            if os.path.exists(self.temp_path + f'degreelist.pkl'):
+                degreeList = pd.read_pickle(self.temp_path + f'degreelist.pkl')
             else:
                 degreeList = self._compute_ordered_degreelist(max_num_layers)
-                pd.to_pickle(degreeList, self.temp_path + f'{self.data}_degreelist.pkl')
+                pd.to_pickle(degreeList, self.temp_path + f'degreelist.pkl')
 
             if self.opt2_reduce_sim_calc:
                 degrees = self._create_vectors()
@@ -273,7 +274,7 @@ class Struc2Vec():
 
             structural_dist = convert_dtw_struc_dist(dtw_dist)
             pd.to_pickle(structural_dist, self.temp_path +
-                         f'{self.data}_structural_dist.pkl')
+                         f'structural_dist.pkl')
 
         return structural_dist
 
@@ -366,7 +367,7 @@ class Struc2Vec():
                 node_accept_dict[v] = accept
 
             pd.to_pickle(
-                norm_weights, self.temp_path + f'{self.data}_norm_weights_distance-layer-' + str(layer)+'.pkl')
+                norm_weights, self.temp_path + f'norm_weights_distance-layer-' + str(layer)+'.pkl')
 
             layers_alias[layer] = node_alias_dict
             layers_accept[layer] = node_accept_dict
@@ -393,7 +394,7 @@ class Struc2Vec():
         
         embedding = self.w2v_model.wv.vectors[np.fromiter(map(int, self.w2v_model.wv.index_to_key), np.int32).argsort()] 
         print(embedding.shape)
-        np.savez(self.temp_path +  f'{self.data}_structure_{self.data}_thomasha.npz', my_array=embedding)
+        np.savez(self.temp_path +  f'structure_embed.npz', my_array=embedding)
 
         return embedding
 

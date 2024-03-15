@@ -20,7 +20,8 @@ from utils import (
     append_acc_to_excel,
     append_mrr_to_excel,
 )
-
+from IPython import embed
+import pandas as pd 
 # Constants
 FILE_PATH = get_git_repo_root_path() + '/'
 
@@ -49,10 +50,10 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='GraphGym')
 
     parser.add_argument('--cfg', dest='cfg_file', type=str, required=False,
-                        default = "core/configs/cora/node2vec.yaml",
+                        default='core/configs/arxiv_2023/struc2vec.yaml',
                         help='The configuration file path.')
     parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
-                        default = "core/configs/cora/sweep2.yaml",
+                        default='core/configs/arxiv_2023/struc2vec_sp1.yaml',
                         help='The configuration file path.')
     
     parser.add_argument('--repeat', type=int, default=1,
@@ -68,71 +69,10 @@ def process_edge_index(full_edge_index):
     print("full_edge_index", full_edge_index.shape)
     return to_scipy_sparse_matrix(full_edge_index)
 
-from IPython import embed
-def save_struc2vec_acc_excel(uuid_val, metrics_acc, root, name, method):
-    # if not exists save the first row
-    
-    csv_columns = ['Metric'] + list(k for k in metrics_acc) 
 
-    # load old csv
-    try:
-        Data = pd.read_csv(root)[:-1]
-    except:
-        Data = pd.DataFrame(None, columns=csv_columns)
-        Data.to_csv(root, index=False)
-    
-    # create new line 
-    acc_lst = []
-    
-    for k, v in metrics_acc.items():
-        acc_lst.append(process_value(v))
-        
-    # merge with old lines, 
-    v_lst = [f'{name}_{uuid_val}_{method}'] + acc_lst
-    new_df = pd.DataFrame([v_lst], columns=csv_columns)
-    new_Data = pd.concat([Data, new_df])
-    
-    # best value
-    highest_values = new_Data.apply(lambda column: max(column, default=None))
+def process_value(v):
+    return (lambda x: x.tolist() if isinstance(x, torch.Tensor) else x)(v)
 
-    # concat and save
-    Best_list = ['Best'] + highest_values[1:].tolist()
-    Best_df = pd.DataFrame([Best_list], columns=Data.columns)
-    upt_Data = pd.concat([new_Data, Best_df])
-    upt_Data.to_csv(root,index=False)
-
-    return upt_Data
-
-
-def save_struc2vec_mrr_excel(uuid_val, metrics_mrr, root, method):
- 
-    csv_columns, csv_numbers = [], []
-    for i, (k, v) in enumerate(metrics_mrr.items()): 
-        if i == 0:
-            csv_columns = ['Metric'] + list(v.keys())
-        csv_numbers.append([f'{k}_{uuid_val}_{method}'] + list(v.values()))
-    
-    print(csv_numbers)
-
-    try:
-        Data = pd.read_csv(root)[:-1]
-    except:
-        Data = pd.DataFrame(None, columns=csv_columns)
-        Data.to_csv(root, index=False)
-
-    
-    new_df = pd.DataFrame(csv_numbers, columns = csv_columns)
-    new_Data = pd.concat([Data, new_df])
-    
-    highest_values = new_Data.apply(lambda column: max(column, default=None))
-    Best_list = ['Best'] + highest_values[1:].tolist()
-    Best_df = pd.DataFrame([Best_list], columns=csv_columns)
-    upt_Data = pd.concat([new_Data, Best_df])
-    
-    upt_Data.to_csv(root, index=False)
-
-    
-    return upt_Data
 
 def train_and_evaluate_logistic_regression(id, X_train, y_train, X_test, y_test, max_iter, method):
     clf = LogisticRegression(solver='lbfgs', max_iter=max_iter, multi_class='auto')
@@ -163,3 +103,37 @@ def train_and_evaluate_logistic_regression(id, X_train, y_train, X_test, y_test,
 
     print(results_acc, '\n', results_mrr)
     return acc
+
+def param_tune_acc_mrr(uuid_val, metrics, root, name, method):
+    # if not exists save the first row
+    
+    csv_columns = ['Metric'] + list(k for k in metrics) 
+
+    # load old csv
+    try:
+        Data = pd.read_csv(root)[:-1]
+    except:
+        Data = pd.DataFrame(None, columns=csv_columns)
+        Data.to_csv(root, index=False)
+    
+    # create new line 
+    acc_lst = []
+    
+    for k, v in metrics.items():
+        acc_lst.append(process_value(v))
+        
+    # merge with old lines, 
+    v_lst = [f'{name}_{uuid_val}_{method}'] + acc_lst
+    new_df = pd.DataFrame([v_lst], columns=csv_columns)
+    new_Data = pd.concat([Data, new_df])
+    
+    # best value
+    highest_values = new_Data.apply(lambda column: max(column, default=None))
+
+    # concat and save
+    Best_list = ['Best'] + highest_values[1:].tolist()
+    Best_df = pd.DataFrame([Best_list], columns=Data.columns)
+    upt_Data = pd.concat([new_Data, Best_df])
+    upt_Data.to_csv(root,index=False)
+
+    return upt_Data

@@ -1,17 +1,19 @@
 import os, sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, '/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE/core')
 
 import numpy as np
-from ge.classify import read_node_label,Classifier
-from ge import Struc2Vec
+from Embedding.ge.classify import read_node_label, Classifier
+from Embedding.ge.models.struc2vec import Struc2Vec
 from sklearn.linear_model import LogisticRegression
 import matplotlib.pyplot as plt
 import networkx as nx
 from sklearn.manifold import TSNE
-from core.Embedding.tune_utils import (
+from utils import (
     get_git_repo_root_path
 )
-
+from Embedding.tune_utils import param_tune_acc_mrr
+import uuid 
+import wandb
 
 FILE_PATH = get_git_repo_root_path() + '/'
 
@@ -28,7 +30,9 @@ def evaluate_embeddings(embeddings):
 
     clf = Classifier(embeddings=embeddings, clf=LogisticRegression())
 
-    clf.split_train_evaluate(X, Y, tr_frac)
+    evaluate = clf.split_train_evaluate(X, Y, tr_frac)
+    
+    return evaluate['acc']
 
 
 
@@ -56,10 +60,32 @@ if __name__ == "__main__":
     G = nx.read_edgelist('core/Embedding/data/flight/brazil-airports.edgelist', create_using=nx.DiGraph(), nodetype=None,
                          data=[('weight', int)])
 
-    model = Struc2Vec(G, 10, 80, workers=4, verbose=40, reuse=True)
-    model.train()
-    embeddings = model.get_dict_embeddings()
+    metrics = {}
+    for wl  in [10, 15, 20]:
+        for nw in [20, 40, 80]:
+            for es in [16, 32, 64]:
+                for ws in [5, 7, 9]:
+                    model = Struc2Vec(G, 
+                                    walk_length=wl, 
+                                    num_walks=nw, 
+                                    workers=es, 
+                                    verbose=40, 
+                                    data='flight',
+                                    temp_path=f'./temp_path',
+                                    reuse=False)
+                    
+                    model.train(embed_size=es, 
+                                window_size=ws,
+                                workers=20)
+                    
+                    embeddings = model.get_dict_embeddings()
 
-    print(embeddings.keys())
-    evaluate_embeddings(embeddings)
-    plot_embeddings(embeddings)
+                    print(embeddings.keys())
+                    acc = evaluate_embeddings(embeddings)
+                    metrics.update({'wl': wl, 'nw': nw, 'es': es, 'ws': ws, 'acc': acc})
+                    root = '/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE/results/flight.csv'
+                    
+                    id = wandb.util.generate_id()
+                    param_tune_acc_mrr(id, metrics, root, 'flight', 'struc2vec')
+                    # demo plot_embeddings(embeddings)
+                    

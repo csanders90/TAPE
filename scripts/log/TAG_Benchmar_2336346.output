@@ -1,0 +1,20 @@
+total 523
+drwxr-xr-x    6 cc7738 hk-project-test-p0021478   4096 Mar  5 23:31 dataset
+-rw-r--r--    1 cc7738 hk-project-test-p0021478   4032 Mar  6 22:15 README.md
+-rw-r--r--    1 cc7738 hk-project-test-p0021478      0 Mar  6 22:15 __init__.py
+drwxr-xr-x    4 cc7738 hk-project-test-p0021478   4096 Mar  7 22:26 ge
+drwxr-xr-x    4 cc7738 hk-project-test-p0021478   4096 Mar 12 17:48 data
+drwxr-xr-x 1371 cc7738 hk-project-test-p0021478 131072 Mar 12 18:12 wandb
+drwxr-xr-x    2 cc7738 hk-project-test-p0021478   4096 Mar 14 15:21 temp_struc2vec
+drwxr-xr-x    3 cc7738 hk-project-test-p0021478   4096 Mar 14 16:28 examples
+-rw-r--r--    1 cc7738 hk-project-test-p0021478   6947 Mar 14 18:25 wb_tune2.py
+-rw-r--r--    1 cc7738 hk-project-test-p0021478   6487 Mar 14 18:28 node2vec_tag.py
+-rw-r--r--    1 cc7738 hk-project-test-p0021478   4522 Mar 14 18:28 line_tag.py
+-rw-r--r--    1 cc7738 hk-project-test-p0021478  11807 Mar 14 19:17 node2vec_tagplus.py
+-rw-r--r--    1 cc7738 hk-project-test-p0021478   4865 Mar 14 20:01 struc2vec_tag.py
+-rw-r--r--    1 cc7738 hk-project-test-p0021478   4638 Mar 15 03:33 tune_utils.py
+drwxr-xr-x    2 cc7738 hk-project-test-p0021478   4096 Mar 15 03:34 __pycache__
+drwxr-xr-x    3 cc7738 hk-project-test-p0021478   4096 Mar 15 04:17 temp_path
+-rw-r--r--    1 cc7738 hk-project-test-p0021478   4975 Mar 15 04:24 wb_tune_struc2vec.py
+Namespace(cfg_file='core/configs/arxiv_2023/struc2vec.yaml', mark_done=False, opts=[], repeat=1, sweep_file='core/configs/arxiv_2023/struc2vec_sp1.yaml')
+30 20 4 9
