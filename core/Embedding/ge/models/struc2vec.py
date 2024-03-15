@@ -35,6 +35,7 @@ from ..utils import partition_dict, preprocess_nxgraph
 from ..walker import BiasedWalker
 from pathlib import Path
 
+
 class Struc2Vec():
     def __init__(self, 
                  graph, 
@@ -152,7 +153,7 @@ class Struc2Vec():
 
         degreeList = {}
         vertices = self.idx  # self.g.nodes()
-        for v in vertices:
+        for v in tqdm(vertices):
             degreeList[v] = self._get_order_degreelist_node(v, max_num_layers)
         return degreeList
 
@@ -224,7 +225,7 @@ class Struc2Vec():
                 degreeListsSelected = {}
                 vertices = {}
                 n_nodes = len(self.idx)
-                for v in self.idx:  # c:list of vertex
+                for v in tqdm(self.idx):  # c:list of vertex
                     nbs = get_vertices(
                         v, len(self.graph[self.idx2node[v]]), degrees, n_nodes)
                     vertices[v] = nbs  # store nbs
