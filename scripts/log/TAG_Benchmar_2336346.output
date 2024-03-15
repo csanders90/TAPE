@@ -18,3 +18,24 @@ drwxr-xr-x    3 cc7738 hk-project-test-p0021478   4096 Mar 15 04:17 temp_path
 -rw-r--r--    1 cc7738 hk-project-test-p0021478   4975 Mar 15 04:24 wb_tune_struc2vec.py
 Namespace(cfg_file='core/configs/arxiv_2023/struc2vec.yaml', mark_done=False, opts=[], repeat=1, sweep_file='core/configs/arxiv_2023/struc2vec_sp1.yaml')
 30 20 4 9
+
+============================= JOB FEEDBACK =============================
+
+Job ID: 2336346
+Cluster: hk
+User/Group: cc7738/hk-project-test-p0021478
+Account: hk-project-test-p0021478
+State: FAILED (exit code 1)
+Partition: cpuonly
+Nodes: 2
+Cores per node: 152
+Nodelist: hkn[0105,0370]
+CPU Utilized: 00:22:27
+CPU Efficiency: 0.32% of 4-19:36:16 core-walltime
+Job Wall-clock time: 00:22:49
+Starttime: Fri Mar 15 04:55:28 2024
+Endtime: Fri Mar 15 05:18:17 2024
+Memory Utilized: 3.28 GB
+Memory Efficiency: 0.69% of 475.00 GB
+Energy Consumed: 788736 Joule / 219.093333333333 Watthours
+Average node power draw: 576.140248356465 Watt
