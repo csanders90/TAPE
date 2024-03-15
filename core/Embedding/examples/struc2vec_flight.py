@@ -69,7 +69,7 @@ if __name__ == "__main__":
                                     walk_length=wl, 
                                     num_walks=nw, 
                                     workers=es, 
-                                    verbose=40, 
+                                    verbose=0, 
                                     data='flight',
                                     temp_path=f'./temp_path',
                                     reuse=False)
