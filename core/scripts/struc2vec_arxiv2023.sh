@@ -29,4 +29,6 @@ module load compiler/gnu/12
 
 ls -ltr
 
-python wb_tune_struc2vec.py --sweep core/configs/arxiv_2023/struc2vec_sp1.yaml --cfg core/configs/arxiv_2023/struc2vec.yaml 
+# python wb_tune_struc2vec.py --sweep core/configs/arxiv_2023/struc2vec_sp1.yaml --cfg core/configs/arxiv_2023/struc2vec.yaml 
+# python wb_tune_struc2vec.py --sweep core/configs/arxiv_2023/struc2vec_sp2.yaml --cfg core/configs/arxiv_2023/struc2vec.yaml 
+python wb_tune_struc2vec.py --sweep core/configs/arxiv_2023/struc2vec_sp3.yaml --cfg core/configs/arxiv_2023/struc2vec.yaml 

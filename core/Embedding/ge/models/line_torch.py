@@ -1,8 +1,5 @@
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from torch.autograd import Variable
-import torch
+from torch.nn import Embedding, Module
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
@@ -15,19 +12,19 @@ from ..alias import create_alias_table, alias_sample
 from ..utils import preprocess_nxgraph
 from tqdm import tqdm 
 
-class LineLoss(nn.Module):
+class LineLoss(Module):
     def forward(self, y_true, y_pred):
         order1 = -torch.mean(torch.log(torch.sigmoid(y_true[0] * y_pred[0])))
         order2 = -torch.mean(torch.log(torch.sigmoid(y_true[1] * y_pred[1])))
         return order1+order2
 
-class LINEModel(nn.Module):
+class LINEModel(Module):
     def __init__(self, num_nodes, embedding_size, order='second'):
         super(LINEModel, self).__init__()
 
-        self.first_emb = nn.Embedding(num_nodes, embedding_size)
-        self.second_emb = nn.Embedding(num_nodes, embedding_size)
-        self.context_emb = nn.Embedding(num_nodes, embedding_size)
+        self.first_emb = Embedding(num_nodes, embedding_size)
+        self.second_emb = Embedding(num_nodes, embedding_size)
+        self.context_emb = Embedding(num_nodes, embedding_size)
 
         self.order = order
 
@@ -225,31 +222,3 @@ class LINE_torch:
 
         print('Finished Training')
 
-
-# # Example usage:
-# num_nodes = 100  # Replace with your actual number of nodes
-# embedding_size = 64  # Replace with your desired embedding size
-# order = 'second'  # Replace with 'first' or 'both' if needed
-
-# model = LINEModel(num_nodes, embedding_size, order=order)
-# criterion = LineLoss()
-# optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
-
-# # Convert your TensorFlow inputs to PyTorch tensors
-# v_i_tensor = torch.LongTensor([1, 2, 3])  # Replace with your actual data
-# v_j_tensor = torch.LongTensor([4, 5, 6])  # Replace with your actual data
-
-# # Convert tensors to PyTorch Variables if you're not using PyTorch 1.6+
-# v_i_var = Variable(v_i_tensor)
-# v_j_var = Variable(v_j_tensor)
-
-# # Forward pass
-# output = model(v_i_var, v_j_var)
-
-# # Compute loss
-# loss = criterion(output, torch.ones_like(output))
-
-# # Backward pass and optimization
-# optimizer.zero_grad()
-# loss.backward()
-# optimizer.step()

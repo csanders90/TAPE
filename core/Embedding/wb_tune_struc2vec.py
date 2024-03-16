@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 import torch
 import scipy.sparse as ssp
 from sklearn.linear_model import LogisticRegression
-from sklearn.manifold import TSNE
 from torch_geometric.graphgym.cmd_args import parse_args
 from torch_geometric.graphgym.config import cfg
 from torch_geometric.utils import to_scipy_sparse_matrix
@@ -23,18 +22,15 @@ from Embedding.tune_utils import (
     get_git_repo_root_path
 )
 
-import uuid
-from ge.classify import read_node_label, Classifier
 from ge.models import Struc2Vec
-import itertools
 import wandb
 from Embedding.tune_utils import (
     set_cfg,
     parse_args,
     load_sweep_config, 
     initialize_config, 
+    param_tune_acc_mrr,
     FILE_PATH,
-    param_tune_acc_mrr
 )
 
 # Constants
@@ -84,7 +80,7 @@ if __name__ == "__main__":
     
     import random 
     # three parameters
-    for i in range(10):
+    for i in range(40):
         tune_dict = sweep_config['parameters']
         wl = random.choice(tune_dict['wl']['values'])
         nw = random.choice(tune_dict['num_walks']['values'])
@@ -100,8 +96,6 @@ if __name__ == "__main__":
                             data=cfg.data.name, 
                             reuse=False, 
                             temp_path=f'./temp_path')
-        
-        print(model.sentence_path)
         
         model.train(embed_size=es, 
                     window_size=ws, 
@@ -132,7 +126,7 @@ if __name__ == "__main__":
         plt.figure()
         plt.plot(y_pred, label='pred')
         plt.plot(y_test, label='test')
-        plt.savefig(f'ws{ws}wl{wl}es{es}ws{ws}node2vec_pred.png')
+        plt.savefig(f'ws{ws}wl{wl}es{es}ws{ws}struc2vec_pred_{cfg.data.name}.png')
         
         results_acc = {'node2vec_acc': acc, 'wl': wl, 'nw': nw, 'es': es, 'ws': ws}
         
@@ -142,7 +136,7 @@ if __name__ == "__main__":
         evaluator_hit = Evaluator(name='ogbl-collab')
         evaluator_mrr = Evaluator(name='ogbl-citation2')
         pos_pred = pos_test_pred[:, 1]
-        neg_pred = neg_test_pred[:, 1]
+        neg_pred = neg_test_pred[:, 1] 
         result_mrr = get_metric_score(evaluator_hit, evaluator_mrr, pos_pred, neg_pred)
         results_acc.update(result_mrr)
 

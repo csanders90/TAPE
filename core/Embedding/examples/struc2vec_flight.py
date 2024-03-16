@@ -78,14 +78,14 @@ if __name__ == "__main__":
                                 window_size=ws,
                                 workers=20)
                     
-                    embeddings = model.get_dict_embeddings()
+                    embeddings = model.get_embeddings()
 
-                    print(embeddings.keys())
-                    acc = evaluate_embeddings(embeddings)
-                    metrics.update({'wl': wl, 'nw': nw, 'es': es, 'ws': ws, 'acc': acc})
-                    root = '/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE/results/flight.csv'
+                    print(embeddings.shape)
+                    # acc = evaluate_embeddings(embeddings)
+                    # metrics.update({'wl': wl, 'nw': nw, 'es': es, 'ws': ws, 'acc': acc})
+                    # root = '/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE/results/flight.csv'
                     
-                    id = wandb.util.generate_id()
-                    param_tune_acc_mrr(id, metrics, root, 'flight', 'struc2vec')
+                    # id = wandb.util.generate_id()
+                    # param_tune_acc_mrr(id, metrics, root, 'flight', 'struc2vec')
                     # demo plot_embeddings(embeddings)
                     

@@ -224,6 +224,7 @@ class BiasedWalker:
             partition_num(num_walks, workers))
 
         walks = list(itertools.chain(*results))
+        
         return walks
 
     def _simulate_walks(self, nodes, num_walks, walk_length, stay_prob, layers_adj, layers_accept, layers_alias, gamma):

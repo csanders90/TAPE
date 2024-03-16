@@ -74,6 +74,7 @@ class Struc2Vec():
         self.sentences = self.walker.simulate_walks(
             num_walks, walk_length, stay_prob, workers, verbose)
 
+        pd.to_pickle(self.sentences, self.temp_path + 'sentences.pkl')
         self._embeddings = {}
 
     def create_context_graph(self, max_num_layers, workers=1, verbose=0,):
@@ -123,10 +124,8 @@ class Struc2Vec():
     def train(self, embed_size=128, window_size=5, workers=3, iter=5):
 
         # pd.read_pickle(self.temp_path+'walks.pkl')
-        sentences = self.sentences
-
         print("Learning representation...")
-        model = Word2Vec(sentences, 
+        model = Word2Vec(self.sentences, 
                          vector_size=embed_size, 
                          window=window_size, 
                          min_count=0, 
@@ -149,6 +148,19 @@ class Struc2Vec():
 
         return self._embeddings
 
+    def get_embeddings(self,):
+        if self.w2v_model is None:
+            print("model not train")
+            return {}
+
+        # self._embeddings = {}
+        # for word in self.graph.nodes():
+        #     self._embeddings[word] = self.w2v_model.wv[word]
+        
+        embedding = self.w2v_model.wv.vectors[np.fromiter(map(int, self.w2v_model.wv.index_to_key), np.int32).argsort()] 
+        
+        return embedding
+    
     def _compute_ordered_degreelist(self, max_num_layers):
 
         degreeList = {}

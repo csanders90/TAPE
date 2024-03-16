@@ -16,8 +16,6 @@ model:
   struc2vec:
     max_iter: 100
 
-
-
 num_threads: 11
 data:
   name: cora

@@ -3,8 +3,7 @@ import numpy as np
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from ge.classify import read_node_label, Classifier
-from ge import LINE
-from ge import LINE_torch
+from ge.models.line_torch import LINE_torch
 from sklearn.linear_model import LogisticRegression
 
 import matplotlib.pyplot as plt
@@ -34,7 +33,7 @@ from heuristic.pubmed_heuristic import get_pubmed_casestudy
 from heuristic.cora_heuristic import get_cora_casestudy
 from heuristic.arxiv2023_heuristic import get_raw_text_arxiv_2023
 from lpda.adjacency import plot_coo_matrix, construct_sparse_adj
-from core.Embedding.tune_utils import (
+from Embedding.tune_utils import (
     get_git_repo_root_path,
     append_acc_to_excel,
     append_mrr_to_excel

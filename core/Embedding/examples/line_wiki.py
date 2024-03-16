@@ -3,7 +3,7 @@ import numpy as np
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from ge.classify import read_node_label, Classifier
-from ge import LINE
+from ge.models.line import LINE
 from sklearn.linear_model import LogisticRegression
 
 import matplotlib.pyplot as plt
