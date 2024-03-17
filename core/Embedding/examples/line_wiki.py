@@ -3,7 +3,7 @@ import numpy as np
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from ge.classify import read_node_label, Classifier
-from ge.models.line import LINE
+from ge.models.line_tf import LINE
 from sklearn.linear_model import LogisticRegression
 
 import matplotlib.pyplot as plt
@@ -43,18 +43,18 @@ def plot_embeddings(embeddings,):
 
 
 if __name__ == "__main__":
-    # G = nx.read_edgelist('../data/wiki/Wiki_edgelist.txt',
-    #                      create_using=nx.DiGraph(), nodetype=None, data=[('weight', int)])
-    #
-    # # nx.draw(G, node_size=10, font_size=10, font_color="blue", font_weight="bold")
-    # # plt.show()
-    #
-    # model = LINE(G, embedding_size=128, order='all')
-    # model.train(batch_size=1024, epochs=10, verbose=2)
-    # embeddings = model.get_embeddings()
-    #
-    # evaluate_embeddings(embeddings)
-    # plot_embeddings(embeddings)
+    G = nx.read_edgelist('../data/wiki/Wiki_edgelist.txt',
+                         create_using=nx.DiGraph(), nodetype=None, data=[('weight', int)])
+    
+    nx.draw(G, node_size=10, font_size=10, font_color="blue", font_weight="bold")
+    plt.savefig('wiki_line.png')
+    
+    model = LINE(G, embedding_size=128, order='all')
+    model.train(batch_size=1024, epochs=10, verbose=2)
+    embeddings = model.get_embeddings()
+    
+    evaluate_embeddings(embeddings)
+    plot_embeddings(embeddings)
 
     import pandas as pd
 
