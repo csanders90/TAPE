@@ -4,7 +4,7 @@ import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from ge.classify import read_node_label, Classifier
-from ge import SDNE
+from ge.models.sdne_tf import SDNE
 from sklearn.linear_model import LogisticRegression
 
 import matplotlib.pyplot as plt
@@ -45,9 +45,9 @@ def plot_embeddings(embeddings,):
 
 
 if __name__ == "__main__":
-    # G = nx.read_edgelist('../data/wiki/Wiki_edgelist.txt',
-    #                      create_using=nx.DiGraph(), nodetype=None, data=[('weight', int)])
-    #
+    G = nx.read_edgelist('../data/wiki/Wiki_edgelist.txt',
+                        create_using=nx.DiGraph(), nodetype=None, data=[('weight', int)])
+    
     # model = SDNE(G, hidden_size=[256, 64],)
     # model.train(batch_size=3000, epochs=40, verbose=2)
     # embeddings = model.get_embeddings()
@@ -55,20 +55,20 @@ if __name__ == "__main__":
     # evaluate_embeddings(embeddings)
     # plot_embeddings(embeddings)
 
-    import pandas as pd
+    # import pandas as pd
 
-    df = pd.DataFrame()
-    df['source'] = [str(i) for i in [0, 1, 2, 3, 4, 4, 6, 7, 7, 9]]
-    df['target'] = [str(i) for i in [1, 4, 4, 4, 6, 7, 5, 8, 9, 8]]
+    # df = pd.DataFrame()
+    # df['source'] = [str(i) for i in [0, 1, 2, 3, 4, 4, 6, 7, 7, 9]]
+    # df['target'] = [str(i) for i in [1, 4, 4, 4, 6, 7, 5, 8, 9, 8]]
 
-    G = nx.from_pandas_edgelist(df, create_using=nx.Graph())
+    # G = nx.from_pandas_edgelist(df, create_using=nx.Graph())
 
 
     # Set Pytorch environment
 
     
     model = SDNE(G, hidden_size=[4,2],)
-    # model.train(batch_size=3000, epochs=40, verbose=2)
+    model.train(batch_size=3000, epochs=40, verbose=2)
 
     embeddings = model.get_embeddings()
     # print(embeddings)

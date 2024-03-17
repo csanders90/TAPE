@@ -49,30 +49,30 @@ if __name__ == "__main__":
     nx.draw(G, node_size=10, font_size=10, font_color="blue", font_weight="bold")
     plt.savefig('wiki_line.png')
     
-    model = LINE(G, embedding_size=128, order='all')
+    model = LINE(G, embedding_size=1048, order='all')
     model.train(batch_size=1024, epochs=10, verbose=2)
     embeddings = model.get_embeddings()
     
     evaluate_embeddings(embeddings)
     plot_embeddings(embeddings)
 
-    import pandas as pd
+    # import pandas as pd
 
-    df = pd.DataFrame()
-    df['source'] = [str(i) for i in [0, 1, 2, 3, 4, 4, 6, 7, 7, 9]]
-    df['target'] = [str(i) for i in [1, 4, 4, 4, 6, 7, 5, 8, 9, 8]]
+    # df = pd.DataFrame()
+    # df['source'] = [str(i) for i in [0, 1, 2, 3, 4, 4, 6, 7, 7, 9]]
+    # df['target'] = [str(i) for i in [1, 4, 4, 4, 6, 7, 5, 8, 9, 8]]
 
-    G = nx.from_pandas_edgelist(df, create_using=nx.Graph())
+    # G = nx.from_pandas_edgelist(df, create_using=nx.Graph())
 
-    model = LINE(G, embedding_size=2, order='all')
-    model.train(batch_size=1024, epochs=2000, verbose=2)
+    # model = LINE(G, embedding_size=2, order='all')
+    # model.train(batch_size=1024, epochs=2000, verbose=2)
 
-    embeddings = model.get_embeddings()
-    # print(embeddings)
-    x, y = [], []
-    print(sorted(embeddings.items(), key=lambda x: x[0]))
-    for k, i in embeddings.items():
-        x.append(i[0])
-        y.append(i[1])
-    plt.scatter(x, y)
-    plt.show()
+    # embeddings = model.get_embeddings()
+    # # print(embeddings)
+    # x, y = [], []
+    # print(sorted(embeddings.items(), key=lambda x: x[0]))
+    # for k, i in embeddings.items():
+    #     x.append(i[0])
+    #     y.append(i[1])
+    # plt.scatter(x, y)
+    # plt.show()
