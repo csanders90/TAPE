@@ -12,3 +12,4 @@ parameters:
   window_size:
     values: [6, 7, 8, 9, 10]
 
+# 20,18,16,8

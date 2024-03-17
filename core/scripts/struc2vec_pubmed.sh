@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --time=1-00:00:00
+#SBATCH --time=4-00:00:00
 #SBATCH --nodes=2
 #SBATCH --ntasks=20
 #SBATCH --partition=cpuonly

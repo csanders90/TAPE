@@ -3,7 +3,7 @@ import numpy as np
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from ge.classify import read_node_label, Classifier
-from ge.models.line_torch import LINE_torch
+from ge.models.line_tf import LINE
 from sklearn.linear_model import LogisticRegression
 
 import matplotlib.pyplot as plt
@@ -130,7 +130,7 @@ if __name__ == "__main__":
     adj = to_scipy_sparse_matrix(full_edge_index)
 
     G = nx.from_scipy_sparse_array(adj)
-    model = LINE_torch(G, embedding_size=2, order='all', device=device)
+    model = LINE(G, embedding_size=2, order='all', device=device)
     model.train(batch_size=1024, epochs=5, verbose=2)
 
     embeddings = model.get_embeddings()
