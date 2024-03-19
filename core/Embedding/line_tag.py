@@ -14,8 +14,7 @@ from sklearn.manifold import TSNE
 # Third-party library imports
 import numpy as np
 from sklearn.linear_model import LogisticRegression
-from IPython import embed
-from joblib import Parallel, delayed
+
 
 # External module imports
 import torch
@@ -35,40 +34,10 @@ from heuristic.arxiv2023_heuristic import get_raw_text_arxiv_2023
 from lpda.adjacency import plot_coo_matrix, construct_sparse_adj
 from Embedding.tune_utils import (
     get_git_repo_root_path,
-    append_acc_to_excel,
-    append_mrr_to_excel
+    param_tune_acc_mrr
 )
+import wandb 
 
-
-def evaluate_embeddings(embeddings):
-    X, Y = read_node_label('../data/wiki/wiki_labels.txt')
-    tr_frac = 0.8
-    print("Training classifier using {:.2f}% nodes...".format(
-        tr_frac * 100))
-    clf = Classifier(embeddings=embeddings, clf=LogisticRegression())
-    clf.split_train_evaluate(X, Y, tr_frac)
-
-
-def plot_embeddings(embeddings,):
-    X, Y = read_node_label('../data/wiki/wiki_labels.txt')
-
-    emb_list = []
-    for k in X:
-        emb_list.append(embeddings[k])
-    emb_list = np.array(emb_list)
-
-    model = TSNE(n_components=2)
-    node_pos = model.fit_transform(emb_list)
-
-    color_idx = {}
-    for i in range(len(X)):
-        color_idx.setdefault(Y[i][0], [])
-        color_idx[Y[i][0]].append(i)
-
-    for c, idx in color_idx.items():
-        plt.scatter(node_pos[idx, 0], node_pos[idx, 1], label=c)
-    plt.legend()
-    plt.show()
 
 data_loader = {
     'cora': get_cora_casestudy,
@@ -77,21 +46,10 @@ data_loader = {
 }
 
 if __name__ == "__main__":
-    # G = nx.read_edgelist('../data/wiki/Wiki_edgelist.txt',
-    #                      create_using=nx.DiGraph(), nodetype=None, data=[('weight', int)])
-    #
-    # # nx.draw(G, node_size=10, font_size=10, font_color="blue", font_weight="bold")
-    # # plt.show()
-    #
-    # model = LINE(G, embedding_size=128, order='all')
-    # model.train(batch_size=1024, epochs=10, verbose=2)
-    # embeddings = model.get_embeddings()
-    #
-    # evaluate_embeddings(embeddings)
-    # plot_embeddings(embeddings)
+
     FILE_PATH = get_git_repo_root_path() + '/'
 
-    cfg_file = FILE_PATH + "core/configs/pubmed/node2vec.yaml"
+    cfg_file = FILE_PATH + "core/configs/arxiv_2023/line.yaml"
     # # Load args file
     with open(cfg_file, "r") as f:
         cfg = CN.load_cfg(f)
@@ -110,6 +68,7 @@ if __name__ == "__main__":
     else:
         device = 'cpu'
         
+    max_iter = cfg.model.line.max_iter
     dataset, data_cited, splits = data_loader[cfg.data.name](cfg)
     
     full_edge_index = splits['test'].edge_index
@@ -130,15 +89,60 @@ if __name__ == "__main__":
     adj = to_scipy_sparse_matrix(full_edge_index)
 
     G = nx.from_scipy_sparse_array(adj)
-    model = LINE(G, embedding_size=2, order='all', device=device)
-    model.train(batch_size=1024, epochs=5, verbose=2)
+    model = LINE(G, embedding_size=96, order='all', lr=0.01) 
+    model.train(batch_size=2048, epochs=8, verbose=2)
 
-    embeddings = model.get_embeddings()
-    # print(embeddings)
-    x, y = [], []
-    print(sorted(embeddings.items(), key=lambda x: x[0]))
-    for k, i in embeddings.items():
-        x.append(i[0])
-        y.append(i[1])
-    plt.scatter(x, y)
-    plt.show()
+    embed = model.get_embeddings()
+    print(embed.shape)
+    
+    print(f"embedding size {embed.shape}")
+
+    # embedding method 
+    X_train_index, y_train = splits['train'].edge_label_index.T, splits['train'].edge_label
+    # dot product
+    X_train = embed[X_train_index]
+    X_train = np.multiply(X_train[:, 1], (X_train[:, 0]))
+    X_test_index, y_test = splits['test'].edge_label_index.T, splits['test'].edge_label
+    # dot product 
+    X_test = embed[X_test_index]
+    X_test = np.multiply(X_test[:, 1], (X_test[:, 0]))
+    
+
+    clf = LogisticRegression(solver='lbfgs', max_iter=max_iter, multi_class='auto')
+    clf.fit(X_train, y_train)
+    
+    y_pred = clf.predict_proba(X_test)
+
+    acc = clf.score(X_test, y_test)
+
+    method = cfg.model.type
+    
+    plt.figure()
+    plt.plot(y_pred, label='pred')
+    plt.plot(y_test, label='test')
+    plt.savefig(f'{method}_pred.png')
+        
+    results_acc = {f'{method}_acc': acc}
+    pos_test_pred = torch.tensor(y_pred[y_test == 1])
+    neg_test_pred = torch.tensor(y_pred[y_test == 0])
+    
+    evaluator_hit = Evaluator(name='ogbl-collab')
+    evaluator_mrr = Evaluator(name='ogbl-citation2')
+    pos_pred = pos_test_pred[:, 1]
+    neg_pred = neg_test_pred[:, 1]
+    result_mrr = get_metric_score(evaluator_hit, evaluator_mrr, pos_pred, neg_pred)
+    results_acc.update(result_mrr)
+
+    print(results_acc)
+
+    root = FILE_PATH + 'results'
+    acc_file = root + f'/{cfg.data.name}_acc_{method}.csv'
+
+    if not os.path.exists(root):
+        os.makedirs(root, exist_ok=True)
+    
+    id = wandb.util.generate_id()
+    param_tune_acc_mrr(id, results_acc, acc_file, cfg.data.name, method)
+    
+
+

@@ -2,13 +2,8 @@
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import yaml
-import pprint
-import numpy as np
-import scipy.sparse as ssp
 import torch
 from sklearn.linear_model import LogisticRegression
-from sklearn.manifold import TSNE
-from numba.typed import List
 from torch_geometric.utils import to_scipy_sparse_matrix
 from torch_geometric.graphgym.config import cfg
 from yacs.config import CfgNode as CN
@@ -20,7 +15,7 @@ from utils import (
     append_acc_to_excel,
     append_mrr_to_excel,
 )
-from IPython import embed
+
 import pandas as pd 
 # Constants
 FILE_PATH = get_git_repo_root_path() + '/'

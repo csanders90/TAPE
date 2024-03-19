@@ -21,11 +21,13 @@ import random
 import numpy as np
 from tensorflow.math import reduce_sum
 from tensorflow.keras import backend as K
+from tensorflow.keras import optimizers
 from tensorflow.keras.layers import Embedding, Input, Lambda
 from tensorflow.keras.models import Model
 
 from ..alias import create_alias_table, alias_sample
 from ..utils import preprocess_nxgraph
+from IPython import embed 
 
 
 def line_loss(y_true, y_pred):
@@ -64,7 +66,7 @@ def create_model(numNodes, embedding_size, order='second'):
 
 
 class LINE:
-    def __init__(self, graph, embedding_size=8, negative_ratio=5, order='second', ):
+    def __init__(self, graph, embedding_size=8, negative_ratio=5, lr=None, order='second', ):
         """
 
         :param graph:
@@ -89,7 +91,8 @@ class LINE:
         self.node_size = graph.number_of_nodes()
         self.edge_size = graph.number_of_edges()
         self.samples_per_epoch = self.edge_size * (1 + negative_ratio)
-
+        self.lr = lr 
+        
         self._gen_sampling_table()
         self.reset_model()
 
@@ -98,12 +101,14 @@ class LINE:
         self.steps_per_epoch = (
             (self.samples_per_epoch - 1) // self.batch_size + 1) * times
 
-    def reset_model(self, opt='adam'):
+    def reset_model(self, opt=None):
 
         self.model, self.embedding_dict = create_model(
             self.node_size, self.rep_size, self.order)
+        opt = optimizers.Adam(learning_rate=self.lr)
         self.model.compile(optimizer=opt, loss=line_loss)
         self.batch_it = self.batch_iter(self.node2idx)
+
 
     def _gen_sampling_table(self):
 
@@ -187,7 +192,7 @@ class LINE:
                 start_index = 0
                 end_index = min(start_index + self.batch_size, data_size)
 
-    def get_embeddings(self, ):
+    def get_dict_embeddings(self, ):
         self._embeddings = {}
         if self.order == 'first':
             embeddings = self.embedding_dict['first'].get_weights()[0]
@@ -199,8 +204,21 @@ class LINE:
         idx2node = self.idx2node
         for i, embedding in enumerate(embeddings):
             self._embeddings[idx2node[i]] = embedding
-
+            
+        self.embeddings = self.embeddings 
         return self._embeddings
+    
+    def get_embeddings(self, ):
+
+        if self.order == 'first':
+            embeddings = self.embedding_dict['first'].get_weights()[0]
+        elif self.order == 'second':
+            embeddings = self.embedding_dict['second'].get_weights()[0]
+        else:
+            embeddings = np.hstack((self.embedding_dict['first'].get_weights()[
+                                        0], self.embedding_dict['second'].get_weights()[0]))
+        return embeddings
+
 
     def train(self, batch_size=1024, epochs=1, initial_epoch=0, verbose=1, times=1):
         self.reset_training_config(batch_size, times)
