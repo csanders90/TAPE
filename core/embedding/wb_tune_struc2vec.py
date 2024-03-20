@@ -18,13 +18,13 @@ from heuristic.pubmed_heuristic import get_pubmed_casestudy
 from heuristic.cora_heuristic import get_cora_casestudy
 from heuristic.arxiv2023_heuristic import get_raw_text_arxiv_2023
 
-from Embedding.tune_utils import (
+from embedding.tune_utils import (
     get_git_repo_root_path
 )
 
 from ge.models import Struc2Vec
 import wandb
-from Embedding.tune_utils import (
+from embedding.tune_utils import (
     set_cfg,
     parse_args,
     load_sweep_config, 

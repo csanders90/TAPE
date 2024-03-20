@@ -11,7 +11,7 @@ from sklearn.manifold import TSNE
 from numba.typed import List
 from torch_geometric.utils import to_scipy_sparse_matrix
 from torch_geometric.graphgym.config import cfg
-from Embedding.node2vec_tagplus import node2vec, data_loader
+from embedding.node2vec_tagplus import node2vec, data_loader
 from yacs.config import CfgNode as CN
 from heuristic.eval import get_metric_score
 from utils import (

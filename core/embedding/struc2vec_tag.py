@@ -14,9 +14,9 @@ from torch_geometric.utils import to_scipy_sparse_matrix
 from ogb.linkproppred import Evaluator
 from yacs.config import CfgNode as CN
 from heuristic.eval import get_metric_score
-from heuristic.pubmed_heuristic import get_pubmed_casestudy
-from heuristic.cora_heuristic import get_cora_casestudy
-from heuristic.arxiv2023_heuristic import get_raw_text_arxiv_2023
+from data_utils.load_pubmed_lp import get_pubmed_casestudy
+from data_utils.load_cora_lp import get_cora_casestudy
+from data_utils.load_arxiv2023_lp import get_raw_text_arxiv_2023
 from lpda.adjacency import plot_coo_matrix, construct_sparse_adj
 from utils import (
     get_git_repo_root_path,

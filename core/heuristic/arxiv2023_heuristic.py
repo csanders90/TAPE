@@ -1,15 +1,9 @@
 
 import torch
 import pandas as pd
-import numpy as np
 import torch
-import random
-from ogb.nodeproppred import PygNodePropPredDataset
 import torch_geometric.transforms as T
-from torch_geometric.data import InMemoryDataset, Dataset
 from torch_geometric.transforms import RandomLinkSplit
-from torch_geometric.data.dataset import Dataset
-
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from data_utils.dataset import CustomPygDataset, CustomLinkDataset
@@ -24,20 +18,20 @@ from utils import get_git_repo_root_path
 from typing import Dict
 FILE_PATH = get_git_repo_root_path() + '/'
 
-from torch_geometric.data import Dataset
+
 import torch
 from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
 from heuristic.eval import evaluate_auc, evaluate_hits, evaluate_mrr, get_metric_score, get_prediction
 from utils import get_git_repo_root_path, append_acc_to_excel, append_mrr_to_excel
-from heuristic.semantic_similarity import pairwise_prediction
+from textfeat.semantic_similarity import pairwise_prediction
 
 
-def get_raw_text_arxiv_2023(args):
-    undirected = args.data.undirected
-    include_negatives = args.data.include_negatives
-    val_pct = args.data.val_pct
-    test_pct = args.data.test_pct
-    split_labels = args.data.split_labels
+def get_raw_text_arxiv_2023(undirected = True,
+                            include_negatives = True,
+                            val_pct = 0.15,
+                            test_pct = 0.05,
+                            split_labels=False):
+
     
     data = torch.load(FILE_PATH + 'dataset/arxiv_2023/graph.pt')
     
@@ -97,31 +91,31 @@ def eval_arxiv_23_acc() -> Dict:
         acc = torch.sum(scores == labels)/scores.shape[0]
         result_acc.update({f"{use_lsf}_acc" :acc})
         
-    for use_gsf in ['Ben_PPR']:
-        scores, edge_reindex = eval(use_gsf)(A, test_index)
+    # for use_gsf in ['Ben_PPR']:
+    #     scores, edge_reindex = eval(use_gsf)(A, test_index)
         
-        # print(scores)
-        # print(f" {use_heuristic}: accuracy: {scores}")
-        pred = torch.zeros(scores.shape)
-        cutoff = 0.05
-        thres = scores.max()*cutoff 
-        pred[scores <= thres] = 0
-        pred[scores > thres] = 1
+    #     # print(scores)
+    #     # print(f" {use_heuristic}: accuracy: {scores}")
+    #     pred = torch.zeros(scores.shape)
+    #     cutoff = 0.05
+    #     thres = scores.max()*cutoff 
+    #     pred[scores <= thres] = 0
+    #     pred[scores > thres] = 1
         
-        acc = torch.sum(pred == labels)/labels.shape[0]
-        result_acc.update({f"{use_gsf}_acc" :acc})
+    #     acc = torch.sum(pred == labels)/labels.shape[0]
+    #     result_acc.update({f"{use_gsf}_acc" :acc})
     
-    # , 'katz_close'
-    for use_gsf in ['shortest_path', 'katz_apro']:
-        scores = eval(use_gsf)(A, test_index)
+    # # , 'katz_close'
+    # for use_gsf in ['shortest_path', 'katz_apro']:
+    #     scores = eval(use_gsf)(A, test_index)
         
-        pred = torch.zeros(scores.shape)
-        thres = scores.min()*10
-        pred[scores <= thres] = 0
-        pred[scores > thres] = 1
+    #     pred = torch.zeros(scores.shape)
+    #     thres = scores.min()*10
+    #     pred[scores <= thres] = 0
+    #     pred[scores > thres] = 1
         
-        acc = torch.sum(pred == labels)/labels.shape[0]
-        result_acc.update({f"{use_gsf}_acc" :acc})
+    #     acc = torch.sum(pred == labels)/labels.shape[0]
+    #     result_acc.update({f"{use_gsf}_acc" :acc})
 
     for use_heuristic in ['pairwise_pred']:
         for dist in ['dot']:
@@ -223,6 +217,7 @@ if __name__ == "__main__":
     if not os.path.exists(root):
         os.makedirs(root, exist_ok=True)
     
-    append_acc_to_excel(result_acc, acc_file, name)
-    append_mrr_to_excel(result_mrr, mrr_file)
+
+    append_acc_to_excel(id, result_acc, acc_file, name, method='')
+    append_mrr_to_excel(id, result_mrr, mrr_file, name, method='')
     

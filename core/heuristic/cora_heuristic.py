@@ -12,7 +12,7 @@ from torch_geometric.data import Data, InMemoryDataset
 from torch_geometric.transforms import RandomLinkSplit
 from heuristic.lsf import CN, AA, RA, InverseRA
 from heuristic.gsf import Ben_PPR, shortest_path, katz_apro, katz_close, SymPPR
-from heuristic.semantic_similarity import pairwise_prediction
+from textfeat.semantic_similarity import pairwise_prediction
 import matplotlib.pyplot as plt
 from lpda.adjacency import plot_coo_matrix, construct_sparse_adj
 from utils import get_git_repo_root_path, append_acc_to_excel, append_mrr_to_excel
@@ -189,12 +189,17 @@ def parse_cora():
     return data_X, data_Y, data_citeid, np.unique(data_edges, axis=0).transpose()
 
 
-def get_cora_casestudy(args) -> InMemoryDataset:
-    undirected = args.data.undirected
-    include_negatives = args.data.include_negatives
-    val_pct = args.data.val_pct
-    test_pct = args.data.test_pct
-    split_labels = args.data.split_labels
+def get_cora_casestudy(undirected = True,
+                        include_negatives = True,
+                        val_pct = 0.15,
+                        test_pct = 0.05,
+                        split_labels = False
+                        ) -> InMemoryDataset:
+    # undirected = args.data.undirected
+    # include_negatives = args.data.include_negatives
+    # val_pct = args.data.val_pct
+    # test_pct = args.data.test_pct
+    # split_labels = args.data.split_labels
     
     data_X, data_Y, data_citeid, data_edges = parse_cora()
 
@@ -234,12 +239,12 @@ def get_cora_casestudy(args) -> InMemoryDataset:
 # main function 
 if __name__ == "__main__":
     NAME = 'cora'
-    results_acc = eval_cora_acc()
-    results_mrr = eval_cora_mrr()
+    result_acc = eval_cora_acc()
+    result_mrr = eval_cora_mrr()
 
-    for key, val in results_mrr.items():
+    for key, val in result_mrr.items():
         print(key, val)
-    for key, val in results_acc.items():
+    for key, val in result_acc.items():
         print(key, val)    
         
     root = FILE_PATH + 'results'
@@ -248,5 +253,6 @@ if __name__ == "__main__":
     if not os.path.exists(root):
         os.makedirs(root, exist_ok=True)
     
-    append_acc_to_excel(results_acc, acc_file, NAME)
-    append_mrr_to_excel(results_mrr, mrr_file)
+    append_acc_to_excel(id, result_acc, acc_file, NAME, method='')
+    append_mrr_to_excel(id, result_mrr, mrr_file, NAME, method='')
+    

@@ -7,19 +7,19 @@ import scipy.sparse as ssp
 import torch
 import matplotlib.pyplot as plt
 from lpda.adjacency import plot_coo_matrix, construct_sparse_adj
-from core.Embedding.tune_utils import get_git_repo_root_path, append_acc_to_excel, append_mrr_to_excel
+from embedding.tune_utils import get_git_repo_root_path, append_acc_to_excel, append_mrr_to_excel
 from ogb.linkproppred import Evaluator
 from heuristic.eval import get_metric_score
-from ge import Node2Vec
+from embedding.ge.models import Node2Vec
 from yacs.config import CfgNode as CN
 import networkx as nx 
 from torch_geometric.graphgym.cmd_args import parse_args
 from torch_geometric.graphgym.config import (cfg)
 
-from heuristic.pubmed_heuristic import get_pubmed_casestudy
-from heuristic.cora_heuristic import get_cora_casestudy
-from heuristic.arxiv2023_heuristic import get_raw_text_arxiv_2023
-from Embedding.node2vec_tagplus import node2vec
+from data_utils.load_pubmed_lp import get_pubmed_casestudy
+from data_utils.load_cora_lp import get_cora_casestudy
+from data_utils.load_arxiv2023_lp import get_raw_text_arxiv_2023
+from embedding.node2vec_tagplus import node2vec
 
 FILE_PATH = get_git_repo_root_path() + '/'
 

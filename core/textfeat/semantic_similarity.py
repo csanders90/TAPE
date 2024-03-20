@@ -31,6 +31,8 @@ def pairwise_prediction(data, test_index, distance):
     test_pred = torch.tensor(np.asarray(test_pred))
     return test_pred
 
+def compat_matrix(data, test_index, ):
+    return 
 
 # test_pos_pred, test_neg_pred = get_fp_prediction(data_embeddings, test_pos, test_neg, args)
 # valid_pos_pred, valid_neg_pred = get_fp_prediction(data_embeddings, valid_pos, valid_neg, args)

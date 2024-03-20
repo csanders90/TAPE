@@ -25,7 +25,7 @@ import torch
 from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
 from heuristic.eval import evaluate_auc, evaluate_hits, evaluate_mrr, get_metric_score, get_prediction
 from utils import get_git_repo_root_path, append_acc_to_excel, append_mrr_to_excel
-from heuristic.semantic_similarity import pairwise_prediction
+from textfeat.semantic_similarity import pairwise_prediction
 
 
 
@@ -235,6 +235,7 @@ if __name__ == "__main__":
         os.makedirs(root, exist_ok=True)
     
     # TEST CODE 
-    append_acc_to_excel(result_acc, acc_file, name)
-    append_mrr_to_excel(result_mrr, mrr_file)
+    append_acc_to_excel(id, result_acc, acc_file, name, method='')
+    append_mrr_to_excel(id, result_mrr, mrr_file, name, method='')
+    
     

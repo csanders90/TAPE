@@ -151,13 +151,13 @@ def append_acc_to_excel(uuid_val, metrics_acc, root, name, method):
     return upt_Data
 
 
-def append_mrr_to_excel(uuid_val, metrics_mrr, root, method):
+def append_mrr_to_excel(uuid_val, metrics_mrr, root, name, method):
  
     csv_columns, csv_numbers = [], []
     for i, (k, v) in enumerate(metrics_mrr.items()): 
         if i == 0:
             csv_columns = ['Metric'] + list(v.keys())
-        csv_numbers.append([f'{k}_{uuid_val}_{method}'] + list(v.values()))
+        csv_numbers.append([f'{k}_{uuid_val}_{name}_{method}'] + list(v.values()))
     
     print(csv_numbers)
 
