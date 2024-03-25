@@ -110,12 +110,13 @@ import pandas as pd
 import torch 
 import csv
 import uuid
+from IPython import embed
 
 # Define a function that uses the lambda function
 def process_value(v):
     return (lambda x: x.tolist() if isinstance(x, torch.Tensor) else x)(v)
 
-from IPython import embed
+
 def append_acc_to_excel(uuid_val, metrics_acc, root, name, method):
     # if not exists save the first row
     

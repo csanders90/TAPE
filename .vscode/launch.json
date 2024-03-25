@@ -11,7 +11,8 @@
 			"program": "${file}",
 			"console": "integratedTerminal",
 			"justMyCode": false,
-			"args": ["--cfg", "core/configs/arxiv_2023/struc2vec.yaml", "--sweep", "core/configs/arxiv_2023/struc2vec_sp1.yaml"],
+			// "args": ["--cfg", "core/configs/arxiv_2023/struc2vec.yaml", "--sweep", "core/configs/arxiv_2023/struc2vec_sp1.yaml"],
+			"args": ["--cfg", "core/configs/pubmed/node_sim.yaml"],
 		}
 	]
 }

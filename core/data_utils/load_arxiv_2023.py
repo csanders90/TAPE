@@ -38,10 +38,10 @@ def get_raw_text_arxiv_2023(use_text=False, seed=0):
     # data.edge_index = data.adj_t.to_symmetric()
     if not use_text:
         return data, None
-
-    df = pd.read_csv('dataset/arxiv_2023_orig/paper_info.csv')
-    text = []
-    for ti, ab in zip(df['title'], df['abstract']):
-        text.append(f'Title: {ti}\nAbstract: {ab}')
-        # text.append((ti, ab))
+    else:
+        df = pd.read_csv('dataset/arxiv_2023_orig/paper_info.csv')
+        text = []
+        for ti, ab in zip(df['title'], df['abstract']):
+            text.append(f'Title: {ti}\nAbstract: {ab}')
+            # text.append((ti, ab))
     return data, text

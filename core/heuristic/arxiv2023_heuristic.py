@@ -23,7 +23,7 @@ import torch
 from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
 from heuristic.eval import evaluate_auc, evaluate_hits, evaluate_mrr, get_metric_score, get_prediction
 from utils import get_git_repo_root_path, append_acc_to_excel, append_mrr_to_excel
-from textfeat.semantic_similarity import pairwise_prediction
+from textfeat.node_similarity import pairwise_prediction
 
 
 def get_raw_text_arxiv_2023(undirected = True,
@@ -172,28 +172,28 @@ def eval_cora_mrr() -> None:
     
     result_dict = {}
     # , 'InverseRA'
-    for use_heuristic in ['CN', 'AA', 'RA']:
-        pos_test_pred, _ = eval(use_heuristic)(full_A, pos_test_index)
-        neg_test_pred, _ = eval(use_heuristic)(full_A, neg_test_index)
+    # for use_heuristic in ['CN', 'AA', 'RA']:
+    #     pos_test_pred, _ = eval(use_heuristic)(full_A, pos_test_index)
+    #     neg_test_pred, _ = eval(use_heuristic)(full_A, neg_test_index)
         
-        result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
-        result_dict.update({f'{use_heuristic}': result})
+    #     result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
+    #     result_dict.update({f'{use_heuristic}': result})
         
-    # , 'SymPPR'
-    for use_heuristic in ['Ben_PPR']:
-        pos_test_pred, _ = eval(use_heuristic)(full_A, pos_test_index)
-        neg_test_pred, _ = eval(use_heuristic)(full_A, neg_test_index)
-        result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
-        result_dict.update({f'{use_heuristic}': result})
+    # # , 'SymPPR'
+    # for use_heuristic in ['Ben_PPR']:
+    #     pos_test_pred, _ = eval(use_heuristic)(full_A, pos_test_index)
+    #     neg_test_pred, _ = eval(use_heuristic)(full_A, neg_test_index)
+    #     result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
+    #     result_dict.update({f'{use_heuristic}': result})
     
-    #  'katz_close'
-    for use_heuristic in ['shortest_path', 'katz_apro']:
-        pos_test_pred = eval(use_heuristic)(full_A, pos_test_index)
-        neg_test_pred = eval(use_heuristic)(full_A, neg_test_index)
-        result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
+    # #  'katz_close'
+    # for use_heuristic in ['shortest_path', 'katz_apro']:
+    #     pos_test_pred = eval(use_heuristic)(full_A, pos_test_index)
+    #     neg_test_pred = eval(use_heuristic)(full_A, neg_test_index)
+    #     result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
 
-        # calc mrr and hits@k
-        result_dict.update({f'{use_heuristic}': result})
+    #     # calc mrr and hits@k
+    #     result_dict.update({f'{use_heuristic}': result})
 
     for use_heuristic in ['pairwise_pred']:
         for dist in ['dot']:
@@ -217,7 +217,8 @@ if __name__ == "__main__":
     if not os.path.exists(root):
         os.makedirs(root, exist_ok=True)
     
-
+    import wandb
+    id = wandb.util.generate_id() 
     append_acc_to_excel(id, result_acc, acc_file, name, method='')
     append_mrr_to_excel(id, result_mrr, mrr_file, name, method='')
     
