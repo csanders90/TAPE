@@ -38,22 +38,12 @@ from time import time
 import numpy as np
 from torch.utils.data import DataLoader
 from tqdm import tqdm 
-
+from textfeat.mlp_dot_product import distance_metric, data_loader, FILE_PATH, set_cfg
+import torch.nn.functional as F
 method = 'compat'
 LOG_FREQ = 10 
-FILE_PATH = get_git_repo_root_path() + '/'
 
-
-data_loader = {
-    'cora': get_cora_casestudy,
-    'pubmed': get_pubmed_casestudy,
-    'arxiv_2023': get_raw_text_arxiv_2023
-}
-
-def set_cfg(file_path, args):
-    with open(file_path + args.cfg_file, "r") as f:
-        return CN.load_cfg(f)
-
+norm = lambda x: (x-x.mean())/ x.std()
 
 def create_node_feat(edge_label_index, train_node_feat):
     node_feat = torch.zeros(edge_label_index.shape[0], train_node_feat.shape[1]*2)
@@ -72,13 +62,12 @@ class CompatTrainer():
         # self.device = cfg.device
         self.dataset_name = cfg.data.name
         self.model_name = 'comp'
-        self.input_dim = input_dim 
-        self.hidden_dim = hidden_dim 
         
         self.lr = 0.001
         self.epochs = 200
         self.batch_size = 256
         self.device = 'cpu'
+
         # preprocess data
         dataset, data_cited, splits = data_loader[cfg.data.name](cfg)
         
@@ -94,8 +83,14 @@ class CompatTrainer():
         self.features = splits['train'].x
         
         self.train_links = splits['train'].edge_label_index
+        self.train_labels = splits['train'].edge_label
+        self.valid_links = splits['valid'].edge_label_index 
+        self.valid_labels = splits['valid'].edge_label
         self.test_links = splits['test'].edge_label_index
+        self.test_labels = splits['test'].edge_label
+        # self.
         self.test_loader = DataLoader(range(self.test_links.shape[1]), self.batch_size, shuffle=True)
+        self.valid_loader = DataLoader(range(self.valid_links.shape[1]), self.batch_size, shuffle=False)
         self.train_loader = DataLoader(range(self.train_links.shape[1]), self.batch_size, shuffle=False)
         
         num_feat = self.features.shape[1]
@@ -110,10 +105,12 @@ class CompatTrainer():
 
         print(f"\nNumber of parameters: {trainable_params}")
         self.loss_func = torch.nn.MSELoss()
+        self.evaluator_hit = Evaluator(name='ogbl-collab')
+        self.evaluator_mrr = Evaluator(name='ogbl-citation2')
 
 
-    def _forward(self, x1, x2):
-        logits = self.model(x1, x2)  # small-graph
+    def _forward(self, x1,):
+        logits = self.model(x1)  # small-graph
         return logits
 
 
@@ -130,42 +127,54 @@ class CompatTrainer():
             emb_right = self._forward(emb[links_indices[0]])
             
             loss = self.loss_func(
-                emb[links_indices[1]], emb_right)
+                emb_right, emb[links_indices[1]])
 
             loss.backward()
             self.optimizer.step()
+            del emb, batch_count, indices 
         return loss.item()
 
+
+    def _link_predictor(self, emb1, emb2):
+        """ calc the similarity between two node embeddings 
+        # previous version is
+        # def _link_predictor(self, emb1, emb2):
+        #   return F.cosine_similarity(norm(emb1), norm(emb2), dim=0)
+        """
+        link_pred = np.zeros(emb1.shape[0])
+        for index in range(emb1.shape[0]):
+            link_pred[index] = distance_metric['dot'](emb1[index], emb2[index])
+        return torch.tensor(link_pred)
+    
     @torch.no_grad()
     def _evaluate(self):
-
         self.model.eval()
-        logits = self._forward(self.features, self.data.edge_index)
-        val_acc = self.evaluator(
-            logits, self.data.y)
-        test_acc = self.evaluator(
-            logits, self.data.y)
-        return val_acc, test_acc, logits
+        emb = (self.features.to(self.device))
+        train_pred_list = []
+        for _, indices in enumerate(tqdm(self.train_loader)):
+            links_indices = self.train_links[:, indices]
+            
+            emb_right = self._forward(emb[links_indices[0]])
+            train_pred_list.append(self._link_predictor(emb_right, emb[links_indices[1]]))
+            
+        predictions = torch.cat(train_pred_list)
+        # evaluation refer to paper section
+        y_pos_pred = predictions[self.train_labels == 1]
+        y_neg_pred = predictions[self.train_labels == 0]
+        train_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, y_pos_pred, y_neg_pred)
+
+        return train_mrr
 
     def train(self):
         # ! Training
         for epoch in range(self.epochs):
             t0, es_str = time(), ''
-            loss, train_acc = self._train()
-            val_acc, test_acc, _ = self._evaluate()
-            if self.stopper is not None:
-                es_flag, es_str = self.stopper.step(val_acc, self.model, epoch)
-                if es_flag:
-                    print(
-                        f'Early stopped, loading model from epoch-{self.stopper.best_epoch}')
-                    break
+            loss = self._train()
+            
             if epoch % LOG_FREQ == 0:
+                train_mrr = self._evaluate()
                 print(
-                    f'Epoch: {epoch}, Time: {time()-t0:.4f}, Loss: {loss:.4f}, TrainAcc: {train_acc:.4f}, ValAcc: {val_acc:.4f}, ES: {es_str}')
-
-        # ! Finished training, load checkpoints
-        if self.stopper is not None:
-            self.model.load_state_dict(torch.load(self.stopper.path))
+                    f'Epoch: {epoch}, Time: {time()-t0:.4f}, Train_acc: {0:.4f}, Train_mrr: {train_mrr}, ValAcc: {0:.4f}, ES: {0}')
 
         return self.model
 
@@ -174,7 +183,7 @@ class CompatTrainer():
         torch.save(self.model.state_dict(), self.ckpt)
         val_acc, val_mrr = self._evaluate()
         print(
-            f'[{self.gnn_model_name} + {self.feature_type}] ValAcc: {val_acc:.4f}, \n')
+            f'[{self.model_name}] ValAcc: {val_acc:.4f}, \n')
         return 
 
 

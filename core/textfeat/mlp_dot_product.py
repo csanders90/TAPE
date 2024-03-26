@@ -27,11 +27,11 @@ method = 'nonlinear_mlp'
 FILE_PATH = get_git_repo_root_path() + '/'
 
 distance_metric = {
-    # 'cos': distance.cosine,
-    # 'l2': distance.euclidean,
-    # 'hamming': distance.hamming,
-    # 'jaccard': distance.jaccard,
-    # 'dice': distance.dice,
+    'cos': distance.cosine,
+    'l2': distance.euclidean,
+    'hamming': distance.hamming,
+    'jaccard': distance.jaccard,
+    'dice': distance.dice,
     'dot': lambda x, y: np.dot(x, y)
 }
 
