@@ -20,7 +20,9 @@ from embedding.tune_utils import param_tune_acc_mrr
 from pathlib import Path 
 import matplotlib.pyplot as plt 
 from IPython import embed 
-method = 'nonlinear_compat'
+import uuid 
+
+method = 'nonlinear_mlp'
     
 FILE_PATH = get_git_repo_root_path() + '/'
 
@@ -63,9 +65,6 @@ def pairwise_prediction(data, test_index, distance):
     return test_pred
 
 
-def compat_matrix(data, test_index, ):
-    raise NotImplementedError 
-
 def create_node_feat(edge_label_index, train_node_feat):
     node_feat = torch.zeros(edge_label_index.shape[0], train_node_feat.shape[1]*2)
     for i, (srt, trg) in enumerate(edge_label_index):
@@ -73,7 +72,7 @@ def create_node_feat(edge_label_index, train_node_feat):
     
     return node_feat
         
-def MLP_as_compat(splits, max_iter=10000, method='node_sim'):
+def MLP_as_compat(splits, max_iter=10000, method='node_sim', predict='soft', data=None):
     # train loop
     
     X_train_feat = create_node_feat(splits['train'].edge_label_index.T, splits['train'].x)
@@ -107,8 +106,13 @@ def MLP_as_compat(splits, max_iter=10000, method='node_sim'):
                         n_iter_no_change=10, 
                         max_fun=15000).fit(X_train_feat, y_train)
 
-    y_pos_pred = torch.tensor(clf.predict_proba(X_pos_test_feat))
-    y_neg_pred = torch.tensor(clf.predict_proba(X_neg_test_feat))
+    
+    if predict == 'hard':
+        y_pos_pred = torch.tensor(clf.predict(X_pos_test_feat))
+        y_neg_pred = torch.tensor(clf.predict(X_neg_test_feat))
+    elif predict == 'soft':
+        y_pos_pred = torch.tensor(clf.predict_proba(X_pos_test_feat)[:, 1])
+        y_neg_pred = torch.tensor(clf.predict_proba(X_neg_test_feat)[:, 1])
     
     test_pos_label = splits['test'].edge_label[splits['test'].edge_label == 1]
     test_neg_label = splits['test'].edge_label[splits['test'].edge_label == 0]
@@ -119,7 +123,15 @@ def MLP_as_compat(splits, max_iter=10000, method='node_sim'):
     
     evaluator_hit = Evaluator(name='ogbl-collab')
     evaluator_mrr = Evaluator(name='ogbl-citation2')
-    embed()
+    
+    weight_matrices = clf.coefs_
+    
+    import matplotlib.pyplot as plt 
+    plt.figure()
+    plt.imshow(weight_matrices[0].T)
+    id = wandb.util.generate_id()
+    plt.savefig(f'MLP_{cfg.data.name}visual_{id}.png')
+
     results_acc.update(get_metric_score(evaluator_hit, evaluator_mrr, y_pos_pred, y_neg_pred))
     return results_acc
 
@@ -153,14 +165,14 @@ def eval_node_sim_acc(cfg) -> None:
     pos_test_index = splits['test'].edge_label_index[:, splits['test'].edge_label == 1]
     neg_test_index = splits['test'].edge_label_index[:, splits['test'].edge_label == 0]
     
-    for node_sim in ['pairwise_pred']:
+    for method in ['pairwise_pred']:
         for dist in ['dot']:
             pos_test_pred = pairwise_prediction(dataset._data.x, pos_test_index, dist)
             neg_test_pred = pairwise_prediction(dataset._data.x, neg_test_index, dist)
             result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
-            result_dict.update({f'{node_sim}_{dist}': result})
+            result_dict.update({f'{method}_{dist}': result})
 
-    result_dict = MLP_as_compat(splits, max_iter=10000)
+    result_dict = MLP_as_compat(splits, max_iter=10000, predict='soft', data=cfg.data.name)
     
 
     root = FILE_PATH + 'results/node_sim/'
