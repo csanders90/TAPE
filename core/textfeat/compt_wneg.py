@@ -55,33 +55,42 @@ def create_node_feat(edge_label_index, train_node_feat):
     return node_feat
 
 
-
-class MultipleLinearRegression(torch.nn.Module):
+class MultipleLinearRegression_with_NegLink(torch.nn.Module):
 
     def __init__(self, 
                  input_dim, 
                  hidden_dim):
-        super(MultipleLinearRegression, self).__init__()
+        super(MultipleLinearRegression_with_NegLink, self).__init__()
 
         self.linear1 = torch.nn.Linear(input_dim, hidden_dim)
-
-    def forward(self, x1):
+        
+    def forward(self, x1, x2):
+        xH = self.linear1(x1)
+        xHx = xH@x2.T
+        return xHx
+    
+    def predictor(self, x1):
         x = self.linear1(x1)
         return x
-
-
-
-class MSELoss_Pos(torch.nn.Module):
-    def __init__(self, ):
-        super(MSELoss_Pos, self).__init__()
         
-        
-    def forward(self, predicted, target, labels):
-        # Compute your custom loss here
-        pos_index =  labels == 1
-        predicted, target = predicted[pos_index], target[pos_index]
-        return F.mse_loss(predicted, target)
     
+
+class MSELoss_w_Neg(torch.nn.Module):
+    def __init__(self, weight=None, size_average=None, reduce=None, reduction='mean'):
+        super(MSELoss_w_Neg, self).__init__()
+        
+        
+    def forward(self, predicted, target):
+        # Compute your custom loss here
+        pos = target == 1
+        pos_loss = (1 - predicted[pos, :]).sum()
+        
+        neg = target == 0
+        neg_loss = (predicted[neg, :]).sum()
+        
+        return neg_loss + pos_loss
+
+
 class Trainer():
 
     def __init__(self, 
@@ -92,23 +101,23 @@ class Trainer():
         self.dataset_name = cfg.data.name
         self.model_name = 'comp'
         
-        self.lr = 0.01
+        self.lr = 0.015
         self.epochs = 200
         self.batch_size = 256
-        
+
         if torch.cuda.is_available():
             # Get the number of available CUDA devices
             num_cuda_devices = torch.cuda.device_count()
-
+        else:
+            num_cuda_devices = 0
         if num_cuda_devices > 0:
             # Set the first CUDA device as the active device
             torch.cuda.set_device(0)
             self.device = 'cuda'
         else:
             self.device = 'cpu'
-            
+                
         self.id = wandb.util.generate_id()
-        self.loss = cfg.train.loss
         # preprocess data
         dataset, data_cited, splits = data_loader[cfg.data.name](cfg)
         
@@ -129,16 +138,14 @@ class Trainer():
         self.valid_labels = splits['valid'].edge_label
         self.test_links = splits['test'].edge_label_index
         self.test_labels = splits['test'].edge_label
-    
-        
-        # dataloader 
+        # self.
         self.test_loader = DataLoader(range(self.test_links.shape[1]), self.batch_size, shuffle=True)
         self.valid_loader = DataLoader(range(self.valid_links.shape[1]), self.batch_size, shuffle=False)
         self.train_loader = DataLoader(range(self.train_links.shape[1]), self.batch_size, shuffle=False)
         
         num_feat = self.features.shape[1]
         # models
-        self.model = MultipleLinearRegression(num_feat, num_feat).to(self.device)
+        self.model = MultipleLinearRegression_with_NegLink(num_feat, num_feat).to(self.device)
 
         self.optimizer = torch.optim.Adam(
             self.model.parameters(), lr=self.lr, weight_decay=0.0)
@@ -148,15 +155,13 @@ class Trainer():
 
         print(f"\nNumber of parameters: {trainable_params}")
         
-        self.loss_func = torch.nn.MSELoss()
+        if cfg.train.loss == 'mse':
+            self.loss_func = torch.nn.MSELoss()
+        elif cfg.train.loss == 'mse_w_neg':
+            self.loss_func = MSELoss_w_Neg()
             
         self.evaluator_hit = Evaluator(name='ogbl-collab')
         self.evaluator_mrr = Evaluator(name='ogbl-citation2')
-
-
-    def _forward(self, x1,):
-        logits = self.model(x1)  # small-graph
-        return logits
 
 
     def _train(self):
@@ -167,23 +172,16 @@ class Trainer():
             emb = (self.features.to(self.device))
         
             self.optimizer.zero_grad()
-            
+            # ! Specific
             links_indices = self.train_links[:, indices]
-            labels = self.train_labels[indices] == 1
+            labels = self.train_labels[indices]
+            zHz = self.model.forward(emb[links_indices[0]], emb[links_indices[1]])
             
-            if torch.sum(labels) != 0:
-                emb_right = self._forward(emb[links_indices[0]])
-                
-                if self.loss == 'mse':
-                    loss = self.loss_func(emb_right, emb[links_indices[1]]
-                        )
-                elif self.loss == 'mse_pos':
-                    loss = self.loss_func(emb_right[labels], emb[links_indices[1]][labels]
-                        )                
-                    
-                loss.backward()
-                self.optimizer.step()
-                del emb, batch_count, indices 
+            loss = self.loss_func(zHz, labels)
+
+            loss.backward()
+            self.optimizer.step()
+            del emb, batch_count, indices 
         return loss.item()
 
 
@@ -209,7 +207,7 @@ class Trainer():
             pred_list = []
             for _, indices in enumerate(tqdm(loader)):
                 links_indices = labels[:, indices]
-                emb_right = self._forward(emb[links_indices[0]])
+                emb_right = self.model.predictor(emb[links_indices[0]])
                 pred_list.append(self._link_predictor(emb_right, emb[links_indices[1]]))
             predictions = torch.cat(pred_list)
             return predictions
@@ -247,11 +245,11 @@ class Trainer():
             if epoch % LOG_FREQ == 0:
                 train_acc, train_mrr, valid_acc, valid_mrr, test_acc, test_mrr = self._evaluate()
                 print(
-                    f'Epoch: {epoch}, Time: {time()-t0:.4f}, Loss: {loss:.6e}, Train_acc: {train_acc:.4f}, Train_mrr: {train_mrr}, ')
+                    f'Epoch: {epoch}, Time: {time()-t0:.4f}, Loss: {loss:.4f}, Train_acc: {train_acc:.4f}, Train_mrr: {train_mrr}, ')
                 print(
-                    f'Epoch: {epoch}, Time: {time()-t0:.4f}, Loss: {loss:.6e}, Valid_acc: {valid_acc:.4f}, Valid_mrr: {valid_mrr}, ')
+                    f'Epoch: {epoch}, Time: {time()-t0:.4f}, Loss: {loss:.4f}, Valid_acc: {valid_acc:.4f}, Valid_mrr: {valid_mrr}, ')
                 print(
-                    f'Epoch: {epoch}, Time: {time()-t0:.4f}, Loss: {loss:.6e}, Test_acc: {test_acc:.4f}, Test_mrr: {test_mrr}, ')
+                    f'Epoch: {epoch}, Time: {time()-t0:.4f}, Loss: {loss:.4f}, Test_acc: {test_acc:.4f}, Test_mrr: {test_mrr}, ')
         return self.model
 
     @torch.no_grad()
@@ -267,7 +265,7 @@ class Trainer():
         plt.figure()
         weight = self.model.linear1.weight.cpu().detach().numpy()
         plt.imshow( norm(weight))
-        plt.savefig(f'{cfg.data.name}_compt_without_neg_{self.id}.png')
+        plt.savefig(f'{cfg.data.name}_compt_with_neg_{self.id}.png')
         return 
       
 
