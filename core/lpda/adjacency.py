@@ -184,10 +184,22 @@ def construct_sparse_adj(edge_index) -> coo_matrix:
       m = coo_matrix((vals, (rows, cols)), shape=shape)
       return m
 
-def avg_degree2(G):
+def avg_degree2(G, avg_degree_dict = {}):
+    avg_degree_list = []
+    for index in range(max(G.nodes)+1):
+        degree = 0
+        adj_list = list(G.neighbors(index))
+        if adj_list != []:
+            for neighbors in adj_list:
+                try:
+                    degree += avg_degree_dict[neighbors]
+                except:
+                    degree += 0
+            avg_degree_list.append(degree / len(adj_list))
+        
+    return np.array(avg_degree_list).mean()
     
-    return 
-      
+    
 def avg_degree(G):
     avg_deg = nx.average_neighbor_degree(G)
     # Calculate the sum of all values
@@ -198,7 +210,7 @@ def avg_degree(G):
 
     # Calculate the average value
     average_value = total_sum / num_values
-    return average_value
+    return average_value, avg_deg
 
 
  
@@ -256,11 +268,11 @@ if __name__ == '__main__':
                 num_nodes = dataset[0][0]['num_nodes']
                 num_edges = dataset[0][0]['edge_index'].shape[1]
                 avg_degree_arithmetic = int(num_edges / num_nodes)
-                avg_degree_G = avg_degree(G)
-                avg_degree_G2 = avg_degree2(G)
+                avg_degree_G, avg_degree_dict = avg_degree(G)
+                avg_degree_G2 = avg_degree2(G, avg_degree_dict)
                 print(f"{name}, heterogeneity: {heterogeneity}. num_node: {num_nodes}, num_edges: {num_edges}, \
                       avg degree arithmetic {avg_degree_arithmetic},  \
-                      avg degree G {avg_degree_G}, avg degree G2 {avg_degree_G2}.")
+                      avg degree G {avg_degree_G}, avg degree G2 {avg_degree_G2}, clustering {nx.average_clustering(G)}.")
 
             
             if name == 'arxiv_2023':
@@ -274,9 +286,17 @@ if __name__ == '__main__':
                 fig.savefig(f"{name}_data_index_spy.png", bbox_inches='tight')
 
                 heterogeneity = calculate_heterogeneity(G)
-                print(f"{name}, heterogeneity: {heterogeneity}. num_node: {dataset[0].num_node}")
+                num_nodes = data.num_nodes
+                num_edges = data.edge_index.shape[1]
+                avg_degree_arithmetic = int(num_edges / num_nodes)
+                avg_degree_G, avg_degree_dict = avg_degree(G)
+                avg_degree_G2 = avg_degree2(G, avg_degree_dict)
+                print(f"{name}, heterogeneity: {heterogeneity}. num_node: {num_nodes}, num_edges: {num_edges}, \
+                      avg degree arithmetic {avg_degree_arithmetic},  \
+                      avg degree G {avg_degree_G}, avg degree G2 {avg_degree_G2}, clustering {nx.average_clustering(G)}.")
 
             for name in ['cora', 'pubmed']:
+                name = 'pubmed'
                 data, num_class, text = load_data(name)
                 G = nx.from_scipy_sparse_array(m)
 
@@ -286,4 +306,11 @@ if __name__ == '__main__':
                 fig.savefig(f"{name}_data_index_spy.png", bbox_inches='tight')
 
                 heterogeneity = calculate_heterogeneity(G)
-                print(f"{name}, heterogeneity: {heterogeneity}. num_node: {dataset[0].num_node}")
+                num_nodes = data.num_nodes
+                num_edges = data.edge_index.shape[1]
+                avg_degree_arithmetic = int(num_edges / num_nodes)
+                avg_degree_G, avg_degree_dict = avg_degree(G)
+                avg_degree_G2 = avg_degree2(G, avg_degree_dict)
+                print(f"{name}, heterogeneity: {heterogeneity}. num_node: {num_nodes}, num_edges: {num_edges}, \
+                      avg degree arithmetic {avg_degree_arithmetic},  \
+                      avg degree G {avg_degree_G}, avg degree G2 {avg_degree_G2}, clustering {nx.average_clustering(G)}.")
