@@ -126,7 +126,7 @@ class GNNTrainer():
 
         return loss.item(), train_acc
 
-    @ torch.no_grad()
+    @torch.no_grad()
     def _evaluate(self):
         self.model.eval()
         logits = self._forward(self.features, self.data.edge_index)
