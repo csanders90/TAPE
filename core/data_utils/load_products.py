@@ -6,10 +6,16 @@ import json
 import numpy as np
 import os
 import time
-from core.utils import time_logger
+import os
+import sys
+from utils import get_git_repo_root_path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from utils import time_logger
 
 FILE = 'dataset/ogbn_products_orig/ogbn-products.csv'
 
+
+FILE_PATH = get_git_repo_root_path() + '/'
 
 @time_logger
 def _process():
@@ -49,8 +55,10 @@ def _process():
 
 
 def get_raw_text_products(use_text=False, seed=0):
-    root_path = '/pfs/work7/workspace/scratch/cc7738-nlp_graph/TAPE_chen/'
-    data = torch.load(root_path + 'dataset/ogbn_products_orig/ogbn-products_subset.pt')
+    # /hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE/dataset/ogbn_products_orig/ogbn-products_subset.csv
+    # /hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE/dataset/ogbn_products_orig/ogbn-products_subset.pt
+    root_path = FILE_PATH
+    data = torch.load('dataset/ogbn_products/ogbn-products_subset.pt')
     text = pd.read_csv(root_path + 'dataset/ogbn_products_orig/ogbn-products_subset.csv')
     text = [f'Product:{ti}; Description: {cont}\n'for ti,
             cont in zip(text['title'], text['content'])]

@@ -96,6 +96,7 @@ class Trainer():
         self.epochs = 200
         self.batch_size = 256
         
+        num_cuda_devices = 0
         if torch.cuda.is_available():
             # Get the number of available CUDA devices
             num_cuda_devices = torch.cuda.device_count()

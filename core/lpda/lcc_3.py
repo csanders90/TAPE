@@ -136,7 +136,6 @@ if __name__ == '__main__':
 
     # params
     path = '.'
-    # 'cora', 'pubmed', 'ogbn-arxiv', 'ogbn-products', 'arxiv_2023'
     for name in ['cora', 'pubmed', 'ogbn-arxiv', 'ogbn-products', 'arxiv_2023']:
         
         if name in ['cora', 'pubmed', 'citeseer', 'ogbn-arxiv', 'ogbn-products', 'arxiv_2023']:

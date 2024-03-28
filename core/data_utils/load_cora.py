@@ -6,9 +6,10 @@ from torch_geometric.datasets import Planetoid
 import torch_geometric.transforms as T
 import os
 from torch_geometric.data import Data, InMemoryDataset
+from utils import get_git_repo_root_path
 
 # return cora dataset as pytorch geometric Data object together with 60/20/20 split, and list of cora IDs
-FILE_PATH = '/pfs/work7/workspace/scratch/cc7738-nlp_graph/TAPE_chen/dataset'
+FILE_PATH = get_git_repo_root_path() + '/'
 
 def get_cora_casestudy(SEED=0) -> InMemoryDataset:
     data_X, data_Y, data_citeid, data_edges = parse_cora()
@@ -68,7 +69,7 @@ def get_cora_casestudy(SEED=0) -> InMemoryDataset:
 
 
 def parse_cora():
-    path = FILE_PATH + '/cora_orig/cora'
+    path = '/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE/dataset/cora_orig/cora'
     idx_features_labels = np.genfromtxt(
         "{}.content".format(path), dtype=np.dtype(str))
     data_X = idx_features_labels[:, 1:-1].astype(np.float32)
@@ -93,7 +94,7 @@ def get_raw_text_cora(use_text, seed=0):
     if not use_text:
         return data, None
 
-    with open(FILE_PATH + '/cora_orig/mccallum/cora/papers')as f:
+    with open(FILE_PATH + 'dataset/cora_orig/mccallum/cora/papers')as f:
         lines = f.readlines()
     pid_filename = {}
     for line in lines:
@@ -101,7 +102,7 @@ def get_raw_text_cora(use_text, seed=0):
         fn = line.split('\t')[1]
         pid_filename[pid] = fn
     
-    path = FILE_PATH + '/cora_orig/mccallum/cora/extractions/'
+    path = FILE_PATH + 'dataset/cora_orig/mccallum/cora/extractions/'
     
     # for debug
     # save file list
@@ -136,6 +137,6 @@ def get_raw_text_cora(use_text, seed=0):
             not_loaded.append(pathfn)
             i += 1
 
-        print(f"not loaded {i} papers.")
-        print(f"not loaded papers: {not_loaded}")
+    print(f"not loaded {i} papers.")
+    print(f"not loaded papers: {not_loaded}")
     return data, text
