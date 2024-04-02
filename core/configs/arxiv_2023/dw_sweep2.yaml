@@ -1,0 +1,15 @@
+
+# based on https://wandb.ai/graph-diffusion-model-link-prediction/deepwalk-sweep-arxiv_2023/sweeps/45es7y87?nw=nwusercshao676
+method: bayes
+metric:
+  goal: maximize
+  name: score
+parameters:
+  wl:
+    max: 27
+    min: 17
+    distribution: int_uniform
+  num_walks:
+    values: [5, 10, 15, 20]
+  ws:
+    values: [7, 9, 11]

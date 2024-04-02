@@ -25,20 +25,20 @@ import torch
 from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
 from heuristic.eval import evaluate_auc, evaluate_hits, evaluate_mrr, get_metric_score, get_prediction
 from utils import get_git_repo_root_path, append_acc_to_excel, append_mrr_to_excel
-from heuristic.semantic_similarity import pairwise_prediction
+from textfeat.node_similarity import pairwise_prediction
 
 
 
 FILE_PATH = get_git_repo_root_path() + '/'
 
 
-def get_pubmed_casestudy(args):
+def get_pubmed_casestudy(
+                        undirected = True,
+                        include_negatives = True,
+                        val_pct = 0.15,
+                        test_pct = 0.05,
+                        split_labels = True):
     corrected = False
-    undirected = args.data.undirected
-    include_negatives = args.data.include_negatives
-    val_pct = args.data.val_pct
-    test_pct = args.data.test_pct
-    split_labels = args.data.split_labels
     
     _, data_X, data_Y, data_pubid, data_edges = parse_pubmed()
     data_X = normalize(data_X, norm="l1")
@@ -86,7 +86,12 @@ def get_pubmed_casestudy(args):
 
        
 def eval_pubmed_acc(name) -> Dict:
-    dataset, data_pubid, splits = get_pubmed_casestudy(corrected=False, SEED=0)
+    dataset, data_pubid, splits = get_pubmed_casestudy(
+                            undirected = True,
+                            include_negatives = True,
+                            val_pct = 0.15,
+                            test_pct = 0.05,
+                            split_labels = False)
     print(dataset)
 
     test_split = splits['test']
@@ -115,31 +120,31 @@ def eval_pubmed_acc(name) -> Dict:
     plot_coo_matrix(m, f'{name}_test_edge_index.png')
             
     # 'shortest_path', 'katz_apro', 'katz_close', 'Ben_PPR'
-    for use_gsf in ['Ben_PPR', 'SymPPR']:
-        scores, edge_reindex = eval(use_gsf)(A, test_index)
+    # for use_gsf in ['Ben_PPR', 'SymPPR']:
+    #     scores, edge_reindex = eval(use_gsf)(A, test_index)
         
         # print(scores)
         # print(f" {use_heuristic}: accuracy: {scores}")
-        pred = torch.zeros(scores.shape)
-        cutoff = 0.05
-        thres = scores.max()*cutoff 
-        pred[scores <= thres] = 0
-        pred[scores > thres] = 1
+    #     pred = torch.zeros(scores.shape)
+    #     cutoff = 0.05
+    #     thres = scores.max()*cutoff 
+    #     pred[scores <= thres] = 0
+    #     pred[scores > thres] = 1
 
-        acc = torch.sum(pred == labels)/scores.shape[0]
-        result_acc.update({f"{use_gsf}_acc" :acc})
+    #     acc = torch.sum(pred == labels)/scores.shape[0]
+    #     result_acc.update({f"{use_gsf}_acc" :acc})
     
     
-    for use_gsf in ['shortest_path', 'katz_apro', 'katz_close']:
-        scores = eval(use_gsf)(A, test_index)
+    # for use_gsf in ['shortest_path', 'katz_apro', 'katz_close']:
+    #     scores = eval(use_gsf)(A, test_index)
         
-        pred = torch.zeros(scores.shape)
-        thres = scores.min()*10
-        pred[scores <= thres] = 0
-        pred[scores > thres] = 1
+    #     pred = torch.zeros(scores.shape)
+    #     thres = scores.min()*10
+    #     pred[scores <= thres] = 0
+    #     pred[scores > thres] = 1
         
-        acc = torch.sum(pred == labels)/labels.shape[0]
-        result_acc.update({f"{use_gsf}_acc" :acc})
+    #     acc = torch.sum(pred == labels)/labels.shape[0]
+    #     result_acc.update({f"{use_gsf}_acc" :acc})
         
     for use_heuristic in ['pairwise_pred']:
         for dist in ['dot']:
@@ -162,7 +167,7 @@ def eval_pubmed_acc(name) -> Dict:
 
 def eval_pubmed_mrr(name):
     
-    dataset, data_pubid, splits = get_pubmed_casestudy(corrected=False, SEED=0,
+    dataset, data_pubid, splits = get_pubmed_casestudy(
                             undirected = True,
                             include_negatives = True,
                             val_pct = 0.15,
@@ -193,26 +198,26 @@ def eval_pubmed_mrr(name):
     
     result_mrr = {}
     # 'InverseRA'
-    for use_heuristic in ['CN', 'AA', 'RA']:
-        pos_test_pred, _ = eval(use_heuristic)(full_A, pos_test_index)
-        neg_test_pred, _ = eval(use_heuristic)(full_A, neg_test_index)
+    # for use_heuristic in ['CN', 'AA', 'RA']:
+    #     pos_test_pred, _ = eval(use_heuristic)(full_A, pos_test_index)
+    #     neg_test_pred, _ = eval(use_heuristic)(full_A, neg_test_index)
         
-        result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
-        result_mrr.update({f'{use_heuristic}': result})
+    #     result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
+    #     result_mrr.update({f'{use_heuristic}': result})
 
-    # , 'SymPPR'
-    for use_heuristic in ['Ben_PPR']:
-        pos_test_pred, _ = eval(use_heuristic)(full_A, pos_test_index)
-        neg_test_pred, _ = eval(use_heuristic)(full_A, neg_test_index)
-        result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
-        result_mrr.update({f'{use_heuristic}': result})
+    # # , 'SymPPR'
+    # for use_heuristic in ['Ben_PPR']:
+    #     pos_test_pred, _ = eval(use_heuristic)(full_A, pos_test_index)
+    #     neg_test_pred, _ = eval(use_heuristic)(full_A, neg_test_index)
+    #     result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
+    #     result_mrr.update({f'{use_heuristic}': result})
     
     
-    for use_heuristic in ['shortest_path', 'katz_apro', 'katz_close']:
-        pos_test_pred = eval(use_heuristic)(full_A, pos_test_index)
-        neg_test_pred = eval(use_heuristic)(full_A, neg_test_index)
-        result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
-        result_mrr.update({f'{use_heuristic}': result})
+    # for use_heuristic in ['shortest_path', 'katz_apro', 'katz_close']:
+    #     pos_test_pred = eval(use_heuristic)(full_A, pos_test_index)
+    #     neg_test_pred = eval(use_heuristic)(full_A, neg_test_index)
+    #     result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
+    #     result_mrr.update({f'{use_heuristic}': result})
 
     for use_heuristic in ['pairwise_pred']:
         for dist in ['dot']:
@@ -235,6 +240,9 @@ if __name__ == "__main__":
         os.makedirs(root, exist_ok=True)
     
     # TEST CODE 
-    append_acc_to_excel(result_acc, acc_file, name)
-    append_mrr_to_excel(result_mrr, mrr_file)
+    {print(k, val) for k, val in result_acc.items()}
+    {print(k, val) for k, val in result_mrr.items()}
+    append_acc_to_excel(id, result_acc, acc_file, name, method='')
+    append_mrr_to_excel(id, result_mrr, mrr_file, name, method='')
+    
     

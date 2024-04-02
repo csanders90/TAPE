@@ -110,13 +110,14 @@ import pandas as pd
 import torch 
 import csv
 import uuid
+from IPython import embed
 
 # Define a function that uses the lambda function
 def process_value(v):
     return (lambda x: x.tolist() if isinstance(x, torch.Tensor) else x)(v)
 
-from IPython import embed
-def append_acc_to_excel(uuid_val, metrics_acc, root, name):
+
+def append_acc_to_excel(uuid_val, metrics_acc, root, name, method):
     # if not exists save the first row
     
     csv_columns = ['Metric'] + list(k for k in metrics_acc) 
@@ -135,7 +136,7 @@ def append_acc_to_excel(uuid_val, metrics_acc, root, name):
         acc_lst.append(process_value(v))
         
     # merge with old lines, 
-    v_lst = [f'{name}_{uuid_val}'] + acc_lst
+    v_lst = [f'{name}_{uuid_val}_{method}'] + acc_lst
     new_df = pd.DataFrame([v_lst], columns=csv_columns)
     new_Data = pd.concat([Data, new_df])
     
@@ -151,13 +152,13 @@ def append_acc_to_excel(uuid_val, metrics_acc, root, name):
     return upt_Data
 
 
-def append_mrr_to_excel(uuid_val, metrics_mrr, root):
+def append_mrr_to_excel(uuid_val, metrics_mrr, root, name, method):
  
     csv_columns, csv_numbers = [], []
     for i, (k, v) in enumerate(metrics_mrr.items()): 
         if i == 0:
             csv_columns = ['Metric'] + list(v.keys())
-        csv_numbers.append([f'{k}_{uuid_val}'] + list(v.values()))
+        csv_numbers.append([f'{k}_{uuid_val}_{name}_{method}'] + list(v.values()))
     
     print(csv_numbers)
 

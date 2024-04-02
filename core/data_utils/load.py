@@ -1,4 +1,6 @@
 import os
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import json
 import torch
 import csv
@@ -25,19 +27,19 @@ def load_gpt_preds(dataset, topk):
 
 def load_data(dataset, use_dgl=False, use_text=False, use_gpt=False, seed=0):
     if dataset == 'cora':
-        from core.data_utils.load_cora import get_raw_text_cora as get_raw_text
+        from data_utils.load_cora import get_raw_text_cora as get_raw_text
         num_classes = 7
     elif dataset == 'pubmed':
-        from core.data_utils.load_pubmed import get_raw_text_pubmed as get_raw_text
+        from data_utils.load_pubmed import get_raw_text_pubmed as get_raw_text
         num_classes = 3
     elif dataset == 'ogbn-arxiv':
-        from core.data_utils.load_arxiv import get_raw_text_arxiv as get_raw_text
+        from data_utils.load_arxiv import get_raw_text_arxiv as get_raw_text
         num_classes = 40
     elif dataset == 'ogbn-products':
-        from core.data_utils.load_products import get_raw_text_products as get_raw_text
+        from data_utils.load_products import get_raw_text_products as get_raw_text
         num_classes = 47
     elif dataset == 'arxiv_2023':
-        from core.data_utils.load_arxiv_2023 import get_raw_text_arxiv_2023 as get_raw_text
+        from data_utils.load_arxiv_2023 import get_raw_text_arxiv_2023 as get_raw_text
         num_classes = 40
     else:
         exit(f'Error: Dataset {dataset} not supported')

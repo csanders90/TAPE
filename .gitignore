@@ -60,9 +60,22 @@ gpt_preds/
 
 # logs and results
 logs/
-results/
 output/
 prt_lm/
 core/wandb/
 wandb/
 core/Embedding/wandb
+
+*.png
+
+core/Embedding/data/
+core/Embedding/temp_path/
+core/Embedding/temp_struc2vec/
+scripts/error/TAG_Benchmark_2336350.error
+scripts/log/TAG_Benchmar_2336350.output
+temp_path/
+
+scripts/error/
+scripts/log/
+
+*.pkl

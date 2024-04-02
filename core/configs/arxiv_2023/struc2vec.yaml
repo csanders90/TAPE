@@ -1,0 +1,22 @@
+# struc2vec_args.yaml
+
+out_dir: results
+metric_best: f1
+wandb:
+  use: True
+  project: gtblueprint
+
+num_threads: 11
+data:
+  name: arxiv_2023
+  undirected: True
+  include_negatives: True
+  val_pct: 0.15
+  test_pct: 0.05
+  split_labels: False
+
+model:
+  type: struc2vec
+  struc2vec:
+    max_iter: 100
+
