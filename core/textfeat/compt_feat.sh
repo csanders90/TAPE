@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --time=4-00:00:00
+#SBATCH --time=23:00:00
 #SBATCH --nodes=2
 #SBATCH --ntasks=20
 #SBATCH --partition=cpuonly
@@ -29,10 +29,6 @@ module load compiler/gnu/12
 
 ls -ltr
 
-for VARIABLE in 1 2 3 4 5 
-do
-    python compt_wneg.py --cfg core/configs/arxiv_2023/compt_wneg.yaml
-done
 
 for VARIABLE in 1 2 3 4 5 
 do
