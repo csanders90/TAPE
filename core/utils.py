@@ -181,3 +181,28 @@ def append_mrr_to_excel(uuid_val, metrics_mrr, root, name, method):
 
     
     return upt_Data
+
+def config_device(cfg):
+    # device 
+    try:
+        if cfg.data.device is not None:
+            return cfg.data.device
+        elif cfg.train.device is not None:
+            return cfg.train.device
+    except:
+        num_cuda_devices = 0
+        if torch.cuda.is_available():
+            # Get the number of available CUDA devices
+            num_cuda_devices = torch.cuda.device_count()
+
+        if num_cuda_devices > 0:
+            # Set the first CUDA device as the active device
+            torch.cuda.set_device(0)
+            device = 'cuda'
+        else:
+            device = 'cpu'
+        
+    return device
+
+
+

@@ -11,7 +11,7 @@ import torch_geometric.transforms as T
 from torch_geometric.datasets import Planetoid
 from torch_geometric.data import Data, InMemoryDataset
 from torch_geometric.transforms import RandomLinkSplit
-from utils import get_git_repo_root_path
+from utils import get_git_repo_root_path, config_device
 
 FILE_PATH = get_git_repo_root_path() + '/'
 
@@ -46,11 +46,19 @@ def get_cora_casestudy(args) -> InMemoryDataset:
     
     data_X, data_Y, data_citeid, data_edges = parse_cora()
 
+    device = config_device(args)
+
+    transform = T.Compose([
+        T.NormalizeFeatures(),  # 对特征进行标准化
+        T.ToDevice(device),    # 把数据放到cpu或者gpu上
+        T.RandomLinkSplit(num_val=val_pct, num_test=test_pct, is_undirected=undirected,  # 这一步很关键，是在构造链接预测的数据集
+                        split_labels=split_labels, add_negative_train_samples=False),])
+
     # load data
     data_name = 'cora'
     # path = osp.join(osp.dirname(osp.realpath(__file__)), 'dataset')
     dataset = Planetoid('./dataset', data_name,
-                        transform=T.NormalizeFeatures())
+                        transform=transform)
 
     data = dataset[0]
     # check is data has changed and try to return dataset
