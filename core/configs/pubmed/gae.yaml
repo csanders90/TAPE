@@ -20,10 +20,11 @@ model:
 num_threads: 11
 
 data:
-  name: cora
+  name: pubmed
   undirected: True
   include_negatives: True
   val_pct: 0.15
   test_pct: 0.05
   split_labels: True
+  num_features: 500 # 0 works very well
 

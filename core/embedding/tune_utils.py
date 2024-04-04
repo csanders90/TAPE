@@ -45,7 +45,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='GraphGym')
 
     parser.add_argument('--cfg', dest='cfg_file', type=str, required=False,
-                        default='core/configs/cora/gcn.yaml',
+                        default='core/configs/pubmed/gae.yaml',
                         help='The configuration file path.')
     parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
                         default='core/configs/arxiv_2023/struc2vec_sp1.yaml',
@@ -129,6 +129,6 @@ def param_tune_acc_mrr(uuid_val, metrics, root, name, method):
     Best_list = ['Best'] + highest_values[1:].tolist()
     Best_df = pd.DataFrame([Best_list], columns=Data.columns)
     upt_Data = pd.concat([new_Data, Best_df])
-    upt_Data.to_csv(root,index=False)
+    upt_Data.to_csv(root, index=False)
 
     return upt_Data

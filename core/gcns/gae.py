@@ -2,13 +2,6 @@
 import numpy as np
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from sklearn.linear_model import LogisticRegression
-
-import matplotlib.pyplot as plt
-import networkx as nx
-from sklearn.manifold import TSNE
-from sklearn.linear_model import LogisticRegression
-
 
 # External module imports
 import torch
@@ -43,6 +36,8 @@ from embedding.tune_utils import (
     param_tune_acc_mrr
 )
 import wandb 
+from utils import config_device
+from IPython import embed 
 
 
 class GCNEncoder(torch.nn.Module):
@@ -165,25 +160,26 @@ class Trainer():
                  splits,
                  ):
         
-        # device 
-        num_cuda_devices = 0
-        if torch.cuda.is_available():
-            # Get the number of available CUDA devices
-            num_cuda_devices = torch.cuda.device_count()
-
-        if num_cuda_devices > 0:
-            # Set the first CUDA device as the active device
-            torch.cuda.set_device(0)
-            device = 'cuda'
-        else:
-            device = 'cpu'
+        self.device = config_device(cfg)
+            
+        self.model = model.to(self.device)
         
-        self.model = model.to(device)
+        self.model_name = cfg.model.type 
+        self.data_name = cfg.data.name
+
         self.FILE_PATH = FILE_PATH 
         self.epochs = cfg.train.epochs
-        self.test_data = splits['test']
-        self.train_data = splits['train']
-        self.valid_data = splits['valid']
+        self.test_data = splits['test'].to(self.device)
+        self.train_data = splits['train'].to(self.device)
+        self.valid_data = splits['valid'].to(self.device)
+        
+        self.train_func = {
+        'gae': self._train_gae,
+        'vgae': self._train_vgae
+        }
+        self.evaluator_hit = Evaluator(name='ogbl-collab')
+        self.evaluator_mrr = Evaluator(name='ogbl-citation2')
+        
         
     def _train_gae(self):
         self.model.train()
@@ -194,16 +190,7 @@ class Trainer():
         optimizer.step()
         return loss.item()
 
-    def train_gae_loop(self):
-        
-        for epoch in range(1, self.epochs + 1):
-            loss = self._train_gae()
-            if epoch % 100 == 0:
-                auc, ap, acc = self._test()
-                print('Epoch: {:03d}, Loss_train: {:.4f}, AUC: {:.4f}, AP: {:.4f}, ACC: {:.4f}'.format(epoch, loss, auc, ap, acc))
-        
-        
-    def train_vgae(self):
+    def _train_vgae(self):
         """Training the VGAE model, the loss function consists of reconstruction loss and kl loss"""
         self.model.train()
         optimizer.zero_grad()
@@ -213,6 +200,14 @@ class Trainer():
         loss.backward()
         optimizer.step()
         return loss.item()
+
+    def train(self):
+        
+        for epoch in range(1, self.epochs + 1):
+            loss = self.train_func[self.model_name]()
+            if epoch % 100 == 0:
+                auc, ap, acc = self._test()
+                print('Epoch: {:03d}, Loss_train: {:.4f}, AUC: {:.4f}, AP: {:.4f}, ACC: {:.4f}'.format(epoch, loss, auc, ap, acc))
 
     @torch.no_grad()
     def _test(self):
@@ -237,11 +232,11 @@ class Trainer():
         auc = auc(fpr, tpr)
         return roc_auc_score(y, pred), average_precision_score(y, pred), auc
     
+    
     @torch.no_grad()
-    def evaluate(self, evaluator_mrr, evaluator_hits):
+    def evaluate(self):
 
         self.model.eval()
-
         pos_edge_index = self.test_data.pos_edge_label_index
         neg_edge_index = self.test_data.neg_edge_label_index
 
@@ -249,8 +244,8 @@ class Trainer():
         pos_pred = self.model.decoder(z, pos_edge_index)
         neg_pred = self.model.decoder(z, neg_edge_index)
         y_pred = torch.cat([pos_pred, neg_pred], dim=0)
+        
         hard_thres = (y_pred.max() + y_pred.min())/2
-         
 
         pos_y = z.new_ones(pos_edge_index.size(1)) # positive samples
         neg_y = z.new_zeros(neg_edge_index.size(1)) # negative samples
@@ -260,21 +255,29 @@ class Trainer():
         y_pred[y_pred < hard_thres] = 0
 
         acc = torch.sum(y == y_pred)/len(y)
-        result_mrr = get_metric_score(evaluator_hits, evaluator_mrr, pos_pred, neg_pred)
+        
+        pos_pred, neg_pred = pos_pred.cpu(), neg_pred.cpu()
+        result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_pred, neg_pred)
         result_mrr.update({'acc': round(acc.tolist(), 5)})
-        return results_dict
+        
+
+        pos_y = z.new_ones(pos_edge_index.size(1)) # positive samples
+        neg_y = z.new_zeros(neg_edge_index.size(1)) # negative samples
+        y = torch.cat([pos_y, neg_y], dim=0)
+        
+        return result_mrr
         
 
     def save_result(self, results_dict):
 
-        root = self.FILE_PATH + 'results'
-        acc_file = root + f'/{cfg.data.name}_acc_{cfg.model.type}.csv'
+        root = self.FILE_PATH + f'results/gcns/{self.data_name}/'
+        acc_file = root + f'{self.model_name}_acc_mrr.csv'
 
         if not os.path.exists(root):
             os.makedirs(root, exist_ok=True)
         
         id = wandb.util.generate_id()
-        param_tune_acc_mrr(id, results_dict, acc_file, cfg.data.name, self.model)
+        param_tune_acc_mrr(id, results_dict, acc_file, self.data_name, self.model_name)
     
 
 data_loader = {
@@ -282,6 +285,8 @@ data_loader = {
     'pubmed': get_pubmed_casestudy,
     'arxiv_2023': get_raw_text_arxiv_2023
 }
+
+
 
 if __name__ == "__main__":
 
@@ -299,19 +304,18 @@ if __name__ == "__main__":
     dataset, data_cited, splits = data_loader[cfg.data.name](cfg)   
     train_data, val_data, test_data = splits['train'], splits['valid'], splits['test']
 
-
-    in_channels = dataset.num_features
+    in_channels = cfg.data.num_features
     out_channels = cfg.model.out_channels
     hidden_channels = cfg.model.hidden_channels # Assume that the dimension of the hidden layer feature is 8
     
-    model = GAE(GCNEncoder(in_channels, hidden_channels, out_channels))
-
+    if cfg.model.type == 'gae':
+        model = GAE(GCNEncoder(in_channels, hidden_channels, out_channels))
+    elif cfg.model.type == 'vgae':
+        model = VGAE(VariationalGCNEncoder(in_channels, out_channels))
+        
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
-    evaluator_hit = Evaluator(name='ogbl-collab')
-    evaluator_mrr = Evaluator(name='ogbl-citation2')
-    
-    result_dict = {}
+
     
     trainer = Trainer(FILE_PATH,
                  cfg,
@@ -319,10 +323,9 @@ if __name__ == "__main__":
                  optimizer,
                  splits)
     
-    trainer.train_gae_loop()
-    results_dict = trainer.evaluate(evaluator_mrr, evaluator_hit)
+    trainer.train()
+    results_dict = trainer.evaluate()
     
     trainer.save_result(results_dict)
     
-
 
