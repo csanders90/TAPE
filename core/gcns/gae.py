@@ -164,55 +164,7 @@ class GAT(MessagePassing):
         return out
     
 
-class GNNStack(torch.nn.Module):
-    def __init__(self, 
-                 model_type, 
-                 input_dim, 
-                 hidden_dim, 
-                 output_dim, 
-                 dropout,
-                 num_layers, 
-                 heads,
-                 emb=True):
-        
-        super(GNNStack, self).__init__()
-        conv_model = self.build_conv_model(model_type)
-        self.convs = nn.ModuleList()
-        self.convs.append(conv_model(input_dim, hidden_dim))
-        assert (num_layers >= 1), 'Number of layers is not >=1'
-        for l in range(num_layers-1):
-            self.convs.append(conv_model(heads * hidden_dim, hidden_dim))
 
-        # post-message-passing
-        self.post_mp = nn.Sequential(
-            nn.Linear(heads * hidden_dim, hidden_dim), nn.Dropout(dropout), 
-            nn.Linear(hidden_dim, output_dim))
-
-        self.dropout = 0 
-        self.num_layers = num_layers
-
-        self.emb = emb
-
-    def build_conv_model(self, model_type):
-        if model_type == 'GraphSage':
-            return GraphSage
-        elif model_type == 'GAT':
-            return GAT
-
-    def forward(self, data):
-        x, edge_index, batch = data.x, data.edge_index, data.batch
-        for i in range(self.num_layers):
-            x = self.convs[i](x, edge_index)
-            x = F.relu(x)
-            x = F.dropout(x, p=self.dropout,training=self.training)
-        x = self.post_mp(x)
-        if self.emb == True:
-            return x
-        return F.log_softmax(x, dim=1)
-
-    def loss(self, pred, label):
-        return F.nll_loss(pred, label)
-    
 
 def build_optimizer(args, params):
     weight_decay = args.weight_decay
@@ -395,21 +347,21 @@ class Trainer():
         'gae': self._train_gae,
         'vgae': self._train_vgae, 
         'GAT': self._train_gat,
-        'gcn': self._train_gcn
+        'GraphSage': self._train_gat
         }
         
         self.test_func = {
             'GAT': self._test_gat,
             'gae': self._test,
             'vgae': self._test,
-            'gcn': self._test_gat
+            'GraphSage': self._test_gat
         }
         
         self.evaluate_func = {
             'GAT': self._evaluate_gat,
             'gae': self.evaluate,
             'vgae': self.evaluate,
-            'gcn': self.evaluate
+            'GraphSage': self._evaluate_gat
         }
         
         self.evaluator_hit = Evaluator(name='ogbl-collab')
