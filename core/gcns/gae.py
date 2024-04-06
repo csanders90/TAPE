@@ -192,7 +192,8 @@ class LinkPredModel(torch.nn.Module):
 
         self.encode = encode
         self.loss_fn = nn.BCEWithLogitsLoss()
-
+        self.decoder = InnerProductDecoder()
+        
     def reset_parameters(self):
         self.conv1.reset_parameters()
         self.conv2.reset_parameters()
@@ -207,7 +208,27 @@ class LinkPredModel(torch.nn.Module):
     
     def loss(self, pred, link_label):
         return self.loss_fn(pred, link_label)
+    
+    def recon_loss(self, z, pos_edge_index, neg_edge_index=None):
+        """In this script we use the binary cross entropy loss function.
 
+        params
+        ----
+        z: output of encoder
+        pos_edge_index: positive edge index
+        neg_edge_index: negative edge index
+        """
+        EPS = 1e-15 # prevent log(0)
+        # positive loss log()
+        pos_loss = -torch.log(
+            self.decoder(z, pos_edge_index) + EPS).mean() # loss for positive samples
+
+        if neg_edge_index is None:
+            neg_edge_index = torch_geometric.utils.negative_sampling(pos_edge_index, z.size(0)) # negative sampling
+        neg_loss = -torch.log(
+            1 - self.decoder(z, neg_edge_index) + EPS).mean() # loss for negative samples
+
+        return pos_loss + neg_loss
 
 class GCNEncoder(torch.nn.Module):
     def __init__(self, in_channels, hidden_channels, out_channels):
@@ -223,6 +244,7 @@ class GCNEncoder(torch.nn.Module):
     def forward(self, x, edge_index):
         x = self.conv1(x, edge_index).relu()
         return self.conv2(x, edge_index)
+
 
 class InnerProductDecoder(torch.nn.Module):
     def forward(self, z, edge_index, sigmoid=True):
@@ -346,35 +368,27 @@ class Trainer():
         self.train_func = {
         'gae': self._train_gae,
         'vgae': self._train_vgae, 
-        'GAT': self._train_gat,
-        'GraphSage': self._train_gat
+        'GAT': self._train_gae,
+        'GraphSage': self._train_gae
         }
         
         self.test_func = {
-            'GAT': self._test_gat,
+            'GAT': self._test,
             'gae': self._test,
             'vgae': self._test,
-            'GraphSage': self._test_gat
+            'GraphSage': self._test
         }
         
         self.evaluate_func = {
-            'GAT': self._evaluate_gat,
+            'GAT': self._evaluate_gat_true,
             'gae': self.evaluate,
             'vgae': self.evaluate,
-            'GraphSage': self._evaluate_gat
+            'GraphSage': self._evaluate_gat_true
         }
         
         self.evaluator_hit = Evaluator(name='ogbl-collab')
         self.evaluator_mrr = Evaluator(name='ogbl-citation2')
 
-    def _train_gcn(self):
-        self.model.train()
-        optimizer.zero_grad()
-        z = self.model.encode(self.train_data.x, self.train_data.edge_index)
-        loss = self.model.loss(z, self.train_data.pos_edge_label_index)
-        loss.backward()
-        optimizer.step()
-        return 
     
     def _train_gat(self):
         self.model.train()
@@ -387,22 +401,22 @@ class Trainer():
         
     def _train_gae(self):
         self.model.train()
-        optimizer.zero_grad()
+        self.optimizer.zero_grad()
         z = self.model.encode(self.train_data.x, self.train_data.edge_index)
         loss = self.model.recon_loss(z, self.train_data.pos_edge_label_index)
         loss.backward()
-        optimizer.step()
+        self.optimizer.step()
         return loss.item()
 
     def _train_vgae(self):
         """Training the VGAE model, the loss function consists of reconstruction loss and kl loss"""
         self.model.train()
-        optimizer.zero_grad()
+        self.optimizer.zero_grad()
         z = self.model.encode(self.train_data.x, self.train_data.edge_index)
         loss = self.model.recon_loss(z, self.train_data.pos_edge_label_index)
         loss = loss + (1 / self.train_data.num_nodes) * model.kl_loss() # add kl loss
         loss.backward()
-        optimizer.step()
+        self.optimizer.step()
         return loss.item()
 
     @torch.no_grad()
@@ -420,7 +434,7 @@ class Trainer():
         return roc_auc_score(y, pred), average_precision_score(y, pred), auc
 
     @torch.no_grad()
-    def _evaluate_gat(self):
+    def _evaluate_gat_true(self):
         self.model.eval()
         pos_edge_index = self.test_data.pos_edge_label_index
         neg_edge_index = self.test_data.neg_edge_label_index
@@ -444,11 +458,8 @@ class Trainer():
         pos_pred, neg_pred = pos_pred.cpu(), neg_pred.cpu()
         result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_pred, neg_pred)
         result_mrr.update({'acc': round(acc.tolist(), 5)})
-        
-
-        pos_y = z.new_ones(pos_edge_index.size(1)) # positive samples
-        neg_y = z.new_zeros(neg_edge_index.size(1)) # negative samples
-        y = torch.cat([pos_y, neg_y], dim=0)
+    
+        return result_mrr
     
     
     def train(self):
@@ -459,12 +470,13 @@ class Trainer():
                 auc, ap, acc = self.test_func[self.model_name]()
                 print('Epoch: {:03d}, Loss_train: {:.4f}, AUC: {:.4f}, AP: {:.4f}, ACC: {:.4f}'.format(epoch, loss, auc, ap, acc))
 
+
     def evaluate(self):
         return self.evaluate_func[self.model_name]()
         
         
     @torch.no_grad()
-    def _evaluate_gat(self):
+    def _evaluate_gat_false(self):
 
         self.model.eval()
         edge_index = self.test_data.edge_label_index
@@ -487,6 +499,7 @@ class Trainer():
         result_mrr.update({'acc': round(acc.tolist(), 5)})
         
         return result_mrr
+    
     
     @torch.no_grad()
     def _test(self):
