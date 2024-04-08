@@ -82,7 +82,7 @@ class GAT(MessagePassing):
         self.negative_slope = cfg.model.negative_slope
         self.dropout = cfg.model.dropout
         
-        self.lin_l = nn.Linear(in_features=self.in_channels, out_features=self.in_channels)
+        self.lin_l = nn.Linear(in_features=self.in_channels, out_features=self.out_channels)
         self.lin_r = self.lin_l
         self.att_l = nn.Parameter(data=torch.zeros(self.heads, self.out_channels))
         self.att_r = nn.Parameter(data=torch.zeros(self.heads, self.out_channels))

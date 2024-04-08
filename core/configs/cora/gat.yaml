@@ -15,13 +15,13 @@ train:
 model:
   type: GAT
   in_channels: 12
-  out_channels: 16
-  heads: 4
+  out_channels: 1433
+  heads: 1
   hidden_channels: 8  # Assume that the dimension of the hidden layer feature is 8
   negative_slope: 0.2
   dropout: 0
   num_layers: 2
-  heads: 4
+
   
 num_threads: 11
 

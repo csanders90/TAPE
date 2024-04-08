@@ -14,7 +14,7 @@ from embedding.tune_utils import (
     get_git_repo_root_path
 )
 from sklearn.metrics import *
-from gae import GNNStack, GraphSage, GAT, LinkPredModel, GCNEncoder
+from gae import GraphSage, GAT, LinkPredModel, GCNEncoder
 from gae import set_cfg, data_loader, Trainer 
 
 
@@ -41,25 +41,12 @@ if __name__ == "__main__":
     dataset, data_cited, splits = data_loader[cfg.data.name](cfg)   
     train_data, val_data, test_data = splits['train'], splits['valid'], splits['test']
 
-    in_channels = cfg.data.num_features
-    out_channels = cfg.model.out_channels
-
-    
     if cfg.model.type == 'GAT':
         model = LinkPredModel(GAT(cfg))
     elif cfg.model.type == 'GraphSage':
-        model = LinkPredModel(GraphSage(in_channels, out_channels))
+        model = LinkPredModel(GraphSage(cfg))
     elif cfg.model.type == 'GCNEncode':
-        model = LinkPredModel(GCNEncoder(in_channels, out_channels))
-    elif cfg.model.type in ['GAT2', 'GraphSage2']:
-        model = LinkPredModel(GNNStack(cfg.model.type, 
-                                        cfg.model.in_channels, 
-                                        cfg.model.hidden_channels, 
-                                        cfg.model.out_channels, 
-                                        cfg.model.dropout, 
-                                        cfg.model.num_layers, 
-                                        cfg.model.heads,
-                                        emb=True))
+        model = LinkPredModel(GCNEncoder(cfg))
         
         
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
