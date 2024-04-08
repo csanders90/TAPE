@@ -32,54 +32,14 @@ import torch.nn.functional as F
 import torch_scatter 
 import torch_geometric 
 
-class GNNStack(torch.nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_dim, args, emb=False):
-        super(GNNStack, self).__init__()
-        conv_model = self.build_conv_model(args.model_type)
-        self.convs = nn.ModuleList()
-        self.convs.append(conv_model(input_dim, hidden_dim))
-        assert (args.num_layers >= 1), 'Number of layers is not >=1'
-        for l in range(args.num_layers-1):
-            self.convs.append(conv_model(args.heads * hidden_dim, hidden_dim))
 
-        # post-message-passing
-        self.post_mp = nn.Sequential(
-            nn.Linear(args.heads * hidden_dim, hidden_dim), nn.Dropout(args.dropout), 
-            nn.Linear(hidden_dim, output_dim))
-
-        self.dropout = args.dropout
-        self.num_layers = args.num_layers
-
-        self.emb = emb
-
-    def build_conv_model(self, model_type):
-        if model_type == 'GraphSage':
-            return GraphSage
-        elif model_type == 'GAT':
-           return GAT
-
-    def forward(self, data):
-        x, edge_index, batch = data.x, data.edge_index, data.batch
-        for i in range(self.num_layers):
-            x = self.convs[i](x, edge_index)
-            x = F.relu(x)
-            x = F.dropout(x, p=self.dropout)
-        x = self.post_mp(x)
-        if self.emb == True:
-            return x
-        return F.log_softmax(x, dim=1)
-
-    def loss(self, pred, label):
-        return F.nll_loss(pred, label)
-    
-    
 class GraphSage(MessagePassing):
     
     def __init__(self, cfg, normalize = True,
                  bias = False, **kwargs):  
         super(GraphSage, self).__init__(**kwargs)
 
-        self.in_channels = cfg.model.in_channels
+        self.in_channels = cfg.data.num_features
         self.out_channels = cfg.model.out_channels
         self.normalize = normalize
 
@@ -116,12 +76,13 @@ class GAT(MessagePassing):
     def __init__(self, cfg, **kwargs):
         super(GAT, self).__init__(node_dim=0, **kwargs)
 
-        self.in_channels = cfg.model.in_channels
+        self.in_channels = cfg.data.num_features
         self.out_channels = cfg.model.out_channels
         self.heads = cfg.model.heads
         self.negative_slope = cfg.model.negative_slope
         self.dropout = cfg.model.dropout
-        self.lin_l = nn.Linear(in_features=self.in_channels, out_features=self.out_channels * self.heads)
+        
+        self.lin_l = nn.Linear(in_features=self.in_channels, out_features=self.in_channels)
         self.lin_r = self.lin_l
         self.att_l = nn.Parameter(data=torch.zeros(self.heads, self.out_channels))
         self.att_r = nn.Parameter(data=torch.zeros(self.heads, self.out_channels))
@@ -375,21 +336,24 @@ class Trainer():
         'gae': self._train_gae,
         'vgae': self._train_vgae, 
         'GAT': self._train_gae,
-        'GraphSage': self._train_gae
+        'GraphSage': self._train_gae,
+        'GNNStack': self._train_gnnstack
         }
         
         self.test_func = {
             'GAT': self._test,
             'gae': self._test,
             'vgae': self._test,
-            'GraphSage': self._test
+            'GraphSage': self._test,
+            'GNNStack': self._test
         }
         
         self.evaluate_func = {
             'GAT': self._evaluate_gat_true,
-            'gae': self.evaluate,
-            'vgae': self.evaluate,
-            'GraphSage': self._evaluate_gat_true
+            'gae': self._evaluate_gat_true,
+            'vgae': self._evaluate_gat_true,
+            'GraphSage': self._evaluate_gat_true,
+            'GNNStack': self._evaluate_gat_true
         }
         
         self.evaluator_hit = Evaluator(name='ogbl-collab')
@@ -405,6 +369,15 @@ class Trainer():
         self.optimizer.step()
         return loss.item()
         
+    def _train_gnnstack(self):
+        self.model.train()
+        self.optimizer.zero_grad()
+        pred = self.model(self.train_data.x, self.train_data.edge_index)
+        loss = self.model.recon_loss(pred, self.train_data.edge_label)
+        loss.backward()
+        self.optimizer.step()
+        return loss.item()
+    
     def _train_gae(self):
         self.model.train()
         self.optimizer.zero_grad()
@@ -469,12 +442,18 @@ class Trainer():
     
     
     def train(self):
-        
+        best_hits, best_auc = 0, 0
         for epoch in range(1, self.epochs + 1):
             loss = self.train_func[self.model_name]()
             if epoch % 100 == 0:
                 auc, ap, acc = self.test_func[self.model_name]()
-                print('Epoch: {:03d}, Loss_train: {:.4f}, AUC: {:.4f}, AP: {:.4f}, ACC: {:.4f}'.format(epoch, loss, auc, ap, acc))
+                result_mrr = self.evaluate_func[self.model_name]()
+                print('Epoch: {:03d}, Loss_train: {:.4f}, AUC: {:.4f}, AP: {:.4f}, ACC: {:.4f}, MRR'.format(epoch, loss, auc, ap, acc, result_mrr['Hits@100']))
+                if auc > best_auc:
+                    best_auc = auc 
+                elif result_mrr['Hits@100'] > best_hits:
+                    best_hits = result_mrr['Hits@100']
+        return best_auc, best_hits
 
 
     def evaluate(self):
