@@ -21,6 +21,15 @@ from utils import (
 )
 import wandb 
 from ogb.linkproppred import Evaluator
+from embedding.tune_utils import (
+    set_cfg,
+    parse_args,
+    load_sweep_config, 
+    initialize_config, 
+    param_tune_acc_mrr,
+    FILE_PATH,
+)
+
 
 # Constants
 FILE_PATH = get_git_repo_root_path() + '/'
@@ -36,12 +45,6 @@ def load_sweep_config(file_path):
 def print_args(args):
     print(args)
 
-def initialize_config(args):
-    cfg = set_cfg(FILE_PATH, args)
-    cfg.merge_from_list(args.opts)
-    torch.set_num_threads(cfg.num_threads)
-    
-    return cfg
 
 # TODO how to save wandb files 
 def wandb_record_files(path):
@@ -64,10 +67,10 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='GraphGym')
 
     parser.add_argument('--cfg', dest='cfg_file', type=str, required=False,
-                        default = "core/configs/cora/node2vec.yaml",
+                        default = "core/configs/cora/gae.yaml",
                         help='The configuration file path.')
     parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
-                        default = "core/configs/cora/sweep2.yaml",
+                        default = "core/configs/cora/gae_sweep.yaml",
                         help='The configuration file path.')
     
     parser.add_argument('--repeat', type=int, default=1,
@@ -177,7 +180,7 @@ print_args(args)
 SWEEP_FILE_PATH = FILE_PATH + args.sweep_file
 sweep_config = load_sweep_config(SWEEP_FILE_PATH)
 
-cfg = initialize_config(args)
+cfg = initialize_config(FILE_PATH, args)
 
 _, _, splits = data_loader[cfg.data.name](cfg)
 

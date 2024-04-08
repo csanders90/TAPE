@@ -75,16 +75,16 @@ class GNNStack(torch.nn.Module):
     
 class GraphSage(MessagePassing):
     
-    def __init__(self, in_channels, out_channels, normalize = True,
+    def __init__(self, cfg, normalize = True,
                  bias = False, **kwargs):  
         super(GraphSage, self).__init__(**kwargs)
 
-        self.in_channels = in_channels
-        self.out_channels = out_channels
+        self.in_channels = cfg.model.in_channels
+        self.out_channels = cfg.model.out_channels
         self.normalize = normalize
 
-        self.lin_l = nn.Linear(in_features=in_channels, out_features=out_channels)
-        self.lin_r = nn.Linear(in_features=in_channels, out_features=out_channels)
+        self.lin_l = nn.Linear(in_features=self.in_channels, out_features=self.out_channels)
+        self.lin_r = nn.Linear(in_features=self.in_channels, out_features=self.out_channels)
 
         self.reset_parameters()
 
@@ -113,19 +113,18 @@ class GraphSage(MessagePassing):
 
 class GAT(MessagePassing):
                         
-    def __init__(self, in_channels, out_channels, heads = 2,
-                 negative_slope = 0.2, dropout = 0., **kwargs):
+    def __init__(self, cfg, **kwargs):
         super(GAT, self).__init__(node_dim=0, **kwargs)
 
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        self.heads = heads
-        self.negative_slope = negative_slope
-        self.dropout = dropout
-        self.lin_l = nn.Linear(in_features=in_channels, out_features=out_channels * heads)
+        self.in_channels = cfg.model.in_channels
+        self.out_channels = cfg.model.out_channels
+        self.heads = cfg.model.heads
+        self.negative_slope = cfg.model.negative_slope
+        self.dropout = cfg.model.dropout
+        self.lin_l = nn.Linear(in_features=self.in_channels, out_features=self.out_channels * self.heads)
         self.lin_r = self.lin_l
-        self.att_l = nn.Parameter(data=torch.zeros(heads, out_channels))
-        self.att_r = nn.Parameter(data=torch.zeros(heads, out_channels))
+        self.att_l = nn.Parameter(data=torch.zeros(self.heads, self.out_channels))
+        self.att_r = nn.Parameter(data=torch.zeros(self.heads, self.out_channels))
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -231,13 +230,16 @@ class LinkPredModel(torch.nn.Module):
         return pos_loss + neg_loss
 
 class GCNEncoder(torch.nn.Module):
-    def __init__(self, in_channels, hidden_channels, out_channels):
+    def __init__(self, cfg):
         super().__init__()
         """GCN encoder with 2 layers
         in_channels: number of input features of node (dimension of node feature)
         hidden_channels: number of hidden features of node (dimension of hidden layer)
         out_channels: number of output features of node (dimension of node embedding)
         """
+        in_channels = cfg.model.in_channels
+        hidden_channels = cfg.model.hidden_channels
+        out_channels = cfg.model.out_channels
         self.conv1 = GCNConv(in_channels, hidden_channels)
         self.conv2 = GCNConv(hidden_channels, out_channels)
 
@@ -329,8 +331,12 @@ class VGAE(GAE):
 
 
 class VariationalGCNEncoder(torch.nn.Module):
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, cfg):
         super().__init__()
+            
+        in_channels = cfg.data.num_features
+        out_channels = cfg.model.out_channels
+        
         self.conv1 = GCNConv(in_channels, 2 * out_channels)  # 2*out_channels because we want to output both mu and logstd
         self.conv_mu = GCNConv(2 * out_channels, out_channels)  # We use 2*out_channels for the input because we want to concatenate mu and logstd
         self.conv_logstd = GCNConv(2 * out_channels, out_channels)  # We use 2*out_channels for the input because we want to concatenate mu and logstd
@@ -596,14 +602,12 @@ if __name__ == "__main__":
     dataset, data_cited, splits = data_loader[cfg.data.name](cfg)   
     train_data, val_data, test_data = splits['train'], splits['valid'], splits['test']
 
-    in_channels = cfg.data.num_features
-    out_channels = cfg.model.out_channels
-    hidden_channels = cfg.model.hidden_channels # Assume that the dimension of the hidden layer feature is 8
+
     
     if cfg.model.type == 'gae':
-        model = GAE(GCNEncoder(in_channels, hidden_channels, out_channels))
+        model = GAE(GCNEncoder(cfg))
     elif cfg.model.type == 'vgae':
-        model = VGAE(VariationalGCNEncoder(in_channels, out_channels))
+        model = VGAE(VariationalGCNEncoder(cfg))
         
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 

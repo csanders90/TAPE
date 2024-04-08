@@ -31,8 +31,8 @@ def load_sweep_config(file_path):
 def print_args(args):
     print(args)
 
-def initialize_config(args):
-    cfg = set_cfg(FILE_PATH, args)
+def initialize_config(file_path, args):
+    cfg = set_cfg(file_path, args)
     cfg.merge_from_list(args.opts)
     torch.set_num_threads(cfg.num_threads)
     

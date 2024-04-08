@@ -46,7 +46,7 @@ if __name__ == "__main__":
 
     
     if cfg.model.type == 'GAT':
-        model = LinkPredModel(GAT(in_channels, out_channels))
+        model = LinkPredModel(GAT(cfg))
     elif cfg.model.type == 'GraphSage':
         model = LinkPredModel(GraphSage(in_channels, out_channels))
     elif cfg.model.type == 'GCNEncode':
@@ -74,3 +74,5 @@ if __name__ == "__main__":
     results_dict = trainer.evaluate()
     
     trainer.save_result(results_dict)
+    
+    
