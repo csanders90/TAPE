@@ -28,6 +28,7 @@ from embedding.tune_utils import (
     initialize_config, 
     param_tune_acc_mrr,
     FILE_PATH,
+    wandb_record_files
 )
 
 
@@ -46,19 +47,7 @@ def print_args(args):
     print(args)
 
 
-# TODO how to save wandb files 
-def wandb_record_files(path):
-    record_or_not = False
-    record_lst = [args.sweep_file, 
-                  args.cfg_file, 
-                  __file__,
-                  ]
 
-    for recorded in record_lst:
-        if recorded in path:
-            record_or_not = True
-            break
-    return record_or_not
 
 import argparse
 

@@ -26,6 +26,6 @@ data:
   include_negatives: True
   val_pct: 0.15
   test_pct: 0.05
-  split_labels: False
+  split_labels: True
   num_features:  1433
 
