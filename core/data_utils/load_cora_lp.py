@@ -49,14 +49,14 @@ def get_cora_casestudy(args) -> InMemoryDataset:
     device = config_device(args)
 
     transform = T.Compose([
-        T.NormalizeFeatures(),  # 对特征进行标准化
-        T.ToDevice(device),    # 把数据放到cpu或者gpu上
+        T.NormalizeFeatures(),  
+        T.ToDevice(device),    
         T.RandomLinkSplit(num_val=val_pct, num_test=test_pct, is_undirected=undirected,  # 这一步很关键，是在构造链接预测的数据集
                         split_labels=split_labels, add_negative_train_samples=False),])
 
     # load data
     data_name = 'cora'
-    # path = osp.join(osp.dirname(osp.realpath(__file__)), 'dataset')
+
     dataset = Planetoid('./dataset', data_name,
                         transform=transform)
 

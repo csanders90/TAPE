@@ -8,16 +8,24 @@ wandb:
 
 train:
   mode: custom
-  batch_size: 32   
+  batch_size: 256
   eval_period: 1
-  epochs: 2000
-  
-model:
-  type: gae
-  out_channels: 16
-  hidden_channels: 8  # Assume that the dimension of the hidden layer feature is 8
-  in_channels: 1433
+  epochs: 500
+  device: 1
+  use_valedges_as_input: True
 
+model:
+  type: GCN
+  in_channels: 12
+  out_channels: 1433
+  heads: 1
+  hidden_channels: 8  
+  negative_slope: 0.2
+  dropout: 0
+  num_layers: 2
+  embed: True
+
+  
 num_threads: 11
 
 data:

@@ -45,7 +45,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='GraphGym')
 
     parser.add_argument('--cfg', dest='cfg_file', type=str, required=False,
-                        default='core/configs/cora/gae.yaml',
+                        default='core/configs/cora/gat.yaml',
                         help='The configuration file path.')
     parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
                         default='core/configs/cora/gat_sp1.yaml',
@@ -60,19 +60,7 @@ def parse_args() -> argparse.Namespace:
 
     return parser.parse_args()
 
-# TODO how to save wandb files 
-def wandb_record_files(path):
-    record_or_not = False
-    record_lst = [args.sweep_file, 
-                  args.cfg_file, 
-                  __file__,
-                  ]
 
-    for recorded in record_lst:
-        if recorded in path:
-            record_or_not = True
-            break
-    return record_or_not
 
 def process_edge_index(full_edge_index):
     print("full_edge_index", full_edge_index.shape)

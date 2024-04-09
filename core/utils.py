@@ -198,7 +198,7 @@ def config_device(cfg):
         if num_cuda_devices > 0:
             # Set the first CUDA device as the active device
             torch.cuda.set_device(0)
-            device = 'cuda'
+            device = f'cuda:{cfg.train.device}'
         else:
             device = 'cpu'
         

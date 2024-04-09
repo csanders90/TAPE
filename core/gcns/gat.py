@@ -1,10 +1,7 @@
 # modified from https://github.com/AndrewSpano/Stanford-CS224W-ML-with-Graphs/blob/main/CS224W_Colab_3.ipynb
-
-import torch
-import os 
-
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# sys.path.insert(0, '/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE/core')
 
 from torch_geometric.graphgym.cmd_args import parse_args
 from torch_geometric.graphgym.config import cfg
@@ -14,13 +11,13 @@ from embedding.tune_utils import (
     get_git_repo_root_path
 )
 from sklearn.metrics import *
-from gae import GraphSage, GAT, LinkPredModel, GCNEncoder
-from gae import set_cfg, data_loader, Trainer 
+from gnn_models import GraphSage, GAT, LinkPredModel, GCNEncoder, GAE, VGAE, VariationalGCNEncoder
+from gnn_models import set_cfg, data_loader, Trainer 
 
 
 # Please don't change any parameters
 args = {
-    "device" : 'cuda' if torch.cuda.is_available() else 'cpu',
+    "device" : 'cuda:1' if torch.cuda.is_available() else 'cpu',
     "hidden_dim" : 128,
     "epochs" : 200,
 }
@@ -47,6 +44,11 @@ if __name__ == "__main__":
         model = LinkPredModel(GraphSage(cfg))
     elif cfg.model.type == 'GCNEncode':
         model = LinkPredModel(GCNEncoder(cfg))
+    
+    if cfg.model.type == 'gae':
+        model = GAE(GCNEncoder(cfg))
+    elif cfg.model.type == 'vgae':
+        model = VGAE(VariationalGCNEncoder(cfg))
         
         
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)

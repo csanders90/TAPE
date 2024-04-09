@@ -1,7 +1,5 @@
 import os
 import sys
-import numpy as np
-
 # Add parent directory to sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -21,7 +19,6 @@ from embedding.tune_utils import (parse_args,
                                 param_tune_acc_mrr)
 
 from utils import config_device
-from IPython import embed
 import wandb 
 from torch import nn
 from torch_geometric.nn.conv import MessagePassing
@@ -31,7 +28,6 @@ import torch.optim as optim
 import torch.nn.functional as F
 import torch_scatter 
 import torch_geometric 
-
 
 class GraphSage(MessagePassing):
     
@@ -124,8 +120,6 @@ class GAT(MessagePassing):
         return out
     
 
-
-
 def build_optimizer(args, params):
     weight_decay = args.weight_decay
     filter_fn = filter(lambda p : p.requires_grad, params)
@@ -189,6 +183,7 @@ class LinkPredModel(torch.nn.Module):
             1 - self.decoder(z, neg_edge_index) + EPS).mean() # loss for negative samples
 
         return pos_loss + neg_loss
+
 
 class GCNEncoder(torch.nn.Module):
     def __init__(self, cfg):
@@ -359,15 +354,6 @@ class Trainer():
         self.evaluator_hit = Evaluator(name='ogbl-collab')
         self.evaluator_mrr = Evaluator(name='ogbl-citation2')
 
-    
-    def _train_gat(self):
-        self.model.train()
-        self.optimizer.zero_grad()
-        pred = self.model(self.train_data.x, self.train_data.edge_index)
-        loss = self.model.loss(pred, self.train_data.edge_label)
-        loss.backward()
-        self.optimizer.step()
-        return loss.item()
         
     def _train_gnnstack(self):
         self.model.train()
@@ -444,6 +430,7 @@ class Trainer():
     def train(self):
         best_hits, best_auc = 0, 0
         for epoch in range(1, self.epochs + 1):
+
             loss = self.train_func[self.model_name]()
             if epoch % 100 == 0:
                 auc, ap, acc = self.test_func[self.model_name]()
@@ -453,7 +440,7 @@ class Trainer():
                     best_auc = auc 
                 elif result_mrr['Hits@100'] > best_hits:
                     best_hits = result_mrr['Hits@100']
-        return best_auc, best_hits
+        return best_auc, best_hits, result_mrr
 
 
     def evaluate(self):
@@ -556,6 +543,9 @@ class Trainer():
         id = wandb.util.generate_id()
         param_tune_acc_mrr(id, results_dict, acc_file, self.data_name, self.model_name)
     
+
+
+
 
 data_loader = {
     'cora': get_cora_casestudy,

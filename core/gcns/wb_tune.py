@@ -26,17 +26,25 @@ from embedding.tune_utils import (
     initialize_config, 
     param_tune_acc_mrr,
     process_edge_index,
-    FILE_PATH,
-    wandb_record_files
+    FILE_PATH
 )
-from gae import Trainer, LinkPredModel, GAT, GraphSage, GCNEncoder
+from gnn_models import GraphSage, GAT, LinkPredModel, GCNEncoder, GAE, VGAE, VariationalGCNEncoder, Trainer
 import argparse
 
+def merge_cfg_from_sweep(cfg, wandb_config):
+    for ind, k in wandb_config.items():
+        if hasattr(cfg.model, ind):
+            cfg.model.ind = k
+        if hasattr(cfg.train, ind):
+            cfg.train.ind = k
+    
+    pprint.pprint(cfg)
+    pprint.pprint(wandb.config)
+    return cfg
 
 def train_and_evaluate(id, splits, cfg, wandb_config):
     
-    pprint.pprint(cfg)
-    pprint.pprint(wandb_config)
+    cfg = merge_cfg_from_sweep(cfg, wandb_config)
     
     if cfg.model.type == 'GAT':
         model = LinkPredModel(GAT(cfg))
@@ -44,18 +52,22 @@ def train_and_evaluate(id, splits, cfg, wandb_config):
         model = LinkPredModel(GraphSage(cfg))
     elif cfg.model.type == 'GCNEncode':
         model = LinkPredModel(GCNEncoder(cfg))
-
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+    
+    if cfg.model.type == 'gae':
+        model = GAE(GCNEncoder(cfg))
+    elif cfg.model.type == 'vgae':
+        model = VGAE(VariationalGCNEncoder(cfg))
+        
+    optimizer = torch.optim.Adam(model.parameters(), lr=wandb_config.lr)
 
     trainer = Trainer(FILE_PATH,
-                 cfg,
-                 model, 
-                 optimizer,
-                 splits)
+                    cfg,
+                    model, 
+                    optimizer,
+                    splits)
     
-    results_dict = trainer.train()
-    # results_dict = trainer.evaluate()
-    
+    best_auc, best_hits, results_dict = trainer.train()
+
     trainer.save_result(results_dict)
 
     root = FILE_PATH + 'results'
@@ -64,7 +76,7 @@ def train_and_evaluate(id, splits, cfg, wandb_config):
         os.makedirs(root, exist_ok=True)
     param_tune_acc_mrr(id, results_dict, mrr_file, cfg.data.name, cfg.model.type)
 
-    return results_dict['Hits@100']
+    return best_auc, best_hits
 
 
 args = parse_args()
@@ -79,6 +91,19 @@ cfg = initialize_config(FILE_PATH, args)
 _, _, splits = data_loader[cfg.data.name](cfg)
 
 
+def wandb_record_files(path):
+    record_or_not = False
+    record_lst = [args.sweep_file, 
+                  args.cfg_file, 
+                  'core/gcns/wb_tune.py'
+                  ]
+    
+    for recorded in record_lst:
+        if recorded in path:
+            record_or_not = True
+            break
+    return record_or_not
+
 def run_experiment(config=None):
     id = wandb.util.generate_id()
     run = wandb.init(id=id, config=config, settings=wandb.Settings(_service_wait=300), save_code=True)
@@ -87,12 +112,11 @@ def run_experiment(config=None):
     
     wandb.log(dict(wandb_config))
 
-    acc = train_and_evaluate(id, splits, cfg, wandb_config)
-    run.log({"score": acc})
+    best_auc, best_hits = train_and_evaluate(id, splits, cfg, wandb_config)
+    run.log({"score": best_auc})
     run.log_code("../", include_fn=wandb_record_files)
 
 
 sweep_id = wandb.sweep(sweep=sweep_config, project=f"{cfg.model.type}-sweep-{cfg.data.name}")
 
 wandb.agent(sweep_id, run_experiment, count=60)
-
