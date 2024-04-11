@@ -168,12 +168,12 @@ def get_prediction(full_A, use_heuristic, pos_test_edge, neg_test_edge):
 
 def get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred):
 
-    k_list  = [1, 3, 10, 100]
+    k_list  = [1, 3, 10, 20, 50, 100]
     result_hit_test = evaluate_hits(evaluator_hit, pos_test_pred, neg_test_pred, k_list)
     
     result = {}
 
-    for K in [1, 3, 10, 100]:
+    for K in [1, 3, 10, 20, 50, 100]:
         result[f'Hits@{K}'] = (result_hit_test[f'Hits@{K}'])
 
     result_mrr_test = evaluate_mrr(evaluator_mrr, pos_test_pred, neg_test_pred.repeat(pos_test_pred.size(0), 1))
@@ -182,6 +182,8 @@ def get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
     result['mrr_hit1']  = (result_mrr_test['mrr_hit1'])
     result['mrr_hit3']  = (result_mrr_test['mrr_hit3'])
     result['mrr_hit10']  = (result_mrr_test['mrr_hit10'])
+    result['mrr_hit20']  = (result_mrr_test['mrr_hit20'])
+    result['mrr_hit50']  = (result_mrr_test['mrr_hit50'])
     result['mrr_hit100']  = (result_mrr_test['mrr_hit100'])
    
     test_pred = torch.cat([pos_test_pred, neg_test_pred])
