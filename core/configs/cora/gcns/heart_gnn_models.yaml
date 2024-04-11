@@ -16,6 +16,7 @@ train:
   lr: 0.001
   l2: 0.0
   runs: 10 
+  kill_cnt: 30
 
 model:
   type: GCN

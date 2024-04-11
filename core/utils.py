@@ -293,3 +293,37 @@ def get_logger(name, log_dir, config_dir):
     logger.addHandler(consoleHandler)
 
     return logger
+
+def save_emb(score_emb, save_path):
+
+    if len(score_emb) == 6:
+        pos_valid_pred,neg_valid_pred, pos_test_pred, neg_test_pred, x1, x2= score_emb
+        state = {
+        'pos_valid_score': pos_valid_pred,
+        'neg_valid_score': neg_valid_pred,
+        'pos_test_score': pos_test_pred,
+        'neg_test_score': neg_test_pred,
+        'node_emb': x1,
+        'node_emb_with_valid_edges': x2
+
+        }
+        
+    elif len(score_emb) == 5:
+        pos_valid_pred,neg_valid_pred, pos_test_pred, neg_test_pred, x= score_emb
+        state = {
+        'pos_valid_score': pos_valid_pred,
+        'neg_valid_score': neg_valid_pred,
+        'pos_test_score': pos_test_pred,
+        'neg_test_score': neg_test_pred,
+        'node_emb': x
+        }
+    elif len(score_emb) == 4:
+        pos_valid_pred,neg_valid_pred, pos_test_pred, neg_test_pred, = score_emb
+        state = {
+        'pos_valid_score': pos_valid_pred,
+        'neg_valid_score': neg_valid_pred,
+        'pos_test_score': pos_test_pred,
+        'neg_test_score': neg_test_pred,
+        }
+   
+    torch.save(state, save_path)

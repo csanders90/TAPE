@@ -5,14 +5,12 @@ import torch.nn.functional as F
 from torch_geometric.nn import GCNConv, SAGEConv, GINConv, GATConv
 
 from torch.nn import Embedding
-from utils import init_seed,  Logger
+from utils import init_seed,  Logger, save_emb
 from torch.nn.init import xavier_normal_
 from torch.nn import (ModuleList, Linear, Conv1d, MaxPool1d, Embedding, ReLU, 
                       Sequential, BatchNorm1d as BN)
 from torch_geometric.nn import global_sort_pool
 import math
-
-
 from utils import *
 from torch.utils.data import DataLoader
 from torch_sparse import SparseTensor
@@ -494,19 +492,18 @@ def data_preprocess(cfg):
     if hasattr(data, 'x'):
         if data.x != None:
             x = data.x
-            x = x.to(device)
             cfg.model.input_channels = x.size(1)
         else:
-            emb = torch.nn.Embedding(node_num, args.hidden_channels).to(device)
+            emb = torch.nn.Embedding(node_num, args.hidden_channels)
             cfg.model.input_channels = args.hidden_channels
 
     else:
-        emb = torch.nn.Embedding(node_num, args.hidden_channels).to(device)
+        emb = torch.nn.Embedding(node_num, args.hidden_channels)
         cfg.model.input_channels = args.hidden_channels
     
     if not hasattr(data, 'edge_weight'): 
-        train_edge_weight = torch.ones(splits['train'].edge_index.shape[1]).to(device)
-        train_edge_weight = train_edge_weight.to(torch.float).to(device)
+        train_edge_weight = torch.ones(splits['train'].edge_index.shape[1])
+        train_edge_weight = train_edge_weight.to(torch.float)
 
 
     data = T.ToSparseTensor()(data)
@@ -529,7 +526,6 @@ def data_preprocess(cfg):
     else:
         data.full_adj_t = data.adj_t
 
-    data = data.to(device)
 
     if emb != None:
         torch.nn.init.xavier_uniform_(emb.weight)
@@ -555,9 +551,6 @@ if __name__ == "__main__":
     print(f"device {device}")
     
     dataset, splits, emb, cfg, train_edge_weight = data_preprocess(cfg)
-
-    model = None
-
 
     model = eval(cfg.model.type)(cfg.model.input_channels, cfg.model.hidden_channels,
                                  cfg.model.hidden_channels, cfg.model.num_layers, 
@@ -596,7 +589,10 @@ if __name__ == "__main__":
     
     elif cfg.data.name =='ogbl-citation2':
         eval_metric = 'MRR'
-
+        
+    elif cfg.data.name in ['cora', 'pubmed', 'arxiv_2023']:
+        eval_metric = 'Hits@100'
+        
     if cfg.data.name != 'ogbl-citation2':
         pos_train_edge = splits['train'].edge_index
 
@@ -635,8 +631,6 @@ if __name__ == "__main__":
             
     idx = torch.randperm(pos_train_edge.size(0))[:pos_valid_edge.size(0)]
     train_val_edge = pos_train_edge[idx]
-
-    pos_train_edge = pos_train_edge.to(device)
 
     evaluation_edges = [train_val_edge, pos_valid_edge, neg_valid_edge, pos_test_edge,  neg_test_edge]
     
@@ -685,10 +679,12 @@ if __name__ == "__main__":
                          emb, 
                          optimizer, 
                          cfg.train.batch_size, 
-                         train_edge_weight)
+                         train_edge_weight, 
+                         device)
 
             # for attention score   
             # print(model.convs[0].att_src[0][0][:10])
+            
             
             if epoch % 10 == 0:
                 results_rank, score_emb = test(model, 
@@ -699,13 +695,14 @@ if __name__ == "__main__":
                                                evaluator_mrr, 
                                                cfg.train.batch_size, 
                                                cfg.data.name, 
-                                               cfg.train.use_valedges_as_input)
+                                               cfg.train.use_valedges_as_input, 
+                                               device)
 
 
-                for key, result in results_rank.items():
-                    loggers[key].add_result(run, result)
+                for key, _ in loggers.items():
+                    loggers[key].add_result(run, results_rank[key])
 
-                if epoch % args.log_steps == 0:
+                if epoch % 2 == 0:
                     for key, result in results_rank.items():
                         
                         print(key)
@@ -741,14 +738,14 @@ if __name__ == "__main__":
                 if best_valid_current > best_valid:
                     best_valid = best_valid_current
                     kill_cnt = 0
-                    if args.save: save_emb(score_emb, save_path)
+                    if cfg.save: save_emb(score_emb, save_path)
 
                     
                 
                 else:
                     kill_cnt += 1
                     
-                    if kill_cnt > args.kill_cnt: 
+                    if kill_cnt > cfg.train.kill_cnt: 
                         print("Early Stopping!!")
                         break
         

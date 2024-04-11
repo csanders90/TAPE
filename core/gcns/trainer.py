@@ -44,7 +44,8 @@ def train(model,
           emb, 
           optimizer, 
           batch_size, 
-          pos_train_weight):
+          pos_train_weight,
+          device):
     
     model.train()
     score_func.train()
@@ -84,6 +85,8 @@ def train(model,
           
         ###################
         # print(adj)
+        x = x.to(device)
+        adj = adj.to(device)
 
         h = model(x, adj)
 
@@ -130,7 +133,8 @@ def test(model,
          evaluator_mrr, 
          batch_size,
          data_name, 
-         use_valedges_as_input):
+         use_valedges_as_input, 
+         device):
     
     model.eval()
     score_func.eval()
@@ -141,6 +145,8 @@ def test(model,
     if emb == None: x = data.x
     else: x = emb.weight
     
+    x = x.to(device)
+    data = data.to(device)
     h = model(x, data.edge_index.to(x.device))
     # print(h[0][:10])
     train_val_edge = train_val_edge.to(x.device)
