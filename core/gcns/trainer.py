@@ -35,8 +35,11 @@ from torch_sparse import SparseTensor
 import torch_geometric.transforms as T
 import argparse
 from heuristic.eval import get_metric_score
+from torch import nn 
 
 
+
+    
 def train(model, 
           score_func,  
           train_pos, 
@@ -72,7 +75,6 @@ def train(model,
         mask = torch.ones(train_pos.size(0), dtype=torch.bool).to(train_pos.device)
         mask[perm] = 0
         train_edge_mask = train_pos[mask].transpose(1,0)
-        # what
         train_edge_mask = torch.cat((train_edge_mask, train_edge_mask[[1,0]]),dim=1)
         
         if pos_train_weight != None:
@@ -81,17 +83,17 @@ def train(model,
             edge_weight_mask = torch.cat((edge_weight_mask, edge_weight_mask), dim=0).to(torch.float)
         else:
             edge_weight_mask = torch.ones(train_edge_mask.size(1)).to(torch.float).to(train_pos.device)
+            
+        # masked adjacency matrix 
         adj = SparseTensor.from_edge_index(train_edge_mask, edge_weight_mask, [num_nodes, num_nodes]).to(train_pos.device)
           
         ###################
-        # print(adj)
+        print(adj)
         x = x.to(device)
         adj = adj.to(device)
-
         h = model(x, adj)
 
         edge = train_pos[perm].t()
-
         pos_out = score_func(h[edge[0]], h[edge[1]])
         pos_loss = -torch.log(pos_out + 1e-15).mean()
         
@@ -99,11 +101,7 @@ def train(model,
         edge_index = torch.stack([col, row], dim=0)
         edge = negative_sampling(edge_index, num_nodes=x.size(0),
                                 num_neg_samples=perm.size(0), method='dense')
-        # else:
-        #     # Just do some trivial random sampling.
-        #     edge = torch.randint(0, num_nodes, edge.size(), dtype=torch.long,
-        #                         device=h.device)
-            
+
         neg_out = score_func(h[edge[0]], h[edge[1]])
         neg_loss = -torch.log(1 - neg_out + 1e-15).mean()
 
@@ -116,7 +114,7 @@ def train(model,
 
         optimizer.step()
 
-        num_examples = pos_out.size(0)
+        num_examples = perm.size(0)
         total_loss += loss.item() * num_examples
         total_examples += num_examples
 

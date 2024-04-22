@@ -651,10 +651,6 @@ if __name__ == "__main__":
                     '_numPredlay' + str(cfg.score_model.num_layers_predictor) +\
                         '_numGinMlplayer' + str(cfg.score_model.gin_mlp_layer)+ \
                             '_dim'+str(cfg.model.hidden_channels) + '_'+ 'best_run_'+str(seed)
-        
-        # save_valid = args.output_dir+'/lr'+str(args.lr) + '_drop' + str(args.dropout) + '_l2'+ str(args.l2) + '_numlayer' + str(args.num_layers)+ '_numPredlay' + str(args.num_layers_predictor) + '_numGinMlplayer' + str(args.gin_mlp_layer)+'_dim'+str(args.hidden_channels) + '_'+ 'valid_output'+str(run)
-        # save_valid = args.output_dir+'/lr'+str(args.lr) + '_drop' + str(args.dropout) + '_l2'+ str(args.l2) + '_numlayer' + str(args.num_layers)+ '_numPredlay' + str(args.num_layers_predictor) + '_numGinMlplayer' + str(args.gin_mlp_layer)+'_dim'+str(args.hidden_channels) + '_'+ 'valid_output'+str(run)
-        
 
         if emb != None:
             torch.nn.init.xavier_uniform_(emb.weight)
@@ -671,7 +667,7 @@ if __name__ == "__main__":
         best_valid = 0
         kill_cnt = 0
         
-        for  epoch in range(1, 1 + cfg.train.epochs):
+        for epoch in range(1, 1 + cfg.train.epochs):
             loss = train(model, 
                          score_func, 
                          pos_train_edge, 
@@ -685,13 +681,13 @@ if __name__ == "__main__":
             # for attention score   
             # print(model.convs[0].att_src[0][0][:10])
             
-            
-            if epoch % 10 == 0:
+            if epoch % 100 == 0:
                 results_rank, score_emb = test(model, 
                                                score_func,
                                                splits['test'],
                                                evaluation_edges, 
-                                               emb, evaluator_hit, 
+                                               emb, 
+                                               evaluator_hit, 
                                                evaluator_mrr, 
                                                cfg.train.batch_size, 
                                                cfg.data.name, 
@@ -702,19 +698,17 @@ if __name__ == "__main__":
                 for key, _ in loggers.items():
                     loggers[key].add_result(run, results_rank[key])
 
-                if epoch % 2 == 0:
+                if epoch % 100 == 0:
                     for key, result in results_rank.items():
-                        
-                        print(key)
-                        
                         train_hits, valid_hits, test_hits = result
-                        log_print.info(
-                            f'Run: {run + 1:02d}, '
-                              f'Epoch: {epoch:02d}, '
-                              f'Loss: {loss:.4f}, '
-                              f'Train: {100 * train_hits:.2f}%, '
-                              f'Valid: {100 * valid_hits:.2f}%, '
-                              f'Test: {100 * test_hits:.2f}%')
+                        
+                log_print.info(
+                    f'Run: {run + 1:02d}, '
+                        f'Epoch: {epoch:02d}, '
+                        f'Loss: {loss:.4f}, '
+                        f'Train: {100 * train_hits:.2f}%, '
+                        f'Valid: {100 * valid_hits:.2f}%, '
+                        f'Test: {100 * test_hits:.2f}%')
                 
                 r = torch.tensor(loggers[eval_metric].results[run])
                 best_valid_current = round(r[:, 1].max().item(),4)
@@ -739,9 +733,6 @@ if __name__ == "__main__":
                     best_valid = best_valid_current
                     kill_cnt = 0
                     if cfg.save: save_emb(score_emb, save_path)
-
-                    
-                
                 else:
                     kill_cnt += 1
                     
@@ -761,20 +752,13 @@ if __name__ == "__main__":
     for key in loggers.keys():
         if len(loggers[key].results[0]) > 0:
             print(key)
-            
             best_metric,  best_valid_mean, mean_list, var_list = loggers[key].print_statistics()
-           
-
             if key == eval_metric:
                 best_metric_valid_str = best_metric
                 # best_valid_mean_metric = best_valid_mean
-
-
-                
             if key == 'AUC':
                 best_auc_valid_str = best_metric
                 # best_auc_metric = best_valid_mean
-
             result_all_run[key] = [mean_list, var_list]
             
 
