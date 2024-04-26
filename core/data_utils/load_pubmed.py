@@ -29,7 +29,7 @@ def get_pubmed_casestudy(corrected=False, SEED=0):
     # load data
     data_name = 'PubMed'
     # path = osp.join(osp.dirname(osp.realpath(__file__)), 'dataset')
-    dataset = Planetoid('./dataset', data_name, transform=T.NormalizeFeatures())
+    dataset = Planetoid('./generated_dataset', data_name, transform=T.NormalizeFeatures())
     data = dataset[0]
 
     # replace dataset matrices with the PubMed-Diabetes data, for which we have the original pubmed IDs
@@ -169,13 +169,14 @@ def get_raw_text_pubmed(use_text=False, seed=0):
         text.append(t)
     return data, text
 
-if __name__ == '__main__':
-    data, text = get_raw_text_pubmed(use_text=True)
-    print(data)
-    print(text[0])
+# TEST CODE
+# if __name__ == '__main__':
+#     data, text = get_raw_text_pubmed(use_text=True)
+#     print(data)
+#     print(text[0])
     
-    data_A, data_X, data_Y, data_pubid, edge_index = parse_pubmed()
-    print(edge_index)
+#     data_A, data_X, data_Y, data_pubid, edge_index = parse_pubmed()
+#     print(edge_index)
     
-    dataset, data_pubid = get_pubmed_casestudy(corrected=False, SEED=0)
-    print(dataset)
+#     dataset, data_pubid = get_pubmed_casestudy(corrected=False, SEED=0)
+#     print(dataset)
