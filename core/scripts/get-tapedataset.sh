@@ -24,7 +24,4 @@ echo "$SHA256SUM  $TARGET" | sha256sum -c
 test $? -eq 0 || read -p "Failed to verify SHA256 checksum. Press any key to continue anyway." -n 1 -r
 
 # please run these commands in the terminal to unzip and clean the dataset
-cd core
-unzip dataset.tar.gz
-mv tapedataset dataset
-rm -rf dataset.tar.gz
+tar -xvzf $TARGET
