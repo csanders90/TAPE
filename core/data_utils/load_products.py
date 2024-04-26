@@ -4,12 +4,9 @@ import torch
 import pandas as pd
 import json
 import numpy as np
-import os
-import time
-import os
-import sys
-from utils import get_git_repo_root_path
+import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from utils import get_git_repo_root_path
 from utils import time_logger
 
 FILE = 'dataset/ogbn_products_orig/ogbn-products.csv'
@@ -55,11 +52,8 @@ def _process():
 
 
 def get_raw_text_products(use_text=False, seed=0):
-    # /hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE/dataset/ogbn_products_orig/ogbn-products_subset.csv
-    # /hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE/dataset/ogbn_products_orig/ogbn-products_subset.pt
-    root_path = FILE_PATH
-    data = torch.load('dataset/ogbn_products/ogbn-products_subset.pt')
-    text = pd.read_csv(root_path + 'dataset/ogbn_products_orig/ogbn-products_subset.csv')
+    data = torch.load(FILE_PATH + 'dataset/ogbn_products_orig/ogbn-products_subset.pt')
+    text = pd.read_csv(FILE_PATH + 'dataset/ogbn_products_orig/ogbn-products_subset.csv')
     text = [f'Product:{ti}; Description: {cont}\n'for ti,
             cont in zip(text['title'], text['content'])]
 

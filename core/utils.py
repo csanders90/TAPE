@@ -3,7 +3,7 @@ import numpy as np
 import time
 import datetime
 import pytz
-
+import random
 
 def init_random_state(seed=0):
     # Libraries using GPU should be imported after specifying GPU-ID
@@ -181,3 +181,149 @@ def append_mrr_to_excel(uuid_val, metrics_mrr, root, name, method):
 
     
     return upt_Data
+
+def config_device(cfg):
+    # device 
+    try:
+        if cfg.data.device is not None:
+            return cfg.data.device
+        elif cfg.train.device is not None:
+            return cfg.train.device
+    except:
+        num_cuda_devices = 0
+        if torch.cuda.is_available():
+            # Get the number of available CUDA devices
+            num_cuda_devices = torch.cuda.device_count()
+
+        if num_cuda_devices > 0:
+            # Set the first CUDA device as the active device
+            torch.cuda.set_device(0)
+            device = cfg.train.device
+        else:
+            device = 'cpu'
+        
+    return device
+
+
+
+def init_seed(seed=2020):
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    random.seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    # torch.use_deterministic_algorithms(True)
+    
+    
+class Logger(object):
+    def __init__(self, runs, info=None):
+        self.info = info
+        self.results = [[] for _ in range(runs)]
+
+    def add_result(self, run, result):
+        assert len(result) == 3
+        assert run >= 0 and run < len(self.results)
+        self.results[run].append(result)
+
+    def print_statistics(self, run=None):
+        if run is not None:
+            result = 100 * torch.tensor(self.results[run])
+            argmax = result[:, 1].argmax().item()
+            print(f'Run {run + 1:02d}:')
+            print(f'Highest Train: {result[:, 0].max():.2f}')
+            print(f'Highest Valid: {result[:, 1].max():.2f}')
+            print(f'  Final Train: {result[argmax, 0]:.2f}')
+            print(f'   Final Test: {result[argmax, 2]:.2f}')
+        else:
+            best_results = []
+
+            for r in self.results:
+                r = 100 * torch.tensor(r)
+                train1 = r[:, 0].max().item()
+                valid = r[:, 1].max().item()
+                train2 = r[r[:, 1].argmax(), 0].item()
+                test = r[r[:, 1].argmax(), 2].item()
+                
+                best_results.append((train1, valid, train2, test))
+
+            best_result = torch.tensor(best_results)
+
+            print(f'All runs:')
+
+            r = best_result[:, 0].float()
+            print(f'Highest Train: {r.mean():.2f} ± {r.std():.2f}')
+
+            r = best_result[:, 1].float()
+            best_valid_mean = round(r.mean().item(), 2)
+            best_valid_var = round(r.std().item(), 2)
+
+            best_valid = str(best_valid_mean) +' ' + '±' +  ' ' + str(best_valid_var)
+            print(f'Highest Valid: {r.mean():.2f} ± {r.std():.2f}')
+
+
+            r = best_result[:, 2].float()
+            best_train_mean = round(r.mean().item(), 2)
+            best_train_var = round(r.std().item(), 2)
+            print(f'  Final Train: {r.mean():.2f} ± {r.std():.2f}')
+
+
+            r = best_result[:, 3].float()
+            best_test_mean = round(r.mean().item(), 2)
+            best_test_var = round(r.std().item(), 2)
+            print(f'   Final Test: {r.mean():.2f} ± {r.std():.2f}')
+
+            mean_list = [best_train_mean, best_valid_mean, best_test_mean]
+            var_list = [best_train_var, best_valid_var, best_test_var]
+
+
+            return best_valid, best_valid_mean, mean_list, var_list
+
+
+import logging, sys
+def get_logger(name, log_dir, config_dir):
+	
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
+    logger.propagate = False
+
+    std_out_format = '%(asctime)s - [%(levelname)s] - %(message)s'
+    consoleHandler = logging.StreamHandler(sys.stdout)
+    consoleHandler.setFormatter(logging.Formatter(std_out_format))
+    logger.addHandler(consoleHandler)
+
+    return logger
+
+def save_emb(score_emb, save_path):
+
+    if len(score_emb) == 6:
+        pos_valid_pred,neg_valid_pred, pos_test_pred, neg_test_pred, x1, x2= score_emb
+        state = {
+        'pos_valid_score': pos_valid_pred,
+        'neg_valid_score': neg_valid_pred,
+        'pos_test_score': pos_test_pred,
+        'neg_test_score': neg_test_pred,
+        'node_emb': x1,
+        'node_emb_with_valid_edges': x2
+
+        }
+        
+    elif len(score_emb) == 5:
+        pos_valid_pred,neg_valid_pred, pos_test_pred, neg_test_pred, x= score_emb
+        state = {
+        'pos_valid_score': pos_valid_pred,
+        'neg_valid_score': neg_valid_pred,
+        'pos_test_score': pos_test_pred,
+        'neg_test_score': neg_test_pred,
+        'node_emb': x
+        }
+    elif len(score_emb) == 4:
+        pos_valid_pred,neg_valid_pred, pos_test_pred, neg_test_pred, = score_emb
+        state = {
+        'pos_valid_score': pos_valid_pred,
+        'neg_valid_score': neg_valid_pred,
+        'pos_test_score': pos_test_pred,
+        'neg_test_score': neg_test_pred,
+        }
+   
+    torch.save(state, save_path)

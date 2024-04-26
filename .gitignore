@@ -77,5 +77,6 @@ temp_path/
 
 scripts/error/
 scripts/log/
+*/tmp/ 
 
 *.pkl

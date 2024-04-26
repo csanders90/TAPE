@@ -31,8 +31,8 @@ def load_sweep_config(file_path):
 def print_args(args):
     print(args)
 
-def initialize_config(args):
-    cfg = set_cfg(FILE_PATH, args)
+def initialize_config(file_path, args):
+    cfg = set_cfg(file_path, args)
     cfg.merge_from_list(args.opts)
     torch.set_num_threads(cfg.num_threads)
     
@@ -45,10 +45,10 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='GraphGym')
 
     parser.add_argument('--cfg', dest='cfg_file', type=str, required=False,
-                        default='core/configs/arxiv_2023/compt.yaml',
+                        default='core/configs/cora/gat.yaml',
                         help='The configuration file path.')
     parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
-                        default='core/configs/arxiv_2023/struc2vec_sp1.yaml',
+                        default='core/configs/cora/gat_sp1.yaml',
                         help='The configuration file path.')
     
     parser.add_argument('--repeat', type=int, default=1,
@@ -59,6 +59,8 @@ def parse_args() -> argparse.Namespace:
                         help='See graphgym/config.py for remaining options.')
 
     return parser.parse_args()
+
+
 
 def process_edge_index(full_edge_index):
     print("full_edge_index", full_edge_index.shape)
@@ -129,6 +131,6 @@ def param_tune_acc_mrr(uuid_val, metrics, root, name, method):
     Best_list = ['Best'] + highest_values[1:].tolist()
     Best_df = pd.DataFrame([Best_list], columns=Data.columns)
     upt_Data = pd.concat([new_Data, Best_df])
-    upt_Data.to_csv(root,index=False)
+    upt_Data.to_csv(root, index=False)
 
     return upt_Data

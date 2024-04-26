@@ -1,8 +1,16 @@
+import os
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from ogb.nodeproppred import PygNodePropPredDataset
 import torch_geometric.transforms as T
 import torch
 import pandas as pd
-from torch_geometric.data import Data, InMemoryDataset
+from torch_geometric.data import Data
+from utils import get_git_repo_root_path
+
+FILE_PATH = get_git_repo_root_path() + '/'
+
 
 def get_raw_text_arxiv(use_text=False, seed=0):
 
@@ -33,7 +41,7 @@ def get_raw_text_arxiv(use_text=False, seed=0):
 
     nodeidx2paperid = pd.read_csv(
         'dataset/ogbn_arxiv/mapping/nodeidx2paperid.csv.gz', compression='gzip')
-
+    tsv_path = '/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE/dataset/ogbn_arxiv_orig/titleabs.tsv'
     raw_text = pd.read_csv('dataset/ogbn_arxiv_orig/titleabs.tsv',
                            sep='\t', header=None, names=['paper id', 'title', 'abs'])
 
@@ -64,8 +72,8 @@ def get_raw_text_arxiv(use_text=False, seed=0):
     
     return dataset, text
 
-
-if __name__ == '__main__':
-    data, text = get_raw_text_arxiv(use_text=True)
-    print(data)
-    print(len(text))
+# TEST CODE
+# if __name__ == '__main__':
+#     data, text = get_raw_text_ogbn_arxiv(use_text=True)
+#     print(data)
+#     print(len(text))

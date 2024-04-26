@@ -1,0 +1,15 @@
+method: bayes
+metric:
+  goal: maximize
+  name: score
+parameters:
+  in_channels:
+    values: [1433]
+  out_channels:
+    values: [16, 32, 64]
+  hidden_channels:
+    values: [5, 7, 9]
+  batch_size:
+    values: [256, 128, 64]
+  lr:
+    values: [0.001, 0.01]

@@ -1,0 +1,51 @@
+# line.yaml
+
+out_dir: results
+metric_best: acc
+wandb:
+  use: True
+  project: gtblueprint
+
+train:
+  mode: custom
+  batch_size: 256
+  eval_period: 1
+  epochs: 500
+  device: 1
+  use_valedges_as_input: True
+  lr: 0.001
+  l2: 0.0
+  runs: 10 
+  kill_cnt: 30
+
+model:
+  type: GCN
+  heads: 1
+  hidden_channels: 256
+  negative_slope: 0.2
+  dropout: 0
+  num_layers: 3
+  emb: False # load generated embedding or not
+  num_layers: 3
+
+score_model:
+  name: mlp_score
+  hidden_channels: 256
+  num_layers_predictor: 3
+  dropout: 0.1
+  num_layers_predictor: 3
+  gin_mlp_layer: 2
+
+num_threads: 11
+
+data:
+  name: cora
+  undirected: True
+  include_negatives: True
+  val_pct: 0.15
+  test_pct: 0.05
+  split_labels: True
+  num_features:  1433
+
+save:
+  output_dir: './'

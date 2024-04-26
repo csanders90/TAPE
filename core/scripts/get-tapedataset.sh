@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# LINK=https://drive.google.com/uc?export=download&id=1y2IfbcoJmH3s0OwuQyJfCfTxHiO1xLU4 
+# LINK=https://drive.google.com/uc?export=download&id=1vb0aNUyM06ol_9ZzEKMJi8y5y-wc7Qi1
 # If automatic downloading isn't working, the file can be downloaded manually with the above link.
-ggID='1y2IfbcoJmH3s0OwuQyJfCfTxHiO1xLU4 '
+ggID='1vb0aNUyM06ol_9ZzEKMJi8y5y-wc7Qi1'
 ggURL='https://drive.google.com/uc?export=download'
-TARGET=dataset.zip 
-SHA256SUM=a5b4b525a0f832443f3dde55b39ca8a0004bce4a4a216fd9fb58b2a2a9326b30
+TARGET=dataset.tar.gz
+SHA256SUM=c58ab10792a8f350177a684afe67a817be9fdccaedba33f8502e884a663e1cf5
 
 cd "$(dirname ${BASH_SOURCE[0]})/.."
 
@@ -24,8 +24,4 @@ echo "$SHA256SUM  $TARGET" | sha256sum -c
 test $? -eq 0 || read -p "Failed to verify SHA256 checksum. Press any key to continue anyway." -n 1 -r
 
 # please run these commands in the terminal to unzip and clean the dataset
-cd core
-unzip dataset.zip 
-rm -rf __MACOSX/
-mv tapedataset dataset
-rm -rf dataset.zip 
+tar -xvzf $TARGET
