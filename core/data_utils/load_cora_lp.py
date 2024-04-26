@@ -85,3 +85,9 @@ def get_cora_casestudy(args) -> InMemoryDataset:
     splits = {'train': train_data, 'valid': val_data, 'test': test_data}
 
     return dataset, data_citeid, splits
+
+# TEST CODE
+# if __name__ == '__main__':
+#     data, text = get_raw_text_arxiv_2023(use_text=True)
+#     print(data)
+#     print(len(text))

@@ -1,16 +1,6 @@
 
 import torch
 import torch.nn.functional as F
-from torch_geometric.nn import GCNConv, SAGEConv, GINConv, GATConv
-
-# from logger import Logger
-from torch.nn import Embedding
-# from utils import init_seed, get_param
-from torch.nn.init import xavier_normal_
-from torch.nn import (ModuleList, Linear, Conv1d, MaxPool1d, Embedding, ReLU, 
-                      Sequential, BatchNorm1d as BN)
-from torch_geometric.nn import global_sort_pool
-import math
 
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -18,28 +8,18 @@ from utils import *
 # from logger import Logger
 from torch.utils.data import DataLoader
 from torch_sparse import SparseTensor
-from torch_geometric.utils import to_networkx, to_undirected
-from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
 from torch_geometric.utils import negative_sampling
 import os
 
 from torch_geometric.graphgym.config import cfg
 import torch
-from embedding.tune_utils import (
-    parse_args, 
-    get_git_repo_root_path
-)
 from sklearn.metrics import *
-from gnn_models import set_cfg, data_loader, Trainer 
 from torch_sparse import SparseTensor
 import torch_geometric.transforms as T
-import argparse
 from heuristic.eval import get_metric_score
 from torch import nn 
 
 
-
-    
 def train(model, 
           score_func,  
           train_pos, 
@@ -87,8 +67,8 @@ def train(model,
         # masked adjacency matrix 
         adj = SparseTensor.from_edge_index(train_edge_mask, edge_weight_mask, [num_nodes, num_nodes]).to(train_pos.device)
           
-        ###################
-        print(adj)
+        ##################
+        # print(adj)
         x = x.to(device)
         adj = adj.to(device)
         h = model(x, adj)

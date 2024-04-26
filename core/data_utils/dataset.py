@@ -1,7 +1,9 @@
 
 import torch
 from torch.utils.data import Dataset
-
+import os.path as osp
+import torch
+from torch_geometric.data import Dataset
 
 class CustomDGLDataset(Dataset):
     def __init__(self, name, pyg_data):
@@ -65,12 +67,6 @@ class CustomPygDataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return len(self.encodings["input_ids"])
-
-
-import os.path as osp
-
-import torch
-from torch_geometric.data import Dataset, download_url
 
 
 class CustomPyGNodeDataset(Dataset):

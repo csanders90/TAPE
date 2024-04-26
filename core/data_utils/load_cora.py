@@ -1,7 +1,9 @@
+import os, sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 import numpy as np
 import torch
 import random
-
 from torch_geometric.datasets import Planetoid
 import torch_geometric.transforms as T
 import os
@@ -66,7 +68,6 @@ def get_cora_casestudy(SEED=0) -> InMemoryDataset:
     return dataset, data_citeid
 
 # credit: https://github.com/tkipf/pygcn/issues/27, xuhaiyun
-
 
 def parse_cora():
     path = '/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE/dataset/cora_orig/cora'
@@ -140,3 +141,15 @@ def get_raw_text_cora(use_text, seed=0):
     print(f"not loaded {i} papers.")
     print(f"not loaded papers: {not_loaded}")
     return data, text
+
+# TEST CODE
+if __name__ == '__main__':
+    data, text = get_raw_text_cora(use_text=True)
+    print(data)
+    print(text[:3])
+    data, citeid = get_cora_casestudy()
+    print(data)
+    print(text[:3])
+    data_X, data_Y, data_citeid, edge_index = parse_cora()
+    print(data)
+    print(text[:3])

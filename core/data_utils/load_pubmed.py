@@ -7,11 +7,13 @@ import torch_geometric.transforms as T
 from sklearn.preprocessing import normalize
 import json
 import pandas as pd
-from torch_geometric.data import Data, InMemoryDataset
+from torch_geometric.data import Data
+import os, sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from utils import get_git_repo_root_path
 # return pubmed dataset as pytorch geometric Data object together with 60/20/20 split, and list of pubmed IDs
 
-FILE = get_git_repo_root_path() + '/'
+FILE_PATH = get_git_repo_root_path() + '/'
 
 
 def get_pubmed_casestudy(corrected=False, SEED=0):
@@ -74,7 +76,6 @@ def get_pubmed_casestudy(corrected=False, SEED=0):
     
     return dataset, data_pubid
 
-DATASET_PATH = path = FILE + 'dataset/PubMed_orig/data/'
 
 def parse_pubmed():
 
@@ -90,7 +91,7 @@ def parse_pubmed():
     feature_to_index = {}
 
     # parse nodes
-    with open(DATASET_PATH + 'Pubmed-Diabetes.NODE.paper.tab', 'r') as node_file:
+    with open(FILE_PATH + 'dataset/PubMed_orig/data/Pubmed-Diabetes.NODE.paper.tab', 'r') as node_file:
         # first two lines are headers
         node_file.readline()
         node_file.readline()
@@ -125,7 +126,7 @@ def parse_pubmed():
     # parse graph
     data_A = np.zeros((n_nodes, n_nodes), dtype='float32')
 
-    with open(DATASET_PATH+ 'Pubmed-Diabetes.DIRECTED.cites.tab', 'r') as edge_file:
+    with open(FILE_PATH+ 'dataset/PubMed_orig/data/Pubmed-Diabetes.DIRECTED.cites.tab', 'r') as edge_file:
         # first two lines are headers
         edge_file.readline()
         edge_file.readline()
@@ -156,7 +157,7 @@ def get_raw_text_pubmed(use_text=False, seed=0):
     if not use_text:
         return data, None
 
-    f = open(FILE + 'dataset/PubMed_orig/pubmed.json')
+    f = open(FILE_PATH + 'dataset/PubMed_orig/pubmed.json')
     pubmed = json.load(f)
     df_pubmed = pd.DataFrame.from_dict(pubmed)
 
@@ -167,3 +168,14 @@ def get_raw_text_pubmed(use_text=False, seed=0):
         t = 'Title: ' + ti + '\n'+'Abstract: ' + ab
         text.append(t)
     return data, text
+
+if __name__ == '__main__':
+    data, text = get_raw_text_pubmed(use_text=True)
+    print(data)
+    print(text[0])
+    
+    data_A, data_X, data_Y, data_pubid, edge_index = parse_pubmed()
+    print(edge_index)
+    
+    dataset, data_pubid = get_pubmed_casestudy(corrected=False, SEED=0)
+    print(dataset)
