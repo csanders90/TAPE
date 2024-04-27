@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from utils import get_git_repo_root_path
 from utils import time_logger
 
-FILE = 'dataset/ogbn_products_orig/ogbn-products.csv'
+FILE = 'core/dataset/ogbn_products_orig/ogbn-products.csv'
 
 
 FILE_PATH = get_git_repo_root_path() + '/'
@@ -22,21 +22,26 @@ def _process():
     print("Processing raw text...")
 
     data = []
-    files = ['core/dataset/ogbn_products/Amazon-3M.raw/trn.json',
-             'core/dataset/ogbn_products/Amazon-3M.raw/tst.json']
-    for file in files:
-        with open(file) as f:
-            for line in f:
-                data.append(json.loads(line))
+    files = [FILE_PATH + 'core/dataset/ogbn_products/Amazon-3M.raw/trn.json',
+             FILE_PATH + 'core/dataset/ogbn_products/Amazon-3M.raw/tst.json']
+
+    for f in files:
+        # Read each line from the input file and parse JSON
+        with open(f, "r") as input_file:
+            for line in input_file:
+                json_object = json.loads(line)
+                data.append(json_object)
+        
 
     df = pd.DataFrame(data)
     df.set_index('uid', inplace=True)
 
-    nodeidx2asin = pd.read_csv(
-        'dataset/ogbn_products/mapping/nodeidx2asin.csv.gz', compression='gzip')
-
-    dataset = PygNodePropPredDataset(
+    dataset = PygNodePropPredDataset(root='./generated_dataset',
         name='ogbn-products', transform=T.ToSparseTensor())
+    
+    nodeidx2asin = pd.read_csv(
+        'generated_dataset/ogbn_products/mapping/nodeidx2asin.csv.gz', compression='gzip')
+
     graph = dataset[0]
     graph.n_id = np.arange(graph.num_nodes)
     graph.n_asin = nodeidx2asin.loc[graph.n_id]['asin'].values
@@ -45,9 +50,10 @@ def _process():
     graph_df['nid'] = graph.n_id
     graph_df.reset_index(inplace=True)
 
-    if not os.path.isdir('dataset/ogbn_products_orig'):
-        os.mkdir('dataset/ogbn_products_orig')
-    pd.DataFrame.to_csv(graph_df, FILE,
+    if not os.path.isdir(FILE_PATH + 'core/dataset/ogbn_products_orig'):
+        os.mkdir(FILE_PATH + 'core/dataset/ogbn_products_orig')
+
+    pd.DataFrame.to_csv(graph_df, FILE_PATH + FILE,
                         index=False, columns=['uid', 'nid', 'title', 'content'])
 
 
