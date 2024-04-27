@@ -18,7 +18,7 @@ from torch_geometric.graphgym.config import (cfg)
 
 from data_utils.load_pubmed_lp import get_pubmed_casestudy
 from data_utils.load_cora_lp import get_cora_casestudy
-from data_utils.load_arxiv2023_lp import get_raw_text_arxiv_2023
+from data_utils.load_arxiv_2023_lp import get_raw_text_arxiv_2023
 from embedding.node2vec_tagplus import node2vec
 
 FILE_PATH = get_git_repo_root_path() + '/'

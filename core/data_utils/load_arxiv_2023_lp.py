@@ -1,4 +1,5 @@
-
+import os, sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import torch
 import pandas as pd
 import torch
@@ -7,8 +8,6 @@ from torch_geometric.transforms import RandomLinkSplit
 from data_utils.dataset import CustomLinkDataset
 
 import torch
-import os, sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from utils import get_git_repo_root_path
 
 
