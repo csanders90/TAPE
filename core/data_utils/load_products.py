@@ -22,8 +22,8 @@ def _process():
     print("Processing raw text...")
 
     data = []
-    files = ['dataset/ogbn_products/Amazon-3M.raw/trn.json',
-             'dataset/ogbn_products/Amazon-3M.raw/tst.json']
+    files = ['core/dataset/ogbn_products/Amazon-3M.raw/trn.json',
+             'core/dataset/ogbn_products/Amazon-3M.raw/tst.json']
     for file in files:
         with open(file) as f:
             for line in f:
@@ -52,8 +52,8 @@ def _process():
 
 
 def get_raw_text_products(use_text=False, seed=0):
-    data = torch.load(FILE_PATH + 'dataset/ogbn_products_orig/ogbn-products_subset.pt')
-    text = pd.read_csv(FILE_PATH + 'dataset/ogbn_products_orig/ogbn-products_subset.csv')
+    data = torch.load(FILE_PATH + 'core/dataset/ogbn_products_orig/ogbn-products_subset.pt')
+    text = pd.read_csv(FILE_PATH + 'core/dataset/ogbn_products_orig/ogbn-products_subset.csv')
     text = [f'Product:{ti}; Description: {cont}\n'for ti,
             cont in zip(text['title'], text['content'])]
 
@@ -69,3 +69,4 @@ if __name__ == '__main__':
     data, text = get_raw_text_products(True)
     print(data)
     print(text[0])
+    _process()

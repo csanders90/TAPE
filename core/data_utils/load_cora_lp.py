@@ -55,9 +55,7 @@ def get_cora_casestudy(args) -> InMemoryDataset:
                         split_labels=split_labels, add_negative_train_samples=False),])
 
     # load data
-    data_name = 'cora'
-
-    dataset = Planetoid('./dataset', data_name,
+    dataset = Planetoid('./generated_dataset', 'cora',
                         transform=transform)
 
     data = dataset[0]
@@ -86,8 +84,3 @@ def get_cora_casestudy(args) -> InMemoryDataset:
 
     return dataset, data_citeid, splits
 
-# TEST CODE
-# if __name__ == '__main__':
-#     data, text = get_raw_text_arxiv_2023(use_text=True)
-#     print(data)
-#     print(len(text))

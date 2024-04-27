@@ -33,7 +33,7 @@ def load_data(dataset, use_dgl=False, use_text=False, use_gpt=False, seed=0):
         from data_utils.load_pubmed import get_raw_text_pubmed as get_raw_text
         num_classes = 3
     elif dataset == 'ogbn-arxiv':
-        from data_utils.load_arxiv import get_raw_text_arxiv as get_raw_text
+        from core.data_utils.load_ogbn_arxiv import get_raw_text_arxiv as get_raw_text
         num_classes = 40
     elif dataset == 'ogbn-products':
         from data_utils.load_products import get_raw_text_products as get_raw_text

@@ -24,9 +24,7 @@ def get_cora_casestudy(SEED=0) -> InMemoryDataset:
     random.seed(SEED)  # Python random module.
 
     # load data
-    data_name = 'cora'
-    # path = osp.join(osp.dirname(osp.realpath(__file__)), 'dataset')
-    dataset = Planetoid('./dataset', data_name,
+    dataset = Planetoid('./generated_dataset', 'cora',
                         transform=T.NormalizeFeatures())
 
     data = dataset[0]
@@ -70,7 +68,7 @@ def get_cora_casestudy(SEED=0) -> InMemoryDataset:
 # credit: https://github.com/tkipf/pygcn/issues/27, xuhaiyun
 
 def parse_cora():
-    path = '/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE/dataset/cora_orig/cora'
+    path = FILE_PATH + 'core/dataset/cora_orig/cora'
     idx_features_labels = np.genfromtxt(
         "{}.content".format(path), dtype=np.dtype(str))
     data_X = idx_features_labels[:, 1:-1].astype(np.float32)
@@ -95,7 +93,7 @@ def get_raw_text_cora(use_text, seed=0):
     if not use_text:
         return data, None
 
-    with open(FILE_PATH + 'dataset/cora_orig/mccallum/cora/papers')as f:
+    with open(FILE_PATH + 'core/dataset/cora_orig/mccallum/cora/papers')as f:
         lines = f.readlines()
     pid_filename = {}
     for line in lines:
@@ -103,14 +101,14 @@ def get_raw_text_cora(use_text, seed=0):
         fn = line.split('\t')[1]
         pid_filename[pid] = fn
     
-    path = FILE_PATH + 'dataset/cora_orig/mccallum/cora/extractions/'
+    path = FILE_PATH + 'core/dataset/cora_orig/mccallum/cora/extractions/'
     
     # for debug
     # save file list
-    with open('extractions.txt', 'w') as txt_file:
-        # Write each file name to the text file
-        for file_name in os.listdir(path):
-            txt_file.write(file_name + '\n')
+    # with open('extractions.txt', 'w') as txt_file:
+    #     # Write each file name to the text file
+    #     for file_name in os.listdir(path):
+    #         txt_file.write(file_name + '\n')
             
     text = []
     not_loaded = []
