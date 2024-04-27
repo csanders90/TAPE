@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from utils import get_git_repo_root_path
 from utils import time_logger
 
+
 FILE = 'core/dataset/ogbn_products_orig/ogbn-products.csv'
 
 
@@ -16,6 +17,15 @@ FILE_PATH = get_git_repo_root_path() + '/'
 
 @time_logger
 def _process():
+    """Process raw text data and convert it into a DataFrame for ogbn-products dataset.
+        Download dataset from website http://manikvarma.org/downloads/XC/XMLRepository.html, 
+        we utilize https://drive.google.com/file/d/1gsabsx8KR2N9jJz16jTcA0QASXsNuKnN/view?usp=sharing
+    Args:
+        None
+
+    Returns:
+        None
+    """
     if os.path.isfile(FILE):
         return
 
