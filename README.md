@@ -54,7 +54,7 @@ pip install transformers
 pip install --upgrade accelerate
 
 ``
-## 1. Download TAG datasets and test 
+## 1. Download/Test TAG datasets 
 
 ```
 bash core/scripts/get-tapedataset.sh 
