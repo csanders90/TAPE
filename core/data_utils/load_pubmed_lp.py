@@ -22,9 +22,7 @@ def get_pubmed_casestudy(args):
     data_X = normalize(data_X, norm="l1")
 
     # load data
-    data_name = 'PubMed'
-    # path = osp.join(osp.dirname(osp.realpath(__file__)), 'dataset')
-    dataset = Planetoid('./dataset', data_name, transform=T.NormalizeFeatures())
+    dataset = Planetoid('./generated_dataset', 'PubMed', transform=T.NormalizeFeatures())
     data = dataset[0]
 
     # replace dataset matrices with the PubMed-Diabetes data, for which we have the original pubmed IDs
