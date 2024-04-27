@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# LINK=https://drive.google.com/uc?export=download&id=1vb0aNUyM06ol_9ZzEKMJi8y5y-wc7Qi1
+# LINK=https://drive.google.com/uc?export=download&id=1ueqmPH2L5flLQjTIgHxLO2-FlGMvyCqy
 # If automatic downloading isn't working, the file can be downloaded manually with the above link.
-ggID='1vb0aNUyM06ol_9ZzEKMJi8y5y-wc7Qi1'
+ggID='1ueqmPH2L5flLQjTIgHxLO2-FlGMvyCqy'
 ggURL='https://drive.google.com/uc?export=download'
 TARGET=dataset.tar.gz
-SHA256SUM=c58ab10792a8f350177a684afe67a817be9fdccaedba33f8502e884a663e1cf5
+SHA256SUM=38527f730115b6389c8a60ae435c92d81de56f59fe4d36e78641b46c3c4db067
 
 cd "$(dirname ${BASH_SOURCE[0]})/.."
 
