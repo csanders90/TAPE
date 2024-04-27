@@ -31,15 +31,15 @@ ls -ltr
 
 for VARIABLE in 1 2 3 4 5 .. 10
 do
-    python mlp_dot_product.py --cfg core/configs/cora/struc2vec.yaml 
+    python mlp_dot_product.py --cfg core/yamls/cora/struc2vec.yaml 
 done
 
 for VARIABLE in 1 2 3 4 5 .. 10
 do
-    python  mlp_dot_product.py --cfg core/configs/arxiv_2023/struc2vec.yaml 
+    python  mlp_dot_product.py --cfg core/yamls/arxiv_2023/struc2vec.yaml 
 done
 
 for VARIABLE in 1 2 3 4 5 .. 10
 do
-    python  mlp_dot_product.py --cfg core/configs/pubmed/struc2vec.yaml 
+    python  mlp_dot_product.py --cfg core/yamls/pubmed/struc2vec.yaml 
 done

@@ -30,6 +30,6 @@ module load compiler/gnu/12
 ls -ltr
 
 
-# python wb_tune_struc2vec.py --sweep core/configs/cora/struc2vec_sp1.yaml --cfg core/configs/cora/struc2vec.yaml 
-# python wb_tune_struc2vec.py --sweep core/configs/cora/struc2vec_sp2.yaml --cfg core/configs/cora/struc2vec.yaml 
-python wb_tune_struc2vec.py --sweep core/configs/cora/struc2vec_sp3.yaml --cfg core/configs/cora/struc2vec.yaml 
+# python wb_tune_struc2vec.py --sweep core/yamls/cora/struc2vec_sp1.yaml --cfg core/yamls/cora/struc2vec.yaml 
+# python wb_tune_struc2vec.py --sweep core/yamls/cora/struc2vec_sp2.yaml --cfg core/yamls/cora/struc2vec.yaml 
+python wb_tune_struc2vec.py --sweep core/yamls/cora/struc2vec_sp3.yaml --cfg core/yamls/cora/struc2vec.yaml 

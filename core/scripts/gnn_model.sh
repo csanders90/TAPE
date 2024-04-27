@@ -27,5 +27,5 @@ module load devel/cuda/11.8
 module load compiler/gnu/12
 
 
-# python wb_tune.py --cfg core/configs/cora/gat.yaml --sweep core/configs/cora/gat_sp1.yaml
-python wb_tune.py --cfg core/configs/cora/gae.yaml --sweep core/configs/cora/gae_sp1.yaml
+# python wb_tune.py --cfg core/yamls/cora/gat.yaml --sweep core/yamls/cora/gat_sp1.yaml
+python wb_tune.py --cfg core/yamls/cora/gae.yaml --sweep core/yamls/cora/gae_sp1.yaml

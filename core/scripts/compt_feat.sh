@@ -31,29 +31,29 @@ ls -ltr
 
 for VARIABLE in 1 2
 do
-    python compt_wneg.py --cfg core/configs/arxiv_2023/compt_wneg.yaml
+    python compt_wneg.py --cfg core/yamls/arxiv_2023/compt_wneg.yaml
 done
 
 for VARIABLE in 1 2
 do
-    python  compt_wneg.py --cfg core/configs/cora/compt_wneg.yaml
+    python  compt_wneg.py --cfg core/yamls/cora/compt_wneg.yaml
 
 for VARIABLE in 1 2 
 do
-    python  compt_wneg.py --cfg core/configs/pubmed/compt_wneg.yaml
+    python  compt_wneg.py --cfg core/yamls/pubmed/compt_wneg.yaml
 done
 
 
 for VARIABLE in 1 2 
 do
-    python compt.py --cfg core/configs/arxiv_2023/compt.yaml
+    python compt.py --cfg core/yamls/arxiv_2023/compt.yaml
 done
 
 for VARIABLE in 1 2 
 do
-    python  compt.py --cfg core/configs/cora/compt.yaml
+    python  compt.py --cfg core/yamls/cora/compt.yaml
 
 for VARIABLE in 1 2 
 do
-    python  compt.py --cfg core/configs/pubmed/compt.yaml
+    python  compt.py --cfg core/yamls/pubmed/compt.yaml
 done

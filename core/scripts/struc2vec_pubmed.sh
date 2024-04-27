@@ -29,6 +29,6 @@ module load compiler/gnu/12
 
 ls -ltr
 
-# python wb_tune_struc2vec.py --sweep core/configs/pubmed/struc2vec_sp1.yaml --cfg core/configs/pubmed/struc2vec.yaml 
-# python wb_tune_struc2vec.py --sweep core/configs/pubmed/struc2vec_sp2.yaml --cfg core/configs/pubmed/struc2vec.yaml 
-python wb_tune_struc2vec.py --sweep core/configs/pubmed/struc2vec_sp3.yaml --cfg core/configs/pubmed/struc2vec.yaml 
+# python wb_tune_struc2vec.py --sweep core/yamls/pubmed/struc2vec_sp1.yaml --cfg core/yamls/pubmed/struc2vec.yaml 
+# python wb_tune_struc2vec.py --sweep core/yamls/pubmed/struc2vec_sp2.yaml --cfg core/yamls/pubmed/struc2vec.yaml 
+python wb_tune_struc2vec.py --sweep core/yamls/pubmed/struc2vec_sp3.yaml --cfg core/yamls/pubmed/struc2vec.yaml 
