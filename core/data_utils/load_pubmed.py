@@ -91,7 +91,7 @@ def parse_pubmed():
     feature_to_index = {}
 
     # parse nodes
-    with open(FILE_PATH + 'dataset/PubMed_orig/data/Pubmed-Diabetes.NODE.paper.tab', 'r') as node_file:
+    with open(FILE_PATH + 'core/dataset/PubMed_orig/data/Pubmed-Diabetes.NODE.paper.tab', 'r') as node_file:
         # first two lines are headers
         node_file.readline()
         node_file.readline()
@@ -126,7 +126,7 @@ def parse_pubmed():
     # parse graph
     data_A = np.zeros((n_nodes, n_nodes), dtype='float32')
 
-    with open(FILE_PATH+ 'dataset/PubMed_orig/data/Pubmed-Diabetes.DIRECTED.cites.tab', 'r') as edge_file:
+    with open(FILE_PATH+ 'core/dataset/PubMed_orig/data/Pubmed-Diabetes.DIRECTED.cites.tab', 'r') as edge_file:
         # first two lines are headers
         edge_file.readline()
         edge_file.readline()
@@ -157,7 +157,7 @@ def get_raw_text_pubmed(use_text=False, seed=0):
     if not use_text:
         return data, None
 
-    f = open(FILE_PATH + 'dataset/PubMed_orig/pubmed.json')
+    f = open(FILE_PATH + 'core/dataset/PubMed_orig/pubmed.json')
     pubmed = json.load(f)
     df_pubmed = pd.DataFrame.from_dict(pubmed)
 
@@ -170,13 +170,13 @@ def get_raw_text_pubmed(use_text=False, seed=0):
     return data, text
 
 # TEST CODE
-# if __name__ == '__main__':
-#     data, text = get_raw_text_pubmed(use_text=True)
-#     print(data)
-#     print(text[0])
+if __name__ == '__main__':
+    data, text = get_raw_text_pubmed(use_text=True)
+    print(data)
+    print(text[0])
     
-#     data_A, data_X, data_Y, data_pubid, edge_index = parse_pubmed()
-#     print(edge_index)
+    data_A, data_X, data_Y, data_pubid, edge_index = parse_pubmed()
+    print(edge_index)
     
-#     dataset, data_pubid = get_pubmed_casestudy(corrected=False, SEED=0)
-#     print(dataset)
+    dataset, data_pubid = get_pubmed_casestudy(corrected=False, SEED=0)
+    print(dataset)
