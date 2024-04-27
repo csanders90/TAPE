@@ -54,7 +54,16 @@ pip install transformers
 pip install --upgrade accelerate
 
 ``
-## 1. Download TAG datasets
+## 1. Download TAG datasets and test 
+
+```
+bash core/scripts/get-tapedataset.sh 
+python load_arxiv_2023.py 
+python load_cora.py
+python load_ogbn_arxiv.py
+python load_products.py
+python load_pubmed.py
+```
 
 ### A. Original text attributes
 
