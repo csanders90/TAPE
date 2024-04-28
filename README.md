@@ -57,6 +57,9 @@ python load_pubmed.py
 ```
 
 ### A. Original Text Attributes
+All graph encoder modules including node encoder and edge encoder are implemented in GraphGym transferred from [PyTorch Geometric](https://pytorch-geometric.readthedocs.io/en/latest/modules/graphgym.html#).
+
+#### FeatNodeEncoder
 
 ### B. LLM responses
 
