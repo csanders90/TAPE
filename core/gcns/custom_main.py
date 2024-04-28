@@ -11,8 +11,8 @@ from embedding.tune_utils import (
     get_git_repo_root_path
 )
 from sklearn.metrics import *
-from gnn_models import GraphSage, GAT, LinkPredModel, GCNEncoder, GAE, VGAE, VariationalGCNEncoder
-from gnn_models import set_cfg, data_loader, Trainer 
+from core.gcns.example import GraphSage, GAT, LinkPredModel, GCNEncoder, GAE, VGAE, VariationalGCNEncoder
+from core.gcns.example import set_cfg, data_loader, Trainer 
 
 
 # Please don't change any parameters

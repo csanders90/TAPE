@@ -435,7 +435,8 @@ class Trainer():
             if epoch % 100 == 0:
                 auc, ap, acc = self.test_func[self.model_name]()
                 result_mrr = self.evaluate_func[self.model_name]()
-                print('Epoch: {:03d}, Loss_train: {:.4f}, AUC: {:.4f}, AP: {:.4f}, ACC: {:.4f}, MRR'.format(epoch, loss, auc, ap, acc, result_mrr['Hits@100']))
+                print('Epoch: {:03d}, Loss_train: {:.4f}, AUC: {:.4f}, \
+                      AP: {:.4f}, ACC: {:.4f}, MRR'.format(epoch, loss, auc, ap, acc, result_mrr['Hits@100']))
                 if auc > best_auc:
                     best_auc = auc 
                 elif result_mrr['Hits@100'] > best_hits:

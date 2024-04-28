@@ -7,7 +7,7 @@ from torch_sparse import SparseTensor
 from torch_geometric.utils import to_undirected
 from ogb.linkproppred import Evaluator
 import os
-from gnns_heart import (GCN, 
+from core.graphgps.network.gnns_heart import (GCN, 
                         GAT, 
                         SAGE, 
                         GCNConv, 
@@ -23,7 +23,7 @@ from embedding.tune_utils import (
     get_git_repo_root_path
 )
 from sklearn.metrics import *
-from gnn_models import set_cfg, data_loader, Trainer 
+from core.gcns.example import set_cfg, data_loader, Trainer 
 from torch_sparse import SparseTensor
 import torch_geometric.transforms as T
 import argparse

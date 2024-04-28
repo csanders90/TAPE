@@ -12,7 +12,7 @@ from torch_geometric.nn import GCNConv
 from heuristic.eval import get_metric_score
 from data_utils.load_cora_lp import get_cora_casestudy 
 from data_utils.load_pubmed_lp import get_pubmed_casestudy
-from data_utils.load_arxiv2023_lp import get_raw_text_arxiv_2023
+from data_utils.load_arxiv_2023_lp import get_raw_text_arxiv_2023
 from textfeat.mlp_dot_product import data_loader, FILE_PATH, set_cfg
 
 from utils import config_device
@@ -28,7 +28,7 @@ from embedding.tune_utils import (
     process_edge_index,
     FILE_PATH
 )
-from gnn_models import GraphSage, GAT, LinkPredModel, GCNEncoder, GAE, VGAE, VariationalGCNEncoder, Trainer
+from core.gcns.example import GraphSage, GAT, LinkPredModel, GCNEncoder, GAE, VGAE, VariationalGCNEncoder, Trainer
 import argparse
 
 def merge_cfg_from_sweep(cfg, wandb_config):
