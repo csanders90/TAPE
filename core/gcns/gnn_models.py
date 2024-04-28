@@ -12,7 +12,7 @@ from torch_geometric.nn import GCNConv
 from heuristic.eval import get_metric_score
 from data_utils.load_cora_lp import get_cora_casestudy 
 from data_utils.load_pubmed_lp import get_pubmed_casestudy
-from data_utils.load_arxiv2023_lp import get_raw_text_arxiv_2023
+from data_utils.load_arxiv_2023_lp import get_raw_text_arxiv_2023
 from textfeat.mlp_dot_product import data_loader, FILE_PATH, set_cfg
 from embedding.tune_utils import (parse_args, 
                                 get_git_repo_root_path, 
