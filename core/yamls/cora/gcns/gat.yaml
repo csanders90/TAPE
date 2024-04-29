@@ -2,9 +2,12 @@
 
 out_dir: results
 metric_best: acc
+cfg_dest: gat.yaml
+
 wandb:
   use: True
   project: gtblueprint
+  name_tag: gat-cora-origin
 
 train:
   mode: custom

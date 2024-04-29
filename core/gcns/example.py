@@ -2,23 +2,13 @@ import os
 import sys
 # Add parent directory to sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 # External module imports
+from yacs.config import CfgNode as CN
+
 import torch
 from ogb.linkproppred import Evaluator
-from yacs.config import CfgNode as CN
 from torch_geometric.graphgym.config import cfg
 from torch_geometric.nn import GCNConv
-from heuristic.eval import get_metric_score
-from data_utils.load_cora_lp import get_cora_casestudy 
-from data_utils.load_pubmed_lp import get_pubmed_casestudy
-from data_utils.load_arxiv_2023_lp import get_raw_text_arxiv_2023
-from textfeat.mlp_dot_product import data_loader, FILE_PATH, set_cfg
-from embedding.tune_utils import (parse_args, 
-                                get_git_repo_root_path, 
-                                param_tune_acc_mrr)
-
-from utils import config_device
 import wandb 
 from torch import nn
 from torch_geometric.nn.conv import MessagePassing
@@ -28,6 +18,17 @@ import torch.optim as optim
 import torch.nn.functional as F
 import torch_scatter 
 import torch_geometric 
+
+from heuristic.eval import get_metric_score
+from data_utils.load_cora_lp import get_cora_casestudy 
+from data_utils.load_pubmed_lp import get_pubmed_casestudy
+from data_utils.load_arxiv_2023_lp import get_raw_text_arxiv_2023
+from textfeat.mlp_dot_product import data_loader, FILE_PATH, set_cfg
+from embedding.tune_utils import (parse_args, 
+                                get_git_repo_root_path, 
+                                param_tune_acc_mrr)
+from utils import config_device
+
 
 class GraphSage(MessagePassing):
     

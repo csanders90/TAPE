@@ -6,7 +6,7 @@ from scipy.spatial import distance
 import numpy as np 
 from utils import get_git_repo_root_path, append_acc_to_excel, append_mrr_to_excel
 from data_utils.load_cora_lp import get_cora_casestudy 
-from data_utils.load_arxiv2023_lp import get_raw_text_arxiv_2023
+from data_utils.load_arxiv_2023_lp import get_raw_text_arxiv_2023
 from data_utils.load_pubmed_lp import get_pubmed_casestudy
 from yacs.config import CfgNode as CN
 from lpda.adjacency import plot_coo_matrix, construct_sparse_adj
@@ -45,6 +45,8 @@ data_loader = {
 def set_cfg(file_path, args):
     with open(file_path + args.cfg_file, "r") as f:
         return CN.load_cfg(f)
+
+    
 
 
 def pairwise_prediction(data, test_index, distance):

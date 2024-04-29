@@ -1,12 +1,18 @@
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import torch
-from utils import init_seed,  Logger, save_emb
-from utils import *
+import pprint 
 from torch_sparse import SparseTensor
 from torch_geometric.utils import to_undirected
 from ogb.linkproppred import Evaluator
-import os
+from torch_geometric.graphgym.config import cfg
+import torch
+from sklearn.metrics import *
+import argparse
+from torch_sparse import SparseTensor
+import torch_geometric.transforms as T
+
+
 from core.graphgps.network.gnns_heart import (GCN, 
                         GAT, 
                         SAGE, 
@@ -15,20 +21,15 @@ from core.graphgps.network.gnns_heart import (GCN,
                         GINConv, 
                         GATConv, 
                         mlp_score)
-
-from torch_geometric.graphgym.config import cfg
-import torch
+from utils import init_seed,  Logger, save_emb
+from utils import *
 from embedding.tune_utils import (
     parse_args, 
     get_git_repo_root_path
 )
-from sklearn.metrics import *
 from core.gcns.example import set_cfg, data_loader, Trainer 
-from torch_sparse import SparseTensor
-import torch_geometric.transforms as T
-import argparse
 from trainer_heart import train, test, test_edge
-import pprint 
+
 
 def get_config_dir():
     file_dir = os.path.dirname(os.path.realpath(__file__))
