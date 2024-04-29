@@ -536,7 +536,7 @@ class Trainer():
 
     def save_result(self, results_dict):
 
-        root = self.FILE_PATH + f'results/gcns/{self.data_name}/'
+        root = self.FILE_PATH + cfg.out_dir
         acc_file = root + f'{self.model_name}_acc_mrr.csv'
 
         if not os.path.exists(root):
