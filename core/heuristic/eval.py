@@ -189,13 +189,9 @@ def get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
     test_pred = torch.cat([pos_test_pred, neg_test_pred])
     test_true = torch.cat([torch.ones(pos_test_pred.size(0), dtype=int), 
                             torch.zeros(neg_test_pred.size(0), dtype=int)])
-
     
     result_auc_test = evaluate_auc(test_pred, test_true)
 
-    print(test_pred)
     result['AUC'] = (result_auc_test['AUC'])
     result['AP'] = (result_auc_test['AP'])
-
-
     return result

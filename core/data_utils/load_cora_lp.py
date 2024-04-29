@@ -17,7 +17,8 @@ FILE_PATH = get_git_repo_root_path() + '/'
 
 def parse_cora():
     # load original data from cora orig without text features
-    path = FILE_PATH + 'dataset/cora_orig/cora'
+    
+    path = FILE_PATH + 'core/dataset/cora_orig/cora'
     idx_features_labels = np.genfromtxt(
         "{}.content".format(path), dtype=np.dtype(str))
     data_X = idx_features_labels[:, 1:-1].astype(np.float32)

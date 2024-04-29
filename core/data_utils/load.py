@@ -5,7 +5,19 @@ import json
 import torch
 import csv
 from data_utils.dataset import CustomDGLDataset
+from data_utils.load_cora_lp import get_cora_casestudy 
+from data_utils.load_arxiv_2023_lp import get_raw_text_arxiv_2023
+from data_utils.load_pubmed_lp import get_pubmed_casestudy
+from data_utils.load_ogbn_arxiv import get_raw_text_ogbn_arxiv_lp
+from data_utils.load_products import get_raw_text_products_lp
 
+data_loader = {
+    'cora': get_cora_casestudy,
+    'pubmed': get_pubmed_casestudy,
+    'arxiv_2023': get_raw_text_arxiv_2023,
+    'ogbn-arxiv': get_raw_text_ogbn_arxiv_lp,
+    'ogbn-products': get_raw_text_products_lp,
+}
 
 def load_gpt_preds(dataset, topk):
     preds = []

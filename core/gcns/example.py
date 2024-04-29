@@ -20,14 +20,13 @@ import torch_scatter
 import torch_geometric 
 
 from heuristic.eval import get_metric_score
-from data_utils.load_cora_lp import get_cora_casestudy 
-from data_utils.load_pubmed_lp import get_pubmed_casestudy
-from data_utils.load_arxiv_2023_lp import get_raw_text_arxiv_2023
-from textfeat.mlp_dot_product import data_loader, FILE_PATH, set_cfg
+from data_utils.load import data_loader
+from textfeat.mlp_dot_product import FILE_PATH, set_cfg
 from embedding.tune_utils import (parse_args, 
                                 get_git_repo_root_path, 
                                 param_tune_acc_mrr)
 from utils import config_device
+
 
 
 class GraphSage(MessagePassing):
@@ -537,23 +536,13 @@ class Trainer():
     def save_result(self, results_dict):
 
         root = self.FILE_PATH + cfg.out_dir
-        acc_file = root + f'{self.model_name}_acc_mrr.csv'
+        acc_file = root + f'/{self.model_name}_acc_mrr.csv'
 
         if not os.path.exists(root):
             os.makedirs(root, exist_ok=True)
         
         id = wandb.util.generate_id()
         param_tune_acc_mrr(id, results_dict, acc_file, self.data_name, self.model_name)
-    
-
-
-
-
-data_loader = {
-    'cora': get_cora_casestudy,
-    'pubmed': get_pubmed_casestudy,
-    'arxiv_2023': get_raw_text_arxiv_2023
-}
 
 
 

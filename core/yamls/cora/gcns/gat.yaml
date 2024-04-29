@@ -3,6 +3,10 @@
 out_dir: results
 metric_best: acc
 cfg_dest: gat.yaml
+seed: 0
+run_multiple_splits: None
+num_threads: 11
+print: file
 
 wandb:
   use: True
@@ -13,8 +17,9 @@ train:
   mode: custom
   batch_size: 256
   eval_period: 1
-  epochs: 500
+  epochs: 100
   device: 1
+  auto_resume: False
   
 model:
   type: GAT
@@ -26,9 +31,6 @@ model:
   dropout: 0
   num_layers: 2
 
-  
-num_threads: 11
-
 data:
   name: cora
   undirected: True
@@ -37,4 +39,5 @@ data:
   test_pct: 0.05
   split_labels: True
   num_features:  1433
+
 

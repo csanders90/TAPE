@@ -5,9 +5,6 @@ import torch
 from scipy.spatial import distance
 import numpy as np 
 from utils import get_git_repo_root_path, append_acc_to_excel, append_mrr_to_excel
-from data_utils.load_cora_lp import get_cora_casestudy 
-from data_utils.load_arxiv_2023_lp import get_raw_text_arxiv_2023
-from data_utils.load_pubmed_lp import get_pubmed_casestudy
 from yacs.config import CfgNode as CN
 from lpda.adjacency import plot_coo_matrix, construct_sparse_adj
 from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
@@ -21,6 +18,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt 
 from IPython import embed 
 import uuid 
+from data_utils.load import data_loader
 
 method = 'nonlinear_mlp'
     
@@ -35,12 +33,6 @@ distance_metric = {
     'dot': lambda x, y: np.dot(x, y)
 }
 
-
-data_loader = {
-    'cora': get_cora_casestudy,
-    'pubmed': get_pubmed_casestudy,
-    'arxiv_2023': get_raw_text_arxiv_2023
-}
 
 def set_cfg(file_path, args):
     with open(file_path + args.cfg_file, "r") as f:

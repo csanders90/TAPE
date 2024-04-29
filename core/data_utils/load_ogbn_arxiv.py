@@ -74,6 +74,10 @@ def get_raw_text_arxiv(use_text=False, seed=0):
     
     return dataset, text
 
+def get_raw_text_ogbn_arxiv_lp():
+    return 
+
+
 # TEST CODE
 if __name__ == '__main__':
     data, text = get_raw_text_arxiv(use_text=True)

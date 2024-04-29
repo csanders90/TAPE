@@ -21,7 +21,8 @@ from embedding.tune_utils import (
     get_git_repo_root_path
 )
 from gcns.example import GraphSage, GAT, LinkPredModel, GCNEncoder, GAE, VGAE, VariationalGCNEncoder
-from gcns.example import set_cfg, data_loader, Trainer 
+from gcns.example import set_cfg, Trainer 
+from data_utils.load import data_loader
 
 def custom_set_out_dir(cfg, cfg_fname, name_tag):
     """Set custom main output directory path to cfg.
@@ -59,7 +60,6 @@ def run_loop_settings():
         # 'multi-seed' run mode
         num_iterations = args.repeat
         seeds = [cfg.seed + x for x in range(num_iterations)]
-        split_indices = [cfg.dataset.split_index] * num_iterations
         run_ids = seeds
     else:
         # 'multi-split' run mode
@@ -128,7 +128,6 @@ if __name__ == "__main__":
         # Set configurations for each run
         custom_set_run_dir(cfg, run_id)
         set_printing()
-        cfg.dataset.split_index = split_index
         cfg.seed = seed
         cfg.run_id = run_id
         seed_everything(cfg.seed)
