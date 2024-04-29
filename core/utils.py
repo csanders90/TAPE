@@ -1,9 +1,21 @@
 import os
+import logging
+import sys
 import numpy as np
 import time
 import datetime
 import pytz
-import random
+import logging
+import torch
+import git
+import subprocess
+import pandas as pd
+from IPython import embed
+from torch_geometric.utils import remove_self_loops
+from torch_scatter import scatter
+from yacs.config import CfgNode as CN
+
+
 
 def init_random_state(seed=0):
     # Libraries using GPU should be imported after specifying GPU-ID
@@ -55,9 +67,6 @@ def init_path(dir_or_file):
     return dir_or_file
 
 
-# * ============================= Time Related =============================
-
-
 def time2str(t):
     if t > 86400:
         return '{:.2f}day'.format(t / 86400)
@@ -84,12 +93,11 @@ def time_logger(func):
 
     return wrapper
 
+
 def get_root_dir():
     file_dir = os.path.dirname(os.path.realpath(__file__))
     return os.path.join(file_dir, "..")
 
-import git
-import subprocess
 
 def get_git_repo_root_path():
     try:
@@ -106,11 +114,6 @@ def get_git_repo_root_path():
             print("Error:", result.stderr)
             return None
 
-import pandas as pd
-import torch 
-import csv
-import uuid
-from IPython import embed
 
 # Define a function that uses the lambda function
 def process_value(v):
@@ -182,6 +185,7 @@ def append_mrr_to_excel(uuid_val, metrics_mrr, root, name, method):
     
     return upt_Data
 
+
 def config_device(cfg):
     # device 
     try:
@@ -205,17 +209,32 @@ def config_device(cfg):
     return device
 
 
+def set_cfg(file_path, args):
+    with open(file_path + args.cfg_file, "r") as f:
+        return CN.load_cfg(f)
+    
+def init_cfg_test():
+    """
+    Initialize a CfgNode instance to test dataloader for link prediction.
 
-def init_seed(seed=2020):
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    random.seed(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-    # torch.use_deterministic_algorithms(True)
-    
-    
+    Args:
+        cfg_dict (dict): Dictionary containing configuration parameters.
+
+    Returns:
+        CN: Initialized CfgNode instance.
+    """
+    cfg_dict = {
+        'data': {  
+            'undirected': True,
+            'include_negatives': True,
+            'val_pct': 0.1,
+            'test_pct': 0.1,
+            'split_labels': True,
+            }
+    }
+    cfg = CN(cfg_dict)
+    return cfg
+
 class Logger(object):
     def __init__(self, runs, info=None):
         self.info = info
@@ -280,7 +299,6 @@ class Logger(object):
             return best_valid, best_valid_mean, mean_list, var_list
 
 
-import logging, sys
 def get_logger(name, log_dir, config_dir):
 	
     logger = logging.getLogger(__name__)
@@ -293,6 +311,7 @@ def get_logger(name, log_dir, config_dir):
     logger.addHandler(consoleHandler)
 
     return logger
+
 
 def save_emb(score_emb, save_path):
 
@@ -327,16 +346,7 @@ def save_emb(score_emb, save_path):
         }
    
     torch.save(state, save_path)
-    
-    
-import logging
-
-import torch
-from torch_geometric.utils import remove_self_loops
-from torch_scatter import scatter
-
-from yacs.config import CfgNode
-
+        
 
 def negate_edge_index(edge_index, batch=None):
     """Negate batched sparse adjacency matrices given by edge indices.
@@ -421,7 +431,7 @@ def cfg_to_dict(cfg_node, key_list=[]):
     """
     _VALID_TYPES = {tuple, list, str, int, float, bool}
 
-    if not isinstance(cfg_node, CfgNode):
+    if not isinstance(cfg_node, CN):
         if type(cfg_node) not in _VALID_TYPES:
             logging.warning(f"Key {'.'.join(key_list)} with "
                             f"value {type(cfg_node)} is not "

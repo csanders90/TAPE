@@ -1,24 +1,21 @@
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-import torch
-from scipy.spatial import distance
 import numpy as np 
-from utils import get_git_repo_root_path, append_acc_to_excel, append_mrr_to_excel
-from yacs.config import CfgNode as CN
-from lpda.adjacency import plot_coo_matrix, construct_sparse_adj
-from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
-from heuristic.eval import get_metric_score
 import scipy.sparse as ssp
-from embedding.tune_utils import parse_args
-from sklearn.neural_network import MLPClassifier
 import wandb
-from embedding.tune_utils import param_tune_acc_mrr 
+import torch
 from pathlib import Path 
 import matplotlib.pyplot as plt 
 from IPython import embed 
-import uuid 
+from scipy.spatial import distance
+from sklearn.neural_network import MLPClassifier
+from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
+
+from heuristic.eval import get_metric_score
 from data_utils.load import data_loader
+from embedding.tune_utils import parse_args, param_tune_acc_mrr 
+from utils import get_git_repo_root_path, append_acc_to_excel, append_mrr_to_excel, set_cfg
+from lpda.adjacency import plot_coo_matrix, construct_sparse_adj
 
 method = 'nonlinear_mlp'
     
@@ -32,13 +29,6 @@ distance_metric = {
     'dice': distance.dice,
     'dot': lambda x, y: np.dot(x, y)
 }
-
-
-def set_cfg(file_path, args):
-    with open(file_path + args.cfg_file, "r") as f:
-        return CN.load_cfg(f)
-
-    
 
 
 def pairwise_prediction(data, test_index, distance):

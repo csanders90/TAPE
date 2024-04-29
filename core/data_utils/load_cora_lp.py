@@ -11,7 +11,7 @@ import torch_geometric.transforms as T
 from torch_geometric.datasets import Planetoid
 from torch_geometric.data import Data, InMemoryDataset
 from torch_geometric.transforms import RandomLinkSplit
-from utils import get_git_repo_root_path, config_device
+from utils import get_git_repo_root_path, config_device, init_cfg_test
 
 FILE_PATH = get_git_repo_root_path() + '/'
 
@@ -85,3 +85,8 @@ def get_cora_casestudy(args) -> InMemoryDataset:
 
     return dataset, data_citeid, splits
 
+
+# TEST CODE
+if __name__ == '__main__':
+    args = init_cfg_test()
+    dataset, data_citedid, splits = get_cora_casestudy(args)

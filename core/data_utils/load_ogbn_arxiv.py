@@ -1,13 +1,20 @@
 import os
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-from ogb.nodeproppred import PygNodePropPredDataset
-import torch_geometric.transforms as T
 import torch
 import pandas as pd
+from typing import Dict
+import numpy as np
+import scipy.sparse as ssp
+import torch
+from torch_geometric.datasets import Planetoid
+import torch_geometric.transforms as T
 from torch_geometric.data import Data
-from utils import get_git_repo_root_path
+from ogb.nodeproppred import PygNodePropPredDataset
+from torch_geometric.data import Data, InMemoryDataset
+from torch_geometric.transforms import RandomLinkSplit
+from utils import get_git_repo_root_path, config_device, set_cfg, init_cfg_test
+
 
 FILE_PATH = get_git_repo_root_path() + '/'
 
@@ -18,7 +25,6 @@ def get_raw_text_arxiv(use_text=False, seed=0):
         name='ogbn-arxiv', transform=T.ToSparseTensor())
     data = dataset[0]
 
-    
     idx_splits = dataset.get_idx_split()
     train_mask = torch.zeros(data.num_nodes).bool()
     val_mask = torch.zeros(data.num_nodes).bool()
@@ -74,8 +80,57 @@ def get_raw_text_arxiv(use_text=False, seed=0):
     
     return dataset, text
 
-def get_raw_text_ogbn_arxiv_lp():
-    return 
+
+def get_raw_text_ogbn_arxiv_lp(args, use_text=False, seed=0)-> InMemoryDataset:
+
+    undirected = args.data.undirected
+    include_negatives = args.data.include_negatives
+    val_pct = args.data.val_pct
+    test_pct = args.data.test_pct
+    split_labels = args.data.split_labels
+    
+    device = config_device(args)
+
+    transform = T.Compose([
+        T.NormalizeFeatures(),  
+        T.ToDevice(device),    
+        T.RandomLinkSplit(num_val=val_pct, num_test=test_pct, is_undirected=undirected,  # 这一步很关键，是在构造链接预测的数据集
+                        split_labels=split_labels, add_negative_train_samples=False),])
+
+    # load data
+    dataset = PygNodePropPredDataset(root='./generated_dataset',
+        name='ogbn-arxiv', transform=T.ToSparseTensor())
+    data = dataset[0]
+
+    if data.adj_t.is_symmetric():
+        is_symmetric = True
+    else:
+        edge_index = data.adj_t.to_symmetric()
+        
+    # check is data has changed and try to return dataset
+    x = torch.tensor(data.x).float()
+    edge_index = torch.LongTensor(edge_index).long()
+    y = torch.tensor(data.y).long()
+    num_nodes = len(data.y)
+
+    data = Data(x=x,
+        edge_index=edge_index,
+        y=y,
+        num_nodes=num_nodes,
+        node_attrs=x, 
+        edge_attrs = None, 
+        graph_attrs = None
+    )        
+    dataset._data = data
+
+    undirected = data.is_undirected()
+
+    transform = RandomLinkSplit(is_undirected=undirected, num_val=val_pct, num_test=test_pct,
+                                add_negative_train_samples=include_negatives, split_labels=split_labels)
+    train_data, val_data, test_data = transform(dataset._data)
+    splits = {'train': train_data, 'valid': val_data, 'test': test_data}
+
+    return dataset, splits
 
 
 # TEST CODE
@@ -83,3 +138,6 @@ if __name__ == '__main__':
     data, text = get_raw_text_arxiv(use_text=True)
     print(data)
     print(len(text))
+    
+    args = init_cfg_test()
+    get_raw_text_ogbn_arxiv_lp(args, use_text=False, seed=0)
