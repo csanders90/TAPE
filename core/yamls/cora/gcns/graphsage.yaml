@@ -5,16 +5,23 @@ metric_best: acc
 cfg_dest: graphsage.yaml
 print: file
 
+run:
+  seed: 0
+  num_threads: 11
+  multiple_splits: None
+
 wandb:
   use: True
   project: gtblueprint
-  name_tag: gae-cora-origin
+  name_tag: graphsage-cora-origin
 
 train:
   mode: custom
   batch_size: 32   
   eval_period: 1
   epochs: 2000
+  device: 0
+  auto_resume: False
   
 model:
   type: GraphSage

@@ -16,13 +16,10 @@ from torch_geometric.graphgym.utils.agg_runs import agg_runs
 from torch_geometric.graphgym.utils.comp_budget import params_count
 from torch_geometric.graphgym.utils.device import auto_select_device
 
-from embedding.tune_utils import (
-    parse_args, 
-    get_git_repo_root_path
-)
 from gcns.example import GraphSage, GAT, LinkPredModel, GCNEncoder, GAE, VGAE, VariationalGCNEncoder
-from gcns.example import set_cfg, Trainer 
+from gcns.example import Trainer 
 from data_utils.load import data_loader
+from utils import set_cfg, parse_args, get_git_repo_root_path
 
 def custom_set_out_dir(cfg, cfg_fname, name_tag):
     """Set custom main output directory path to cfg.
@@ -56,7 +53,7 @@ def run_loop_settings():
         List of rng seeds to loop over
         List of dataset split indices to loop over
     """
-    if len(cfg.run_multiple_splits) == 0:
+    if len(cfg.run.multiple_splits) == 0:
         # 'multi-seed' run mode
         num_iterations = args.repeat
         seeds = [cfg.seed + x for x in range(num_iterations)]
@@ -66,9 +63,9 @@ def run_loop_settings():
         if args.repeat != 1:
             raise NotImplementedError("Running multiple repeats of multiple "
                                       "splits in one run is not supported.")
-        num_iterations = len(cfg.run_multiple_splits)
-        seeds = [cfg.seed] * num_iterations
-        split_indices = cfg.run_multiple_splits
+        num_iterations = len(cfg.run.multiple_splits)
+        seeds = [cfg.run.seed] * num_iterations
+        split_indices = cfg.run.multiple_splits
         run_ids = split_indices
     return run_ids, seeds, split_indices
 
@@ -122,7 +119,7 @@ if __name__ == "__main__":
     dump_cfg(cfg)
     
     # Set Pytorch environment
-    torch.set_num_threads(cfg.num_threads)
+    torch.set_num_threads(cfg.run.num_threads)
     
     for run_id, seed, split_index in zip(*run_loop_settings()):
         # Set configurations for each run

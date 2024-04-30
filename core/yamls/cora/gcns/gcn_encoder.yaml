@@ -5,6 +5,11 @@ metric_best: acc
 cfg_dest: gcn_encoder.yaml
 print: file
 
+run:
+  seed: 0
+  num_threads: 11
+  multiple_splits: None
+
 wandb:
   use: True
   project: gtblueprint
@@ -15,7 +20,9 @@ train:
   batch_size: 32   
   eval_period: 1
   epochs: 2000
-  
+  device: 0
+  auto_resume: False
+
 model:
   type: GraphSage
   in_channels: 12
