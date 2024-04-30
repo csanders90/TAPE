@@ -2,9 +2,14 @@
 
 out_dir: results
 metric_best: acc
+cfg_dest: vgae.yaml
+print: file
+
+
 wandb:
   use: True
   project: gtblueprint
+  name_tag: vgae-cora-origin
 
 train:
   mode: custom

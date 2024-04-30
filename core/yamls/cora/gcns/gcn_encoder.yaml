@@ -2,9 +2,13 @@
 
 out_dir: results
 metric_best: acc
+cfg_dest: gcn_encoder.yaml
+print: file
+
 wandb:
   use: True
   project: gtblueprint
+  name_tag: gae-cora-origin
 
 train:
   mode: custom

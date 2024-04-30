@@ -2,6 +2,9 @@
 
 out_dir: results
 metric_best: acc
+cfg_dest: heart_gnn_unified.yaml
+print: file
+
 wandb:
   use: True
   project: gtblueprint

@@ -2,10 +2,14 @@
 
 out_dir: results
 metric_best: acc
+cfg_dest: gae.yaml
+print: file
+
 wandb:
   use: True
   project: gtblueprint
-
+  name_tag: gae-cora-origin
+  
 train:
   mode: custom
   batch_size: 32   
