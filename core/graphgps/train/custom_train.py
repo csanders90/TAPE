@@ -1,18 +1,24 @@
+import os
+import sys
+# Add parent directory to sys.path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import numpy as np
 import torch
 import time
 import logging
-
+from ogb.linkproppred import Evaluator
 from torch_geometric.graphgym.config import cfg
 from torch_geometric.graphgym.loss import compute_loss
 from torch_geometric.graphgym.utils.epoch import is_eval_epoch, is_ckpt_epoch
 from torch_geometric.graphgym.checkpoint import load_ckpt, save_ckpt, \
     clean_ckpt
-
 from torch_geometric.graphgym.register import register_train
 
-from graphgps.loss.subtoken_prediction_loss import subtoken_cross_entropy
+from heuristic.eval import get_metric_score
+
 from graphgps.utils import cfg_to_dict, flatten_dict, make_wandb_name
+from embedding.tune_utils import param_tune_acc_mrr
+from utils import config_device
 
 class Trainer():
     def __init__(self, 
@@ -245,15 +251,15 @@ class Trainer():
 
     def save_result(self, results_dict):
 
-        root = self.FILE_PATH + f'results/gcns/{self.data_name}/'
-        acc_file = root + f'{self.model_name}_acc_mrr.csv'
+        root = self.FILE_PATH + cfg.out_dir
+        acc_file = root + f'/{self.model_name}_acc_mrr.csv'
 
         if not os.path.exists(root):
             os.makedirs(root, exist_ok=True)
         
         id = wandb.util.generate_id()
         param_tune_acc_mrr(id, results_dict, acc_file, self.data_name, self.model_name)
-    
+   
 # TODO integrate my trainer to train module wandb? docu?
 
 def train_epoch(logger, loader, model, optimizer, scheduler, batch_accumulation):
