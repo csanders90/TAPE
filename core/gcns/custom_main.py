@@ -1,7 +1,6 @@
 # modified from https://github.com/AndrewSpano/Stanford-CS224W-ML-with-Graphs/blob/main/CS224W_Colab_3.ipynb
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-# sys.path.insert(0, '/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE/core')
 
 from torch_geometric.graphgym.cmd_args import parse_args
 from torch_geometric.graphgym.config import (cfg, dump_cfg, 
