@@ -35,8 +35,8 @@ def get_config_dir():
     file_dir = os.path.dirname(os.path.realpath(__file__))
     return os.path.join(file_dir, "config")
 
-dir_path = get_root_dir()
-log_print		= get_logger('testrun', 'log', get_config_dir())
+dir_path    = get_root_dir()
+log_prin    = get_logger('testrun', 'log', get_config_dir())
 
 def parse_args() -> argparse.Namespace:
     r"""Parses the command line arguments."""
