@@ -7,6 +7,7 @@ from torch_geometric.graphgym.config import (cfg, dump_cfg,
                                              makedirs_rm_exist, set_cfg)
 from sklearn.metrics import *
 import torch
+import torch.optim as optim
 import logging
 from torch_geometric.data.makedirs import makedirs
 from torch_geometric import seed_everything
@@ -15,10 +16,33 @@ from torch_geometric.graphgym.utils.agg_runs import agg_runs
 from torch_geometric.graphgym.utils.comp_budget import params_count
 from torch_geometric.graphgym.utils.device import auto_select_device
 
-from gcns.example import GraphSage, GAT, LinkPredModel, GCNEncoder, GAE, VGAE, VariationalGCNEncoder
 from graphgps.train.custom_train import Trainer 
+from graphgps.network.custom_gnn import create_model
 from data_utils.load import data_loader
 from utils import set_cfg, parse_args, get_git_repo_root_path
+import os.path as osp 
+from graphgps.finetuning import get_final_pretrained_ckpt
+
+
+def build_optimizer(args, params):
+    weight_decay = args.weight_decay
+    filter_fn = filter(lambda p : p.requires_grad, params)
+    if args.opt == 'adam':
+        optimizer = optim.Adam(filter_fn, lr=args.lr, weight_decay=weight_decay)
+    elif args.opt == 'sgd':
+        optimizer = optim.SGD(filter_fn, lr=args.lr, momentum=0.95, weight_decay=weight_decay)
+    elif args.opt == 'rmsprop':
+        optimizer = optim.RMSprop(filter_fn, lr=args.lr, weight_decay=weight_decay)
+    elif args.opt == 'adagrad':
+        optimizer = optim.Adagrad(filter_fn, lr=args.lr, weight_decay=weight_decay)
+    if args.opt_scheduler == 'none':
+        return None, optimizer
+    elif args.opt_scheduler == 'step':
+        scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.opt_decay_step, gamma=args.opt_decay_rate)
+    elif args.opt_scheduler == 'cos':
+        scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.opt_restart)
+    return scheduler, optimizer
+
 
 def custom_set_out_dir(cfg, cfg_fname, name_tag):
     """Set custom main output directory path to cfg.
@@ -104,6 +128,107 @@ def set_printing():
         raise ValueError('Print option not supported')
     logging.basicConfig(**logging_cfg)
 
+def create_optimizer():
+    """Create optimizer based on the cfg settings.
+
+    Returns:
+        optimizer (torch.optim.Optimizer): Optimizer object
+    """
+def create_optimizer(params, optimizer_config):
+    r"""
+    Create optimizer for the model
+
+    Args:
+        params: PyTorch model parameters
+
+    Returns: PyTorch optimizer
+
+    """
+    params = filter(lambda p: p.requires_grad, params)
+
+    if optimizer_config.optimizer == 'adam':
+        optimizer = optim.Adam(params, lr=optimizer_config.base_lr,
+                               weight_decay=optimizer_config.weight_decay)
+    elif optimizer_config.optimizer == 'sgd':
+        optimizer = optim.SGD(params, lr=optimizer_config.base_lr,
+                              momentum=optimizer_config.momentum,
+                              weight_decay=optimizer_config.weight_decay)
+    else:
+        raise ValueError('Optimizer {} not supported'.format(
+            optimizer_config.optimizer))
+
+    return optimizer
+
+
+def create_scheduler(optimizer, scheduler_config):
+    r"""
+    Create learning rate scheduler for the optimizer
+
+    Args:
+        optimizer: PyTorch optimizer
+
+    Returns: PyTorch scheduler
+
+    """
+
+    # Try to load customized scheduler
+    if scheduler_config.scheduler == 'none':
+        scheduler = optim.lr_scheduler.StepLR(
+            optimizer, step_size=scheduler_config.max_epoch + 1)
+    elif scheduler_config.scheduler == 'step':
+        scheduler = optim.lr_scheduler.MultiStepLR(
+            optimizer, milestones=scheduler_config.steps,
+            gamma=scheduler_config.lr_decay)
+    elif scheduler_config.scheduler == 'cos':
+        scheduler = \
+            optim.lr_scheduler.CosineAnnealingLR(
+                optimizer,
+                T_max=scheduler_config.max_epoch)
+    else:
+        raise ValueError('Scheduler {} not supported'.format(
+            scheduler_config.scheduler))
+    return scheduler
+
+
+def init_model_from_pretrained(model, pretrained_dir, freeze_pretrained=False):
+    """ Copy model parameters from pretrained model except the prediction head.
+
+    Args:
+        model: Initialized model with random weights.
+        pretrained_dir: Root directory of saved pretrained model.
+        freeze_pretrained: If True, do not finetune the loaded pretrained
+            parameters, train the prediction head only. If False, train all.
+
+    Returns:
+        Updated pytorch model object.
+    """
+    ckpt_file = get_final_pretrained_ckpt(osp.join(pretrained_dir, '0', 'ckpt'))
+    logging.info(f"[*] Loading from pretrained model: {ckpt_file}")
+
+    ckpt = torch.load(ckpt_file)
+    pretrained_dict = ckpt['model_state']
+    model_dict = model.state_dict()
+
+    # print('>>>> pretrained dict: ')
+    # print(pretrained_dict.keys())
+    # print('>>>> model dict: ')
+    # print(model_dict.keys())
+
+    # Filter out prediction head parameter keys.
+    pretrained_dict = {k: v for k, v in pretrained_dict.items()
+                       if not k.startswith('post_mp')}
+    # Overwrite entries in the existing state dict.
+    model_dict.update(pretrained_dict)
+    # Load the new state dict.
+    model.load_state_dict(model_dict)
+
+    if freeze_pretrained:
+        for key, param in model.named_parameters():
+            if not key.startswith('post_mp'):
+                param.requires_grad = False
+    return model
+
+
 
 if __name__ == "__main__":
 
@@ -130,21 +255,19 @@ if __name__ == "__main__":
         auto_select_device()
         
         dataset, data_cited, splits = data_loader[cfg.data.name](cfg)   
-
-        if cfg.model.type == 'GAT':
-            model = LinkPredModel(GAT(cfg))
-        elif cfg.model.type == 'GraphSage':
-            model = LinkPredModel(GraphSage(cfg))
-        elif cfg.model.type == 'GCNEncode':
-            model = LinkPredModel(GCNEncoder(cfg))
+        model = create_model(cfg)
         
-        if cfg.model.type == 'gae':
-            model = GAE(GCNEncoder(cfg))
-        elif cfg.model.type == 'vgae':
-            model = VGAE(VariationalGCNEncoder(cfg))
-            
-        optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+        logging.info(model)
+        logging.info(cfg)
+        cfg.params = params_count(model)
+        logging.info('Num parameters: {}'.format(cfg.params))
+        
+        optimizer = create_optimizer(model, cfg)
 
+        if cfg.train.finetune:
+            model = init_model_from_pretrained(model, cfg.train.finetune,
+                                               cfg.train.freeze_pretrained)
+            
         trainer = Trainer(FILE_PATH,
                     cfg,
                     model, 

@@ -1,33 +1,55 @@
-import os, sys
+# import os, sys
+# sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# import torch
+# import pprint 
+# from torch_sparse import SparseTensor
+# from torch_geometric.utils import to_undirected
+# from ogb.linkproppred import Evaluator
+# from torch_geometric.graphgym.config import cfg
+# import torch
+# from sklearn.metrics import *
+# import argparse
+# from torch_sparse import SparseTensor
+# import torch_geometric.transforms as T
+# from core.graphgps.network.heart_gnn import (GCN, 
+#                         GAT, 
+#                         SAGE, 
+#                         GCNConv, 
+#                         SAGEConv, 
+#                         GINConv, 
+#                         GATConv, 
+#                         mlp_score)
+# from utils import Logger, save_emb
+# from torch_geometric import seed_everything
+# from utils import get_root_dir, get_logger, config_device, set_cfg
+# from embedding.tune_utils import (
+#     parse_args, 
+#     get_git_repo_root_path
+# )
+# from core.data_utils.load import data_loader
+# from core.graphgps.train import Trainer 
+# from trainer_heart import train, test, test_edge
+
+import os
+import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-import torch
-import pprint 
-from torch_sparse import SparseTensor
-from torch_geometric.utils import to_undirected
-from ogb.linkproppred import Evaluator
-from torch_geometric.graphgym.config import cfg
-import torch
-from sklearn.metrics import *
+
 import argparse
+from os.path import abspath, dirname, join
+from pprint import pprint
+import logging
+import torch
 from torch_sparse import SparseTensor
 import torch_geometric.transforms as T
-
-
-from core.graphgps.network.gnns_heart import (GCN, 
-                        GAT, 
-                        SAGE, 
-                        GCNConv, 
-                        SAGEConv, 
-                        GINConv, 
-                        GATConv, 
-                        mlp_score)
-from utils import init_seed,  Logger, save_emb
-from utils import *
-from embedding.tune_utils import (
-    parse_args, 
-    get_git_repo_root_path
-)
-from core.gcns.example import set_cfg, data_loader, Trainer 
+from torch_geometric.utils import to_undirected
+from torch_geometric.graphgym.config import cfg
+from torch_geometric import seed_everything
+from torch_geometric.nn import GCNConv, SAGEConv, GINConv, GATConv
+from ogb.linkproppred import Evaluator
+from graphgps.network.heart_gnn import (GCN, GAT, SAGE, mlp_score)
+from data_utils.load import data_loader
+from utils import Logger, save_emb, get_root_dir, get_logger, config_device, set_cfg, \
+parse_args, get_git_repo_root_path
 from trainer_heart import train, test, test_edge
 
 
@@ -225,7 +247,7 @@ if __name__ == "__main__":
             seed = run
         print('seed: ', seed)
 
-        init_seed(seed)
+        seed_everything(seed)
         
         save_path = cfg.save.output_dir+'/lr'+str(cfg.train.lr) \
             + '_drop' + str(cfg.model.dropout) + '_l2'+ \
@@ -284,7 +306,7 @@ if __name__ == "__main__":
                     for key, result in results_rank.items():
                         train_hits, valid_hits, test_hits = result
                         
-                log_print.info(
+                logging.info(
                     f'Run: {run + 1:02d}, '
                         f'Epoch: {epoch:02d}, '
                         f'Loss: {loss:.4f}, '
@@ -297,7 +319,7 @@ if __name__ == "__main__":
                 best_test = round(r[r[:, 1].argmax(), 2].item(), 4)
 
                 print(eval_metric)
-                log_print.info(f'best valid: {100*best_valid_current:.2f}%, '
+                logging.info(f'best valid: {100*best_valid_current:.2f}%, '
                                 f'best test: {100*best_test:.2f}%')
                 
                 if len(loggers['AUC'].results[run]) > 0:
@@ -306,7 +328,7 @@ if __name__ == "__main__":
                     best_test_auc = round(r[r[:, 1].argmax(), 2].item(), 4)
                     
                     print('AUC')
-                    log_print.info(f'best valid: {100*best_valid_auc:.2f}%, '
+                    logging.info(f'best valid: {100*best_valid_auc:.2f}%, '
                                 f'best test: {100*best_test_auc:.2f}%')
                 
                 print('---')

@@ -2,11 +2,8 @@ import os
 import sys
 # Add parent directory to sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-# Standard library imports
-import torch.optim as optim
-from collections import Counter
 
-# Third-party imports
+# Standard library imports
 import torch
 import torch_scatter
 import torch_geometric
@@ -17,17 +14,6 @@ import wandb
 from torch import nn
 from torch_geometric.nn import GCNConv, MessagePassing
 from torch_geometric.utils import softmax
-from torch_geometric.graphgym.config import cfg
-
-# Local application/library specific imports
-
-from textfeat.mlp_dot_product import data_loader, FILE_PATH, set_cfg
-from utils import parse_args, get_git_repo_root_path
-
-from data_utils.load import data_loader
-
-
-
 
 class GraphSage(MessagePassing):
     
@@ -120,26 +106,6 @@ class GAT(MessagePassing):
         return out
     
 
-def build_optimizer(args, params):
-    weight_decay = args.weight_decay
-    filter_fn = filter(lambda p : p.requires_grad, params)
-    if args.opt == 'adam':
-        optimizer = optim.Adam(filter_fn, lr=args.lr, weight_decay=weight_decay)
-    elif args.opt == 'sgd':
-        optimizer = optim.SGD(filter_fn, lr=args.lr, momentum=0.95, weight_decay=weight_decay)
-    elif args.opt == 'rmsprop':
-        optimizer = optim.RMSprop(filter_fn, lr=args.lr, weight_decay=weight_decay)
-    elif args.opt == 'adagrad':
-        optimizer = optim.Adagrad(filter_fn, lr=args.lr, weight_decay=weight_decay)
-    if args.opt_scheduler == 'none':
-        return None, optimizer
-    elif args.opt_scheduler == 'step':
-        scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.opt_decay_step, gamma=args.opt_decay_rate)
-    elif args.opt_scheduler == 'cos':
-        scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.opt_restart)
-    return scheduler, optimizer
-
-
 class LinkPredModel(torch.nn.Module):
     def __init__(self, encode):
         super(LinkPredModel, self).__init__()
@@ -156,9 +122,8 @@ class LinkPredModel(torch.nn.Module):
         out = self.encode(x, edge_index)
         src_emb, dest_emb = out[edge_index[0]], out[edge_index[1]]
         # https://discuss.pytorch.org/t/dot-product-batch-wise/9746/11
-        pred = (src_emb * dest_emb).sum(1)
 
-        return pred
+        return (src_emb * dest_emb).sum(1)
     
     def loss(self, pred, link_label):
         return self.loss_fn(pred, link_label)
@@ -303,41 +268,17 @@ class VariationalGCNEncoder(torch.nn.Module):
         logstd = self.conv_logstd(x, edge_index)
         return mu, logstd
     
-       
-if __name__ == "__main__":
-
-    FILE_PATH = get_git_repo_root_path() + '/'
-
-    args = parse_args()
-    # Load args file
     
-    cfg = set_cfg(FILE_PATH, args)
-    cfg.merge_from_list(args.opts)
-
-    # Set Pytorch environment
-    torch.set_num_threads(cfg.num_threads)
-
-    dataset, data_cited, splits = data_loader[cfg.data.name](cfg)   
-    train_data, val_data, test_data = splits['train'], splits['valid'], splits['test']
-
-
+def create_model(cfg):
+    if cfg.model.type == 'GAT':
+        model = LinkPredModel(GAT(cfg))
+    elif cfg.model.type == 'GraphSage':
+        model = LinkPredModel(GraphSage(cfg))
+    elif cfg.model.type == 'GCNEncode':
+        model = LinkPredModel(GCNEncoder(cfg))
     
     if cfg.model.type == 'gae':
         model = GAE(GCNEncoder(cfg))
     elif cfg.model.type == 'vgae':
         model = VGAE(VariationalGCNEncoder(cfg))
-        
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
-
-    trainer = Trainer(FILE_PATH,
-                 cfg,
-                 model, 
-                 optimizer,
-                 splits)
-    
-    trainer.train()
-    results_dict = trainer.evaluate()
-    
-    trainer.save_result(results_dict)
-    
-
+    return model 
