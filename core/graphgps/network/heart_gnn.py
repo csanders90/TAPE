@@ -347,7 +347,7 @@ class DGCNN(torch.nn.Module):
             initial_channels += node_embedding.embedding_dim
 
         self.convs.append(GNN(initial_channels, hidden_channels))
-        for i in range(0, num_layers-1):
+        for _ in range(0, num_layers-1):
             self.convs.append(GNN(hidden_channels, hidden_channels))
         self.convs.append(GNN(hidden_channels, 1))
 

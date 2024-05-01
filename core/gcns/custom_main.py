@@ -116,7 +116,7 @@ def set_printing():
     logging.root.handlers = []
     logging_cfg = {'level': logging.INFO, 'format': '%(message)s'}
     makedirs(cfg.run_dir)
-    h_file = logging.FileHandler('{}/logging.log'.format(cfg.run_dir))
+    h_file = logging.FileHandler(f'{cfg.run_dir}/logging.log')
     h_stdout = logging.StreamHandler(sys.stdout)
     if cfg.print == 'file':
         logging_cfg['handlers'] = [h_file]
@@ -154,8 +154,7 @@ def create_optimizer(params, optimizer_config):
                               momentum=optimizer_config.momentum,
                               weight_decay=optimizer_config.weight_decay)
     else:
-        raise ValueError('Optimizer {} not supported'.format(
-            optimizer_config.optimizer))
+        raise ValueError(f'Optimizer {optimizer_config.optimizer} not supported')
 
     return optimizer
 
@@ -185,8 +184,7 @@ def create_scheduler(optimizer, scheduler_config):
                 optimizer,
                 T_max=scheduler_config.max_epoch)
     else:
-        raise ValueError('Scheduler {} not supported'.format(
-            scheduler_config.scheduler))
+        raise ValueError(f'Scheduler {scheduler_config.scheduler} not supported')
     return scheduler
 
 
@@ -232,7 +230,7 @@ def init_model_from_pretrained(model, pretrained_dir, freeze_pretrained=False):
 
 if __name__ == "__main__":
 
-    FILE_PATH = get_git_repo_root_path() + '/'
+    FILE_PATH = f'{get_git_repo_root_path()}/'
 
     args = parse_args()
     # Load args file
@@ -255,6 +253,7 @@ if __name__ == "__main__":
         auto_select_device()
 
         dataset, data_cited, splits = data_loader[cfg.data.name](cfg)
+        # TODO fix uniteratable issue
         model = create_model(cfg)
 
         logging.info(model)
