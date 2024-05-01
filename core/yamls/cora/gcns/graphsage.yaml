@@ -15,6 +15,16 @@ wandb:
   project: gtblueprint
   name_tag: graphsage-cora-origin
 
+optimizer:
+  type: adam
+  base_lr: 0.01
+  weight_decay: 0.0005
+
+  # type: SGD
+  # base_lr: 0.01
+  # momentum: 0.9
+  # weight_decay: 0.0005
+
 train:
   mode: custom
   batch_size: 32   
@@ -22,6 +32,7 @@ train:
   epochs: 2000
   device: 0
   auto_resume: False
+  finetune: False
   
 model:
   type: GraphSage

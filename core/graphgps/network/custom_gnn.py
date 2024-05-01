@@ -14,6 +14,7 @@ import wandb
 from torch import nn
 from torch_geometric.nn import GCNConv, MessagePassing
 from torch_geometric.utils import softmax
+from graphgps.loss.custom_loss import InnerProductDecoder
 
 class GraphSage(MessagePassing):
     
@@ -43,14 +44,14 @@ class GraphSage(MessagePassing):
         return out
 
     def message(self, x_j):
-        out = x_j
-        return out
+        return x_j
 
     def aggregate(self, inputs, index, dim_size = None):
         # The axis along which to index number of nodes.
         node_dim = self.node_dim
-        out = torch_scatter.scatter(inputs, index=index, dim=node_dim, dim_size=dim_size, reduce='mean')
-        return out
+        return torch_scatter.scatter(
+            inputs, index=index, dim=node_dim, dim_size=dim_size, reduce='mean'
+        )
 
 
 class GAT(MessagePassing):
@@ -85,45 +86,40 @@ class GAT(MessagePassing):
         # alpha vectors
         alpha_l = self.att_l * x_l
         alpha_r = self.att_r * x_r
-        out = self.propagate(edge_index=edge_index, x=(x_l, x_r), alpha=(alpha_l, alpha_r), size=size).reshape(-1, H * C)
-        return out
+        return self.propagate(
+            edge_index=edge_index,
+            x=(x_l, x_r),
+            alpha=(alpha_l, alpha_r),
+            size=size,
+        ).reshape(-1, H * C)
 
 
     def message(self, x_j, alpha_j, alpha_i, index, ptr, size_i):
         alpha = F.leaky_relu(alpha_i + alpha_j, negative_slope=self.negative_slope)
-        if ptr:
-            att_weight = softmax(alpha, ptr)
-        else:
-            att_weight = softmax(alpha, index)
+        att_weight = softmax(alpha, ptr) if ptr else softmax(alpha, index)
         att_weight = F.dropout(att_weight, p=self.dropout)
-        
-        out = att_weight * x_j
-        return out
+
+        return att_weight * x_j
 
 
     def aggregate(self, inputs, index, dim_size = None):
-        out = torch_scatter.scatter(inputs, index=index, dim=self.node_dim, dim_size=dim_size, reduce='sum')
-        return out
+        return torch_scatter.scatter(
+            inputs, index=index, dim=self.node_dim, dim_size=dim_size, reduce='sum'
+        )
     
 
 class LinkPredModel(torch.nn.Module):
-    def __init__(self, encode):
+
+    def __init__(self, encoder, decoder):
         super(LinkPredModel, self).__init__()
 
-        self.encode = encode
+        self.encoder = encoder
         self.loss_fn = nn.BCEWithLogitsLoss()
-        self.decoder = InnerProductDecoder()
+        self.decoder = decoder
         
-    def reset_parameters(self):
-        self.conv1.reset_parameters()
-        self.conv2.reset_parameters()
 
     def forward(self, x, edge_index):
-        out = self.encode(x, edge_index)
-        src_emb, dest_emb = out[edge_index[0]], out[edge_index[1]]
-        # https://discuss.pytorch.org/t/dot-product-batch-wise/9746/11
-
-        return (src_emb * dest_emb).sum(1)
+        return self.encode(x, edge_index)
     
     def loss(self, pred, link_label):
         return self.loss_fn(pred, link_label)
@@ -137,8 +133,8 @@ class LinkPredModel(torch.nn.Module):
         pos_edge_index: positive edge index
         neg_edge_index: negative edge index
         """
-        EPS = 1e-15 # prevent log(0)
-        # positive loss log()
+        EPS = 1e-15
+        
         pos_loss = -torch.log(
             self.decoder(z, pos_edge_index) + EPS).mean() # loss for positive samples
 
@@ -169,26 +165,14 @@ class GCNEncoder(torch.nn.Module):
         return self.conv2(x, edge_index)
 
 
-class InnerProductDecoder(torch.nn.Module):
-    def forward(self, z, edge_index, sigmoid=True):
-        """
-        params:
-        z: [num_nodes, num_features] node embedding
-        edge_index: [2, num_edges] index of node pairs
-        """
-        # Compute the inner product between node embedding vectors
-        value = (z[edge_index[0]] * z[edge_index[1]]).sum(dim=1)
-        # Returns the probability of edge existence, using the sigmoid function to map the value to the range [0, 1]
-        return torch.sigmoid(value) if sigmoid else value
-
-
+    
 class GAE(torch.nn.Module):
     """graph auto encoder。
     """
-    def __init__(self, encoder, decoder=None):
+    def __init__(self, encoder, decoder):
         super().__init__()
         self.encoder = encoder
-        self.decoder = InnerProductDecoder()
+        self.decoder = decoder
 
     def encode(self, *args, **kwargs):
         return self.encoder(*args, **kwargs)
@@ -237,8 +221,7 @@ class VGAE(GAE):
         """encoder"""
         self.__mu__, self.__logstd__ = self.encoder(*args, **kwargs) # mu stad stands for distribution for mean and std
         self.__logstd__ = self.__logstd__.clamp(max=MAX_LOGSTD) # upper bound of logstd
-        z = self.reparametrize(self.__mu__, self.__logstd__) # reparameterization trick
-        return z
+        return self.reparametrize(self.__mu__, self.__logstd__)
 
     def kl_loss(self, mu=None, logstd=None):
         """We add a prior of (0, I) Gaussian variables to the distribution of the hidden variables,
@@ -271,11 +254,14 @@ class VariationalGCNEncoder(torch.nn.Module):
     
 def create_model(cfg):
     if cfg.model.type == 'GAT':
-        model = LinkPredModel(GAT(cfg))
+        model = LinkPredModel(encoder=GAT(cfg),
+                              decoder=InnerProductDecoder())
     elif cfg.model.type == 'GraphSage':
-        model = LinkPredModel(GraphSage(cfg))
+        model = LinkPredModel(encoder=GraphSage(cfg),
+                              decoder=InnerProductDecoder())
     elif cfg.model.type == 'GCNEncode':
-        model = LinkPredModel(GCNEncoder(cfg))
+        model = LinkPredModel(encoder=GCNEncoder(cfg),
+                              decoder=InnerProductDecoder())
     
     if cfg.model.type == 'GAE':
         model = GAE(GCNEncoder(cfg))

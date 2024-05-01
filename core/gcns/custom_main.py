@@ -2,25 +2,27 @@
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from torch_geometric.graphgym.cmd_args import parse_args
-from torch_geometric.graphgym.config import (cfg, dump_cfg, 
-                                             makedirs_rm_exist, set_cfg)
 from sklearn.metrics import *
 import torch
 import torch.optim as optim
 import logging
-from torch_geometric.data.makedirs import makedirs
+import os.path as osp 
+
 from torch_geometric import seed_everything
+from torch_geometric.data.makedirs import makedirs
 from torch_geometric.graphgym.train import train
 from torch_geometric.graphgym.utils.agg_runs import agg_runs
 from torch_geometric.graphgym.utils.comp_budget import params_count
 from torch_geometric.graphgym.utils.device import auto_select_device
+from torch_geometric.graphgym.cmd_args import parse_args
+from torch_geometric.graphgym.config import (cfg, dump_cfg, 
+                                             makedirs_rm_exist, set_cfg)
 
 from graphgps.train.custom_train import Trainer 
 from graphgps.network.custom_gnn import create_model
+
 from data_utils.load import data_loader
 from utils import set_cfg, parse_args, get_git_repo_root_path
-import os.path as osp 
 from graphgps.finetuning import get_final_pretrained_ckpt
 
 
@@ -128,13 +130,9 @@ def set_printing():
         raise ValueError('Print option not supported')
     logging.basicConfig(**logging_cfg)
 
-def create_optimizer():
-    """Create optimizer based on the cfg settings.
 
-    Returns:
-        optimizer (torch.optim.Optimizer): Optimizer object
-    """
-def create_optimizer(params, optimizer_config):
+def create_optimizer(model, optimizer_config):
+    # sourcery skip: list-comprehension
     r"""
     Create optimizer for the model
 
@@ -144,15 +142,19 @@ def create_optimizer(params, optimizer_config):
     Returns: PyTorch optimizer
 
     """
-    params = filter(lambda p: p.requires_grad, params)
-
-    if optimizer_config.optimizer == 'adam':
-        optimizer = optim.Adam(params, lr=optimizer_config.base_lr,
-                               weight_decay=optimizer_config.weight_decay)
-    elif optimizer_config.optimizer == 'sgd':
-        optimizer = optim.SGD(params, lr=optimizer_config.base_lr,
-                              momentum=optimizer_config.momentum,
-                              weight_decay=optimizer_config.weight_decay)
+    params = []
+    # Iterate over named parameters of the model
+    params.extend(
+        param for _, param in model.named_parameters() if param.requires_grad
+    )
+    optimizer = optimizer_config.optimizer
+    if optimizer.type == 'adam':
+        optimizer = optim.Adam(params, lr=optimizer.base_lr,
+                               weight_decay=optimizer.weight_decay)
+    elif optimizer.type == 'sgd':
+        optimizer = optim.SGD(params, lr=optimizer.base_lr,
+                              momentum=optimizer.momentum,
+                              weight_decay=optimizer.weight_decay)
     else:
         raise ValueError(f'Optimizer {optimizer_config.optimizer} not supported')
 
@@ -207,11 +209,6 @@ def init_model_from_pretrained(model, pretrained_dir, freeze_pretrained=False):
     pretrained_dict = ckpt['model_state']
     model_dict = model.state_dict()
 
-    # print('>>>> pretrained dict: ')
-    # print(pretrained_dict.keys())
-    # print('>>>> model dict: ')
-    # print(model_dict.keys())
-
     # Filter out prediction head parameter keys.
     pretrained_dict = {k: v for k, v in pretrained_dict.items()
                        if not k.startswith('post_mp')}
@@ -253,14 +250,15 @@ if __name__ == "__main__":
         auto_select_device()
 
         dataset, data_cited, splits = data_loader[cfg.data.name](cfg)
-        # TODO fix uniteratable issue
-        model = create_model(cfg)
 
+        model = create_model(cfg)
+        
         logging.info(model)
         logging.info(cfg)
         cfg.params = params_count(model)
         logging.info(f'Num parameters: {cfg.params}')
 
+        # optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
         optimizer = create_optimizer(model, cfg)
 
         if cfg.train.finetune:

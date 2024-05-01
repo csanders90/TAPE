@@ -6,17 +6,18 @@ import numpy as np
 import torch
 import time
 import logging
+import wandb
+
 from ogb.linkproppred import Evaluator
 from torch_geometric.graphgym.config import cfg
 from torch_geometric.graphgym.loss import compute_loss
 from torch_geometric.graphgym.utils.epoch import is_eval_epoch, is_ckpt_epoch
-from torch_geometric.graphgym.checkpoint import load_ckpt, save_ckpt, \
-    clean_ckpt
+from torch_geometric.graphgym.checkpoint import load_ckpt, save_ckpt, clean_ckpt
 from torch_geometric.graphgym.register import register_train
 
 from heuristic.eval import get_metric_score
-
 from graphgps.utils import cfg_to_dict, flatten_dict, make_wandb_name
+from graphgps.loss.custom_loss import RecLoss
 from embedding.tune_utils import param_tune_acc_mrr
 from utils import config_device
 
@@ -83,8 +84,9 @@ class Trainer():
     def _train_gae(self):
         self.model.train()
         self.optimizer.zero_grad()
-        z = self.model.encode(self.train_data.x, self.train_data.edge_index)
-        loss = self.model.recon_loss(z, self.train_data.pos_edge_label_index)
+        z = self.model.encoder(self.train_data.x, self.train_data.edge_index)
+        loss_func = RecLoss()
+        loss = loss_func(z, self.train_data.pos_edge_label_index)
         loss.backward()
         self.optimizer.step()
         return loss.item()
@@ -93,9 +95,9 @@ class Trainer():
         """Training the VGAE model, the loss function consists of reconstruction loss and kl loss"""
         self.model.train()
         self.optimizer.zero_grad()
-        z = self.model.encode(self.train_data.x, self.train_data.edge_index)
+        z = self.model.encoder(self.train_data.x, self.train_data.edge_index)
         loss = self.model.recon_loss(z, self.train_data.pos_edge_label_index)
-        loss = loss + (1 / self.train_data.num_nodes) * model.kl_loss() # add kl loss
+        loss = loss + (1 / self.train_data.num_nodes) * self.model.kl_loss() # add kl loss
         loss.backward()
         self.optimizer.step()
         return loss.item()
@@ -120,7 +122,7 @@ class Trainer():
         pos_edge_index = self.test_data.pos_edge_label_index
         neg_edge_index = self.test_data.neg_edge_label_index
 
-        z = self.model.encode(self.test_data.x, self.test_data.edge_index)
+        z = self.model.encoder(self.test_data.x, self.test_data.edge_index)
         pos_pred = self.model.decoder(z, pos_edge_index)
         neg_pred = self.model.decoder(z, neg_edge_index)
         y_pred = torch.cat([pos_pred, neg_pred], dim=0)
@@ -199,7 +201,7 @@ class Trainer():
         pos_edge_index = self.test_data.pos_edge_label_index
         neg_edge_index = self.test_data.neg_edge_label_index
 
-        z = self.model.encode(self.test_data.x, self.test_data.edge_index)
+        z = self.model.encoder(self.test_data.x, self.test_data.edge_index)
         pos_y = z.new_ones(pos_edge_index.size(1)) # positive samples
         neg_y = z.new_zeros(neg_edge_index.size(1)) # negative samples
         y = torch.cat([pos_y, neg_y], dim=0)
