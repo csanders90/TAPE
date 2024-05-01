@@ -14,7 +14,7 @@ train:
   batch_size: 256
   eval_period: 1
   epochs: 500
-  device: 1
+  device: 0
   use_valedges_as_input: True
   lr: 0.001
   l2: 0.0

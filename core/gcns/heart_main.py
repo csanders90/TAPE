@@ -65,10 +65,10 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='GraphGym')
 
     parser.add_argument('--cfg', dest='cfg_file', type=str, required=False,
-                        default='core/configs/cora/gcns/heart_gnn_models.yaml',
+                        default='core/yamls/cora/gcns/heart_gnn_models.yaml',
                         help='The configuration file path.')
     parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
-                        default='core/configs/cora/gat_sp1.yaml',
+                        default='core/yamls/cora/gat_sp1.yaml',
                         help='The configuration file path.')
     
     parser.add_argument('--repeat', type=int, default=1,
@@ -85,25 +85,20 @@ def parse_args() -> argparse.Namespace:
 def data_preprocess(cfg):
 
     device = cfg.train.device
-    dataset, data_cited, splits = data_loader[cfg.data.name](cfg) 
+    dataset, data_cited, splits = data_loader[cfg.data.name](cfg)
     data = dataset._data
 
     edge_index = data.edge_index
     emb = None # here is your embedding
     node_num = data.num_nodes
 
-    if hasattr(data, 'x'):
-        if data.x != None:
-            x = data.x
-            cfg.model.input_channels = x.size(1)
-        else:
-            emb = torch.nn.Embedding(node_num, args.hidden_channels)
-            cfg.model.input_channels = args.hidden_channels
-
+    if hasattr(data, 'x') and data.x != None:
+        x = data.x
+        cfg.model.input_channels = x.size(1)
     else:
         emb = torch.nn.Embedding(node_num, args.hidden_channels)
         cfg.model.input_channels = args.hidden_channels
-    
+
     if not hasattr(data, 'edge_weight'): 
         train_edge_weight = torch.ones(splits['train'].edge_index.shape[1])
         train_edge_weight = train_edge_weight.to(torch.float)
@@ -121,7 +116,7 @@ def data_preprocess(cfg):
         edge_weight = torch.ones(full_edge_index.shape[1])
         train_edge_weight = torch.ones(splits['train'].edge_index.shape[1])
         A = SparseTensor.from_edge_index(full_edge_index, edge_weight.view(-1), [data.num_nodes, data.num_nodes])
-        
+
         data.full_adj_t = A
         data.full_edge_index = full_edge_index
         print(data.full_adj_t)
@@ -155,7 +150,7 @@ if __name__ == "__main__":
     
     dataset, splits, emb, cfg, train_edge_weight = data_preprocess(cfg)
 
-    pprint.pprint(cfg)
+    pprint(cfg)
     model = eval(cfg.model.type)(cfg.model.input_channels, cfg.model.hidden_channels,
                                  cfg.model.hidden_channels, cfg.model.num_layers, 
                                  cfg.model.dropout).to(device)
