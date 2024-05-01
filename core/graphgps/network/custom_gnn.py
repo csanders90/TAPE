@@ -277,8 +277,8 @@ def create_model(cfg):
     elif cfg.model.type == 'GCNEncode':
         model = LinkPredModel(GCNEncoder(cfg))
     
-    if cfg.model.type == 'gae':
+    if cfg.model.type == 'GAE':
         model = GAE(GCNEncoder(cfg))
-    elif cfg.model.type == 'vgae':
+    elif cfg.model.type == 'VGAE':
         model = VGAE(VariationalGCNEncoder(cfg))
     return model 

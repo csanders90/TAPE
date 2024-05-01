@@ -24,7 +24,7 @@ train:
   auto_resume: False
 
 model:
-  type: gae
+  type: GAE
   out_channels: 16
   hidden_channels: 8  # Assume that the dimension of the hidden layer feature is 8
   in_channels: 1433

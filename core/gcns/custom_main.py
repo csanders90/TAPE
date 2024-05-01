@@ -236,15 +236,15 @@ if __name__ == "__main__":
 
     args = parse_args()
     # Load args file
-    
+
     cfg = set_cfg(FILE_PATH, args)
     cfg.merge_from_list(args.opts)
     custom_set_out_dir(cfg, args.cfg_file, cfg.wandb.name_tag)
     dump_cfg(cfg)
-    
+
     # Set Pytorch environment
     torch.set_num_threads(cfg.run.num_threads)
-    
+
     for run_id, seed, split_index in zip(*run_loop_settings()):
         # Set configurations for each run
         custom_set_run_dir(cfg, run_id)
@@ -253,30 +253,30 @@ if __name__ == "__main__":
         cfg.run_id = run_id
         seed_everything(cfg.seed)
         auto_select_device()
-        
-        dataset, data_cited, splits = data_loader[cfg.data.name](cfg)   
+
+        dataset, data_cited, splits = data_loader[cfg.data.name](cfg)
         model = create_model(cfg)
-        
+
         logging.info(model)
         logging.info(cfg)
         cfg.params = params_count(model)
-        logging.info('Num parameters: {}'.format(cfg.params))
-        
+        logging.info(f'Num parameters: {cfg.params}')
+
         optimizer = create_optimizer(model, cfg)
 
         if cfg.train.finetune:
             model = init_model_from_pretrained(model, cfg.train.finetune,
                                                cfg.train.freeze_pretrained)
-            
+
         trainer = Trainer(FILE_PATH,
                     cfg,
                     model, 
                     optimizer,
                     splits)
-        
+
         trainer.train()
         results_dict = trainer.evaluate()
-        
+
         trainer.save_result(results_dict)
         
     
