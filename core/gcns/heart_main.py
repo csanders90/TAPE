@@ -1,33 +1,22 @@
-import os, sys
+import os
+import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 import torch
 import pprint 
-from torch_sparse import SparseTensor
-from torch_geometric.utils import to_undirected
-from ogb.linkproppred import Evaluator
-from torch_geometric.graphgym.config import cfg
-import torch
-from sklearn.metrics import *
 import argparse
+from sklearn.metrics import *
 from torch_sparse import SparseTensor
 import torch_geometric.transforms as T
+from torch_geometric import seed_everything
+from torch_geometric.utils import to_undirected
+from torch_geometric.graphgym.config import cfg
 
+from ogb.linkproppred import Evaluator
+from graphgps.network.gnns_heart import (GCN, GAT, SAGE, GCNConv, SAGEConv, GINConv, GATConv, mlp_score)
 
-from core.graphgps.network.gnns_heart import (GCN, 
-                        GAT, 
-                        SAGE, 
-                        GCNConv, 
-                        SAGEConv, 
-                        GINConv, 
-                        GATConv, 
-                        mlp_score)
-from utils import init_seed,  Logger, save_emb
-from utils import *
-from embedding.tune_utils import (
-    parse_args, 
-    get_git_repo_root_path
-)
-from core.gcns.example import set_cfg, data_loader, Trainer 
+from utils import Logger, save_emb, parse_args, get_git_repo_root_path, get_root_dir, get_logger, config_device
+from gcns.example import set_cfg, data_loader, Trainer
 from trainer_heart import train, test, test_edge
 
 
@@ -43,10 +32,10 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='GraphGym')
 
     parser.add_argument('--cfg', dest='cfg_file', type=str, required=False,
-                        default='core/configs/cora/gcns/heart_gnn_models.yaml',
+                        default='core/yamls/cora/gcns/heart_gnn_models.yaml',
                         help='The configuration file path.')
     parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
-                        default='core/configs/cora/gat_sp1.yaml',
+                        default='core/yamls/cora/gat_sp1.yaml',
                         help='The configuration file path.')
     
     parser.add_argument('--repeat', type=int, default=1,
@@ -225,7 +214,7 @@ if __name__ == "__main__":
             seed = run
         print('seed: ', seed)
 
-        init_seed(seed)
+        seed_everything(seed)
         
         save_path = cfg.save.output_dir+'/lr'+str(cfg.train.lr) \
             + '_drop' + str(cfg.model.dropout) + '_l2'+ \
