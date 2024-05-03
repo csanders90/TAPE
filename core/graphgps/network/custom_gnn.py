@@ -119,7 +119,7 @@ class LinkPredModel(torch.nn.Module):
         
 
     def forward(self, x, edge_index):
-        return self.encode(x, edge_index)
+        return self.encoder(x, edge_index)
     
     def loss(self, pred, link_label):
         return self.loss_fn(pred, link_label)
