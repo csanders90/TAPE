@@ -17,6 +17,8 @@ from utils import get_git_repo_root_path, time_logger
 FILE = 'core/dataset/ogbn_products_orig/ogbn-products.csv'
 FILE_PATH = get_git_repo_root_path() + '/'
 
+
+# arxiv_2023
 def get_raw_text_arxiv_2023_nc(use_text=False, 
                             seed=0):
     """
@@ -71,6 +73,7 @@ def get_raw_text_arxiv_2023_nc(use_text=False,
     return data, text
 
 
+# cora
 def get_cora_nc(SEED=0) -> InMemoryDataset:
     data_X, data_Y, data_citeid, data_edges = parse_cora()
     # data_X = sklearn.preprocessing.normalize(data_X, norm="l1")
@@ -196,7 +199,7 @@ def get_raw_text_cora(use_text, seed=0):
     print(f"not loaded papers: {not_loaded}")
     return data, text
 
-
+# ogbn_arxiv 
 def get_raw_text_ogbn_arxiv_nc(use_text=False, seed=0):
 
     dataset = PygNodePropPredDataset(root='./generated_dataset',
@@ -258,7 +261,7 @@ def get_raw_text_ogbn_arxiv_nc(use_text=False, seed=0):
     return dataset, text
 
 
-
+# products
 def get_raw_text_products_nc(use_text=False, seed=0):
     data = torch.load(FILE_PATH + 'core/dataset/ogbn_products_orig/ogbn-products_subset.pt')
     text = pd.read_csv(FILE_PATH + 'core/dataset/ogbn_products_orig/ogbn-products_subset.csv')
@@ -320,68 +323,6 @@ def _process():
 
     pd.DataFrame.to_csv(graph_df, FILE_PATH + FILE,
                         index=False, columns=['uid', 'nid', 'title', 'content'])
-
-
-
-def get_pubmed_nc(corrected=False, SEED=0):
-    _, data_X, data_Y, data_pubid, data_edges = parse_pubmed()
-    data_X = normalize(data_X, norm="l1")
-
-    torch.manual_seed(SEED)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed(SEED)
-    np.random.seed(SEED)  # Numpy module.
-    random.seed(SEED)  # Python random module.
-
-    # load data
-    data_name = 'PubMed'
-    # path = osp.join(osp.dirname(osp.realpath(__file__)), 'dataset')
-    dataset = Planetoid('./generated_dataset', data_name, transform=T.NormalizeFeatures())
-    data = dataset[0]
-
-    # replace dataset matrices with the PubMed-Diabetes data, for which we have the original pubmed IDs
-    x = torch.tensor(data_X)
-    edge_index = torch.tensor(data_edges)
-    y = torch.tensor(data_Y)
-    num_nodes = data.num_nodes
-    
-    # split data
-    node_id = np.arange(data.num_nodes)
-    np.random.shuffle(node_id)
-
-    train_id = np.sort(node_id[:int(data.num_nodes * 0.6)])
-    val_id = np.sort(
-        node_id[int(data.num_nodes * 0.6):int(data.num_nodes * 0.8)])
-    test_id = np.sort(node_id[int(data.num_nodes * 0.8):])
-
-    if corrected:
-        is_mistake = np.loadtxt(
-            'pubmed_casestudy/pubmed_mistake.txt', dtype='bool')
-        train_id = [i for i in train_id if not is_mistake[i]]
-        val_id = [i for i in val_id if not is_mistake[i]]
-        test_id = [i for i in test_id if not is_mistake[i]]
-
-    train_mask = torch.tensor(
-        [x in train_id for x in range(data.num_nodes)])
-    val_mask = torch.tensor(
-        [x in val_id for x in range(data.num_nodes)])
-    test_mask = torch.tensor(
-        [x in test_id for x in range(data.num_nodes)])
-
-    data = Data(x=x,
-        edge_index=edge_index,
-        y=y,
-        num_nodes=num_nodes,
-        train_mask=train_mask,
-        test_mask=test_mask,
-        val_mask=val_mask,
-        node_attrs=x, 
-        edge_attrs = None, 
-        graph_attrs = None
-    )        
-    dataset._data = data
-    
-    return dataset, data_pubid
 
 
 def parse_pubmed():
@@ -472,6 +413,68 @@ def get_raw_text_pubmed(use_text=False, seed=0):
     TI = df_pubmed['TI'].fillna("")
     text = ['Title: ' + ti + '\n'+'Abstract: ' + ab for ti, ab in zip(TI, AB)]
     return data, text
+
+
+# pubmed
+def get_pubmed_nc(corrected=False, SEED=0):
+    _, data_X, data_Y, data_pubid, data_edges = parse_pubmed()
+    data_X = normalize(data_X, norm="l1")
+
+    torch.manual_seed(SEED)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(SEED)
+    np.random.seed(SEED)  # Numpy module.
+    random.seed(SEED)  # Python random module.
+
+    # load data
+    data_name = 'PubMed'
+    # path = osp.join(osp.dirname(osp.realpath(__file__)), 'dataset')
+    dataset = Planetoid('./generated_dataset', data_name, transform=T.NormalizeFeatures())
+    data = dataset[0]
+
+    # replace dataset matrices with the PubMed-Diabetes data, for which we have the original pubmed IDs
+    x = torch.tensor(data_X)
+    edge_index = torch.tensor(data_edges)
+    y = torch.tensor(data_Y)
+    num_nodes = data.num_nodes
+    
+    # split data
+    node_id = np.arange(data.num_nodes)
+    np.random.shuffle(node_id)
+
+    train_id = np.sort(node_id[:int(data.num_nodes * 0.6)])
+    val_id = np.sort(
+        node_id[int(data.num_nodes * 0.6):int(data.num_nodes * 0.8)])
+    test_id = np.sort(node_id[int(data.num_nodes * 0.8):])
+
+    if corrected:
+        is_mistake = np.loadtxt(
+            'pubmed_casestudy/pubmed_mistake.txt', dtype='bool')
+        train_id = [i for i in train_id if not is_mistake[i]]
+        val_id = [i for i in val_id if not is_mistake[i]]
+        test_id = [i for i in test_id if not is_mistake[i]]
+
+    train_mask = torch.tensor(
+        [x in train_id for x in range(data.num_nodes)])
+    val_mask = torch.tensor(
+        [x in val_id for x in range(data.num_nodes)])
+    test_mask = torch.tensor(
+        [x in test_id for x in range(data.num_nodes)])
+
+    data = Data(x=x,
+        edge_index=edge_index,
+        y=y,
+        num_nodes=num_nodes,
+        train_mask=train_mask,
+        test_mask=test_mask,
+        val_mask=val_mask,
+        node_attrs=x, 
+        edge_attrs = None, 
+        graph_attrs = None
+    )        
+    dataset._data = data
+    
+    return dataset, data_pubid
 
 
 # TEST CODE
