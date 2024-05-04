@@ -5,18 +5,15 @@ import json
 import torch
 import csv
 from data_utils.dataset import CustomDGLDataset
-from data_utils.load_cora_lp import get_cora_casestudy 
-from data_utils.load_arxiv_2023_lp import get_raw_text_arxiv_2023
-from data_utils.load_pubmed_lp import get_pubmed_casestudy
-from data_utils.load_ogbn_arxiv import get_raw_text_ogbn_arxiv_lp
-from data_utils.load_products import get_raw_text_products_lp
+from data_utils.load_data_nc import get_cora_nc, get_pubmed_nc, get_raw_text_ogbn_arxiv_nc, \
+get_raw_text_products_nc, get_raw_text_arxiv_2023_nc
 
-data_loader = {
-    'cora': get_cora_casestudy,
-    'pubmed': get_pubmed_casestudy,
-    'arxiv_2023': get_raw_text_arxiv_2023,
-    'ogbn-arxiv': get_raw_text_ogbn_arxiv_lp,
-    'ogbn-products': get_raw_text_products_lp,
+data_loader_nc = {
+    'cora': get_cora_nc,
+    'pubmed': get_pubmed_nc,
+    'arxiv_2023': get_raw_text_arxiv_2023_nc,
+    'ogbn-arxiv': get_raw_text_ogbn_arxiv_nc,
+    'ogbn-products': get_raw_text_products_nc,
 }
 
 def load_gpt_preds(dataset, topk):
@@ -37,21 +34,21 @@ def load_gpt_preds(dataset, topk):
     return pl
 
 
-def load_data(dataset, use_dgl=False, use_text=False, use_gpt=False, seed=0):
+def load_data_nc(dataset, use_dgl=False, use_text=False, use_gpt=False, seed=0):
     if dataset == 'cora':
-        from data_utils.load_cora import get_raw_text_cora as get_raw_text
+        from data_utils.load_data_nc import get_raw_text_cora as get_raw_text
         num_classes = 7
     elif dataset == 'pubmed':
-        from data_utils.load_pubmed import get_raw_text_pubmed as get_raw_text
+        from data_utils.load_data_nc import get_raw_text_pubmed as get_raw_text
         num_classes = 3
     elif dataset == 'ogbn-arxiv':
-        from core.data_utils.load_ogbn_arxiv import get_raw_text_arxiv as get_raw_text
+        from data_utils.load_data_nc import get_raw_text_ogbn_arxiv_nc as get_raw_text
         num_classes = 40
     elif dataset == 'ogbn-products':
-        from data_utils.load_products import get_raw_text_products as get_raw_text
+        from data_utils.load_data_nc import get_raw_text_products_nc as get_raw_text
         num_classes = 47
     elif dataset == 'arxiv_2023':
-        from data_utils.load_arxiv_2023 import get_raw_text_arxiv_2023 as get_raw_text
+        from data_utils.load_data_nc import get_raw_text_arxiv_2023_nc as get_raw_text
         num_classes = 40
     else:
         exit(f'Error: Dataset {dataset} not supported')
@@ -66,30 +63,17 @@ def load_data(dataset, use_dgl=False, use_text=False, use_gpt=False, seed=0):
     # for finetuning LM
     if use_gpt:
         data, text = get_raw_text(use_text=False, seed=seed)
-        folder_path = 'gpt_responses/{}'.format(dataset)
+        folder_path = f'gpt_responses/{dataset}'
         print(f"using gpt: {folder_path}")
         n = data.y.shape[0]
         text = []
         for i in range(n):
-            filename = str(i) + '.json'
+            filename = f'{str(i)}.json'
             file_path = os.path.join(folder_path, filename)
             with open(file_path, 'r') as file:
                 json_data = json.load(file)
                 content = json_data['choices'][0]['message']['content']
                 text.append(content)
-    # if use_gpt:
-    #     data, text = get_raw_text(use_text=False, seed=seed)
-    #     folder_path = 'llama_responses/{}'.format(dataset)
-    #     print(f"using gpt: {folder_path}")
-    #     n = data.y.shape[0]
-    #     text = []
-    #     for i in range(n):
-    #         filename = str(i) + '.json'
-    #         file_path = os.path.join(folder_path, filename)
-    #         with open(file_path, 'r') as file:
-    #             json_data = json.load(file)
-    #             content = json_data['generation']['content']
-    #             text.append(content)
     else:
         data, text = get_raw_text(use_text=True, seed=seed)
 
