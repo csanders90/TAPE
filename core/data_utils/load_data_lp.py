@@ -17,7 +17,7 @@ from sklearn.preprocessing import normalize
 from utils import get_git_repo_root_path, config_device, init_cfg_test
 from utils import time_logger
 from data_utils.dataset import CustomLinkDataset
-from data_utils.load_pubmed import parse_pubmed
+
 
 FILE = 'core/dataset/ogbn_products_orig/ogbn-products.csv'
 FILE_PATH = get_git_repo_root_path() + '/'
@@ -39,11 +39,11 @@ def get_raw_text_arxiv_2023_lp(args)-> CustomLinkDataset:
         refer to load_arxiv_2023.py, load_ogbn_arxiv.py
     """
 
-    data = torch.load(FILE_PATH + 'dataset/arxiv_2023/graph.pt')
+    data = torch.load(FILE_PATH + 'core/dataset/arxiv_2023/graph.pt')
 
     # data.edge_index = data.adj_t.to_symmetric()
 
-    df = pd.read_csv(FILE_PATH + 'dataset/arxiv_2023_orig/paper_info.csv')
+    df = pd.read_csv(FILE_PATH + 'core/dataset/arxiv_2023_orig/paper_info.csv')
     text = [
         f'Title: {ti}\nAbstract: {ab}'
         for ti, ab in zip(df['title'], df['abstract'])
@@ -51,12 +51,15 @@ def get_raw_text_arxiv_2023_lp(args)-> CustomLinkDataset:
     dataset = CustomLinkDataset('./generated_dataset', 'arxiv_2023', transform=T.NormalizeFeatures())
     dataset._data = data
 
+    undirected = data.is_directed()
+    
     splits = get_split(dataset, 
+                       undirected,
                        args.val_pct, 
-                       args.data.test_pct,
-                       args.data.include_negatives,
+                       args.test_pct,
+                       args.include_negatives,
                        args.split_labels
-                       )
+                       )   
     return dataset, text, splits
 
 
@@ -83,11 +86,6 @@ def parse_cora():
 
 
 def get_cora_lp(args) -> InMemoryDataset:
-    undirected = args.data.undirected
-    include_negatives = args.data.include_negatives
-    val_pct = args.data.val_pct
-    test_pct = args.data.test_pct
-    split_labels = args.data.split_labels
     
     data_X, data_Y, data_citeid, data_edges = parse_cora()
 
@@ -95,9 +93,8 @@ def get_cora_lp(args) -> InMemoryDataset:
 
     transform = T.Compose([
         T.NormalizeFeatures(),  
-        T.ToDevice(device),    
-        T.RandomLinkSplit(num_val=val_pct, num_test=test_pct, is_undirected=undirected,  # 这一步很关键，是在构造链接预测的数据集
-                        split_labels=split_labels, add_negative_train_samples=False),])
+        T.ToDevice(device),  
+        ])
 
     # load data
     dataset = Planetoid('./generated_dataset', 'cora',
@@ -106,8 +103,8 @@ def get_cora_lp(args) -> InMemoryDataset:
     data = dataset[0]
     # check is data has changed and try to return dataset
     x = torch.tensor(data_X).float()
-    edge_index = torch.LongTensor(data_edges).long()
-    y = torch.tensor(data_Y).long()
+    edge_index = torch.LongTensor(data_edges).clone().detach().long() 
+    y = torch.tensor(data_Y).clone().detach().long()
     num_nodes = len(data_Y)
 
     data = Data(x=x,
@@ -120,32 +117,27 @@ def get_cora_lp(args) -> InMemoryDataset:
     )        
     dataset._data = data
 
-    undirected = data.is_undirected()
-
-    transform = RandomLinkSplit(is_undirected=undirected, num_val=val_pct, num_test=test_pct,
-                                add_negative_train_samples=include_negatives, split_labels=split_labels)
-    train_data, val_data, test_data = transform(dataset._data)
-    splits = {'train': train_data, 'valid': val_data, 'test': test_data}
+    undirected = data.is_directed()
+    
+    splits = get_split(dataset, 
+                       undirected,
+                       args.val_pct, 
+                       args.test_pct,
+                       args.include_negatives,
+                       args.split_labels
+                       )   
 
     return dataset, data_citeid, splits
 
 
 # ogbn_arxiv
 def get_raw_text_ogbn_arxiv_lp(args, use_text=False, seed=0)-> InMemoryDataset:
-
-    undirected = args.data.undirected
-    include_negatives = args.data.include_negatives
-    val_pct = args.data.val_pct
-    test_pct = args.data.test_pct
-    split_labels = args.data.split_labels
     
     device = config_device(args)
 
     transform = T.Compose([
         T.NormalizeFeatures(),  
-        T.ToDevice(device),    
-        T.RandomLinkSplit(num_val=val_pct, num_test=test_pct, is_undirected=undirected,  # 这一步很关键，是在构造链接预测的数据集
-                        split_labels=split_labels, add_negative_train_samples=False),])
+        T.ToDevice(device),])
 
     # load data
     dataset = PygNodePropPredDataset(root='./generated_dataset',
@@ -159,7 +151,7 @@ def get_raw_text_ogbn_arxiv_lp(args, use_text=False, seed=0)-> InMemoryDataset:
         
     # check is data has changed and try to return dataset
     x = torch.tensor(data.x).float()
-    edge_index = torch.LongTensor(edge_index).long()
+    edge_index = torch.LongTensor(edge_index.to_torch_sparse_coo_tensor().coalesce().indices()).long()
     y = torch.tensor(data.y).long()
     num_nodes = len(data.y)
 
@@ -172,83 +164,21 @@ def get_raw_text_ogbn_arxiv_lp(args, use_text=False, seed=0)-> InMemoryDataset:
         graph_attrs = None
     )        
     dataset._data = data
-
-    undirected = data.is_undirected()
-
-    transform = RandomLinkSplit(is_undirected=undirected, num_val=val_pct, num_test=test_pct,
-                                add_negative_train_samples=include_negatives, split_labels=split_labels)
-    train_data, val_data, test_data = transform(dataset._data)
-    splits = {'train': train_data, 'valid': val_data, 'test': test_data}
+    undirected = data.is_directed()
+    
+    splits = get_split(dataset, 
+                       undirected,
+                       args.val_pct, 
+                       args.test_pct,
+                       args.include_negatives,
+                       args.split_labels
+                       )   
 
     return dataset, splits
 
 
-def get_split(dataset: Dataset,
-              val_pct: float,
-              test_pct: float,
-              include_negatives: bool,
-              split_labels: bool):
-    undirected = dataset._data.is_undirected()
-
-    transform = RandomLinkSplit(is_undirected=undirected, 
-                                num_val=val_pct,
-                                num_test=test_pct,
-                                add_negative_train_samples=include_negatives, 
-                                split_labels=split_labels)
-
-    train_data, val_data, test_data = transform(dataset._data)
-    return {'train': train_data, 'valid': val_data, 'test': test_data}
-
-
-def get_raw_text_arxiv_2023_lp(args):
-    """
-    Retrieves raw text data related to ArXiv 2023.
-
-    Args:
-        args: A namespace containing data-related arguments.
-
-    Returns:
-        dataset: CustomLinkDataset object with ArXiv 2023 data.
-        text: List of strings containing titles and abstracts of ArXiv 2023 papers.
-        splits: Dictionary containing train, validation, and test data splits.
-    
-    Refs:
-        refer to load_arxiv_2023.py, load_ogbn_arxiv.py
-    """
-    
-    undirected = args.data.undirected
-    include_negatives = args.data.include_negatives
-    val_pct = args.data.val_pct
-    test_pct = args.data.test_pct
-    split_labels = args.data.split_labels
-
-    data = torch.load(FILE_PATH + 'dataset/arxiv_2023/graph.pt')
-
-    # data.edge_index = data.adj_t.to_symmetric()
-    df = pd.read_csv(FILE_PATH + 'dataset/arxiv_2023_orig/paper_info.csv')
-    text = [
-        f'Title: {ti}\nAbstract: {ab}'
-        for ti, ab in zip(df['title'], df['abstract'])
-    ]
-    dataset = CustomLinkDataset('./generated_dataset', 'arxiv_2023', transform=T.NormalizeFeatures())
-    dataset._data = data
-
-    undirected = data.is_undirected()
-
-    transform = RandomLinkSplit(is_undirected=undirected, 
-                                num_val=val_pct,
-                                num_test=test_pct,
-                                add_negative_train_samples=include_negatives, 
-                                split_labels=split_labels)
-
-    train_data, val_data, test_data = transform(dataset._data)
-    splits = {'train': train_data, 'valid': val_data, 'test': test_data}
-
-
-    return dataset, text, splits
-
-
-def get_raw_text_products_lp(use_text=False, seed=0):
+# products_lp
+def get_raw_text_products_lp(args, use_text=False, seed=0):
     data = torch.load(FILE_PATH + 'core/dataset/ogbn_products_orig/ogbn-products_subset.pt')
     text = pd.read_csv(FILE_PATH + 'core/dataset/ogbn_products_orig/ogbn-products_subset.csv')
     text = [f'Product:{ti}; Description: {cont}\n'for ti,
@@ -312,13 +242,102 @@ def _process():
 
     return graph_df
 
+
+def parse_pubmed():
+
+    n_nodes = 19717
+    n_features = 500
+
+    data_X = np.zeros((n_nodes, n_features), dtype='float32')
+    data_Y = [None] * n_nodes
+    data_pubid = [None] * n_nodes
+    data_edges = []
+
+    paper_to_index = {}
+    feature_to_index = {}
+
+    # parse nodes
+    with open(FILE_PATH + 'core/dataset/PubMed_orig/data/Pubmed-Diabetes.NODE.paper.tab', 'r') as node_file:
+        # first two lines are headers
+        node_file.readline()
+        node_file.readline()
+
+        k = 0
+
+        for i, line in enumerate(node_file.readlines()):
+            items = line.strip().split('\t')
+
+            paper_id = items[0]
+            data_pubid[i] = paper_id
+            paper_to_index[paper_id] = i
+
+            # label=[1,2,3]
+            label = int(items[1].split('=')[-1]) - \
+                1  # subtract 1 to zero-count
+            data_Y[i] = label
+
+            # f1=val1 \t f2=val2 \t ... \t fn=valn summary=...
+            features = items[2:-1]
+            for feature in features:
+                parts = feature.split('=')
+                fname = parts[0]
+                fvalue = float(parts[1])
+
+                if fname not in feature_to_index:
+                    feature_to_index[fname] = k
+                    k += 1
+
+                data_X[i, feature_to_index[fname]] = fvalue
+
+    # parse graph
+    data_A = np.zeros((n_nodes, n_nodes), dtype='float32')
+
+    with open(FILE_PATH+ 'core/dataset/PubMed_orig/data/Pubmed-Diabetes.DIRECTED.cites.tab', 'r') as edge_file:
+        # first two lines are headers
+        edge_file.readline()
+        edge_file.readline()
+
+        for i, line in enumerate(edge_file.readlines()):
+
+            # edge_id \t paper:tail \t | \t paper:head
+            items = line.strip().split('\t')
+
+            edge_id = items[0]
+
+            tail = items[1].split(':')[-1]
+            head = items[3].split(':')[-1]
+
+            data_A[paper_to_index[tail], paper_to_index[head]] = 1.0
+            data_A[paper_to_index[head], paper_to_index[tail]] = 1.0
+            if head != tail:
+                data_edges.append(
+                    (paper_to_index[head], paper_to_index[tail]))
+                data_edges.append(
+                    (paper_to_index[tail], paper_to_index[head]))
+
+    return data_A, data_X, data_Y, data_pubid, np.unique(data_edges, axis=0).transpose()
+
+
+def get_raw_text_pubmed(use_text=False, seed=0):
+    data, data_pubid = get_pubmed_lp(SEED=seed)
+    if not use_text:
+        return data, None
+
+    f = open(FILE_PATH + 'core/dataset/PubMed_orig/pubmed.json')
+    pubmed = json.load(f)
+    df_pubmed = pd.DataFrame.from_dict(pubmed)
+
+    AB = df_pubmed['AB'].fillna("")
+    TI = df_pubmed['TI'].fillna("")
+    text = ['Title: ' + ti + '\n'+'Abstract: ' + ab for ti, ab in zip(TI, AB)]
+    return data, text
+
+
+
+# pubmed_lp
 def get_pubmed_lp(args):
     corrected = False
-    undirected = args.data.undirected
-    include_negatives = args.data.include_negatives
-    val_pct = args.data.val_pct
-    test_pct = args.data.test_pct
-    split_labels = args.data.split_labels
+    undirected = args.undirected
     
     _, data_X, data_Y, data_pubid, data_edges = parse_pubmed()
     data_X = normalize(data_X, norm="l1")
@@ -350,89 +369,61 @@ def get_pubmed_lp(args):
         edge_attrs = None, 
         graph_attrs = None
     )        
-
-    undirected = data.is_undirected()
-
-    transform = RandomLinkSplit(is_undirected=undirected, num_val=val_pct, num_test=test_pct,
-                                add_negative_train_samples=include_negatives, split_labels=split_labels)
-    train_data, val_data, test_data = transform(dataset._data)
-    splits = {'train': train_data, 'valid': val_data, 'test': test_data}
-    
     dataset._data = data
+    undirected = data.is_undirected()
     
+    splits = get_split(dataset, 
+                       undirected,
+                       args.val_pct, 
+                       args.test_pct,
+                       args.include_negatives,
+                       args.split_labels
+                       )    
     return dataset, data_pubid, splits
 
 
-def get_pubmed_lp(args):
-    corrected = False
-    undirected = args.data.undirected
-    include_negatives = args.data.include_negatives
-    val_pct = args.data.val_pct
-    test_pct = args.data.test_pct
-    split_labels = args.data.split_labels
-    
-    _, data_X, data_Y, data_pubid, data_edges = parse_pubmed()
-    data_X = normalize(data_X, norm="l1")
+def get_split(dataset: Dataset,
+              undirected: bool, 
+              val_pct: float,
+              test_pct: float,
+              include_negatives: bool,
+              split_labels: bool):
 
-    # load data
-    dataset = Planetoid('./generated_dataset', 'PubMed', transform=T.NormalizeFeatures())
-    data = dataset[0]
+    transform = RandomLinkSplit(is_undirected=undirected, 
+                                num_val=val_pct,
+                                num_test=test_pct,
+                                add_negative_train_samples=include_negatives, 
+                                split_labels=split_labels)
 
-    # replace dataset matrices with the PubMed-Diabetes data, for which we have the original pubmed IDs
-    x = torch.tensor(data_X)
-    edge_index = torch.tensor(data_edges)
-    y = torch.tensor(data_Y)
-    num_nodes = data.num_nodes
-    
-    # split data
-    if corrected:
-        is_mistake = np.loadtxt(
-            'pubmed_casestudy/pubmed_mistake.txt', dtype='bool')
-        train_id = [i for i in train_id if not is_mistake[i]]
-        val_id = [i for i in val_id if not is_mistake[i]]
-        test_id = [i for i in test_id if not is_mistake[i]]
-
-
-    data = Data(x=x,
-        edge_index=edge_index,
-        y=y,
-        num_nodes=num_nodes,
-        node_attrs=x, 
-        edge_attrs = None, 
-        graph_attrs = None
-    )        
-
-    undirected = data.is_undirected()
-
-    transform = RandomLinkSplit(is_undirected=undirected, num_val=val_pct, num_test=test_pct,
-                                add_negative_train_samples=include_negatives, split_labels=split_labels)
     train_data, val_data, test_data = transform(dataset._data)
-    splits = {'train': train_data, 'valid': val_data, 'test': test_data}
-    
-    dataset._data = data
-    
-    return dataset, data_pubid, splits
-    
+    return {'train': train_data, 'valid': val_data, 'test': test_data}
+
+
 # TEST CODE
 if __name__ == '__main__':
     args = init_cfg_test()
-    get_raw_text_arxiv_2023_lp(args)
+    print(args)
+    dataset, text, splits = get_raw_text_arxiv_2023_lp(args.data)
+    print(dataset)
+    print(len(text))
     
-    dataset, data_citedid, splits = get_cora_lp(args)
-    
-    data, text = get_raw_text_ogbn_arxiv_lp(use_text=True)
+    dataset, data_citedid, splits = get_cora_lp(args.data)
+    print(dataset)
+    print(len(text))
+        
+    data, text = get_raw_text_ogbn_arxiv_lp(args.data, use_text=False, seed=0)
     print(data)
     print(len(text))
     
-    dataset, splits = get_raw_text_ogbn_arxiv_lp(args, use_text=False, seed=0)
-    
+    dataset, splits = get_raw_text_ogbn_arxiv_lp(args.data, use_text=False, seed=0)
     print(dataset)
     print(splits['test'])
     
     
-    data, text = get_raw_text_products_lp(True)
+    data, text = get_raw_text_products_lp(args.data, True)
     print(data)
     print(text[0])
     _process()
 
-    dataset, data_pubid, splits = get_pubmed_lp(args)
+    dataset, data_pubid, splits = get_pubmed_lp(args.data)
+    print(dataset)
