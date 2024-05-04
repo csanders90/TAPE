@@ -2,21 +2,22 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-import torch
-import pprint 
 import argparse
-from sklearn.metrics import *
+from os.path import abspath, dirname, join
+from pprint import pprint
+import logging
+import torch
 from torch_sparse import SparseTensor
 import torch_geometric.transforms as T
-from torch_geometric import seed_everything
 from torch_geometric.utils import to_undirected
 from torch_geometric.graphgym.config import cfg
-
+from torch_geometric import seed_everything
+from torch_geometric.nn import GCNConv, SAGEConv, GINConv, GATConv
 from ogb.linkproppred import Evaluator
-from graphgps.network.gnns_heart import (GCN, GAT, SAGE, GCNConv, SAGEConv, GINConv, GATConv, mlp_score)
-
-from utils import Logger, save_emb, parse_args, get_git_repo_root_path, get_root_dir, get_logger, config_device
-from gcns.example import set_cfg, data_loader, Trainer
+from graphgps.network.heart_gnn import (GCN, GAT, SAGE, mlp_score)
+from data_utils.load import data_loader
+from utils import Logger, save_emb, get_root_dir, get_logger, config_device, set_cfg, \
+parse_args, get_git_repo_root_path
 from trainer_heart import train, test, test_edge
 
 
@@ -24,8 +25,8 @@ def get_config_dir():
     file_dir = os.path.dirname(os.path.realpath(__file__))
     return os.path.join(file_dir, "config")
 
-dir_path = get_root_dir()
-log_print		= get_logger('testrun', 'log', get_config_dir())
+dir_path    = get_root_dir()
+log_prin    = get_logger('testrun', 'log', get_config_dir())
 
 def parse_args() -> argparse.Namespace:
     r"""Parses the command line arguments."""
@@ -52,25 +53,20 @@ def parse_args() -> argparse.Namespace:
 def data_preprocess(cfg):
 
     device = cfg.train.device
-    dataset, data_cited, splits = data_loader[cfg.data.name](cfg) 
+    dataset, data_cited, splits = data_loader[cfg.data.name](cfg)
     data = dataset._data
 
     edge_index = data.edge_index
     emb = None # here is your embedding
     node_num = data.num_nodes
 
-    if hasattr(data, 'x'):
-        if data.x != None:
-            x = data.x
-            cfg.model.input_channels = x.size(1)
-        else:
-            emb = torch.nn.Embedding(node_num, args.hidden_channels)
-            cfg.model.input_channels = args.hidden_channels
-
+    if hasattr(data, 'x') and data.x != None:
+        x = data.x
+        cfg.model.input_channels = x.size(1)
     else:
         emb = torch.nn.Embedding(node_num, args.hidden_channels)
         cfg.model.input_channels = args.hidden_channels
-    
+
     if not hasattr(data, 'edge_weight'): 
         train_edge_weight = torch.ones(splits['train'].edge_index.shape[1])
         train_edge_weight = train_edge_weight.to(torch.float)
@@ -88,7 +84,7 @@ def data_preprocess(cfg):
         edge_weight = torch.ones(full_edge_index.shape[1])
         train_edge_weight = torch.ones(splits['train'].edge_index.shape[1])
         A = SparseTensor.from_edge_index(full_edge_index, edge_weight.view(-1), [data.num_nodes, data.num_nodes])
-        
+
         data.full_adj_t = A
         data.full_edge_index = full_edge_index
         print(data.full_adj_t)
@@ -122,7 +118,7 @@ if __name__ == "__main__":
     
     dataset, splits, emb, cfg, train_edge_weight = data_preprocess(cfg)
 
-    pprint.pprint(cfg)
+    pprint(cfg)
     model = eval(cfg.model.type)(cfg.model.input_channels, cfg.model.hidden_channels,
                                  cfg.model.hidden_channels, cfg.model.num_layers, 
                                  cfg.model.dropout).to(device)
@@ -273,7 +269,7 @@ if __name__ == "__main__":
                     for key, result in results_rank.items():
                         train_hits, valid_hits, test_hits = result
                         
-                log_print.info(
+                logging.info(
                     f'Run: {run + 1:02d}, '
                         f'Epoch: {epoch:02d}, '
                         f'Loss: {loss:.4f}, '
@@ -286,7 +282,7 @@ if __name__ == "__main__":
                 best_test = round(r[r[:, 1].argmax(), 2].item(), 4)
 
                 print(eval_metric)
-                log_print.info(f'best valid: {100*best_valid_current:.2f}%, '
+                logging.info(f'best valid: {100*best_valid_current:.2f}%, '
                                 f'best test: {100*best_test:.2f}%')
                 
                 if len(loggers['AUC'].results[run]) > 0:
@@ -295,7 +291,7 @@ if __name__ == "__main__":
                     best_test_auc = round(r[r[:, 1].argmax(), 2].item(), 4)
                     
                     print('AUC')
-                    log_print.info(f'best valid: {100*best_valid_auc:.2f}%, '
+                    logging.info(f'best valid: {100*best_valid_auc:.2f}%, '
                                 f'best test: {100*best_test_auc:.2f}%')
                 
                 print('---')

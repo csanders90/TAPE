@@ -1,25 +1,50 @@
 # modified from https://github.com/AndrewSpano/Stanford-CS224W-ML-with-Graphs/blob/main/CS224W_Colab_3.ipynb
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-# sys.path.insert(0, '/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE/core')
 
-from torch_geometric.graphgym.cmd_args import parse_args
-from torch_geometric.graphgym.config import (cfg, dump_cfg, 
-                                             makedirs_rm_exist, set_cfg)
 from sklearn.metrics import *
 import torch
+import torch.optim as optim
 import logging
-from torch_geometric.data.makedirs import makedirs
+import os.path as osp 
+
 from torch_geometric import seed_everything
+from torch_geometric.data.makedirs import makedirs
 from torch_geometric.graphgym.train import train
 from torch_geometric.graphgym.utils.agg_runs import agg_runs
 from torch_geometric.graphgym.utils.comp_budget import params_count
 from torch_geometric.graphgym.utils.device import auto_select_device
+from torch_geometric.graphgym.cmd_args import parse_args
+from torch_geometric.graphgym.config import (cfg, dump_cfg, 
+                                             makedirs_rm_exist, set_cfg)
 
-from gcns.example import GraphSage, GAT, LinkPredModel, GCNEncoder, GAE, VGAE, VariationalGCNEncoder
-from gcns.example import Trainer 
+from graphgps.train.opt_train import Trainer 
+from graphgps.network.custom_gnn import create_model
+
 from data_utils.load import data_loader
 from utils import set_cfg, parse_args, get_git_repo_root_path
+from graphgps.finetuning import get_final_pretrained_ckpt
+
+
+def build_optimizer(args, params):
+    weight_decay = args.weight_decay
+    filter_fn = filter(lambda p : p.requires_grad, params)
+    if args.opt == 'adam':
+        optimizer = optim.Adam(filter_fn, lr=args.lr, weight_decay=weight_decay)
+    elif args.opt == 'sgd':
+        optimizer = optim.SGD(filter_fn, lr=args.lr, momentum=0.95, weight_decay=weight_decay)
+    elif args.opt == 'rmsprop':
+        optimizer = optim.RMSprop(filter_fn, lr=args.lr, weight_decay=weight_decay)
+    elif args.opt == 'adagrad':
+        optimizer = optim.Adagrad(filter_fn, lr=args.lr, weight_decay=weight_decay)
+    if args.opt_scheduler == 'none':
+        return None, optimizer
+    elif args.opt_scheduler == 'step':
+        scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.opt_decay_step, gamma=args.opt_decay_rate)
+    elif args.opt_scheduler == 'cos':
+        scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.opt_restart)
+    return scheduler, optimizer
+
 
 def custom_set_out_dir(cfg, cfg_fname, name_tag):
     """Set custom main output directory path to cfg.
@@ -93,7 +118,7 @@ def set_printing():
     logging.root.handlers = []
     logging_cfg = {'level': logging.INFO, 'format': '%(message)s'}
     makedirs(cfg.run_dir)
-    h_file = logging.FileHandler('{}/logging.log'.format(cfg.run_dir))
+    h_file = logging.FileHandler(f'{cfg.run_dir}/logging.log')
     h_stdout = logging.StreamHandler(sys.stdout)
     if cfg.print == 'file':
         logging_cfg['handlers'] = [h_file]
@@ -106,21 +131,115 @@ def set_printing():
     logging.basicConfig(**logging_cfg)
 
 
+def create_optimizer(model, optimizer_config):
+    # sourcery skip: list-comprehension
+    r"""
+    Create optimizer for the model
+
+    Args:
+        params: PyTorch model parameters
+
+    Returns: PyTorch optimizer
+
+    """
+    params = []
+    # Iterate over named parameters of the model
+    params.extend(
+        param for _, param in model.named_parameters() if param.requires_grad
+    )
+    optimizer = optimizer_config.optimizer
+    if optimizer.type == 'adam':
+        optimizer = optim.Adam(params, lr=optimizer.base_lr,
+                               weight_decay=optimizer.weight_decay)
+    elif optimizer.type == 'sgd':
+        optimizer = optim.SGD(params, lr=optimizer.base_lr,
+                              momentum=optimizer.momentum,
+                              weight_decay=optimizer.weight_decay)
+    else:
+        raise ValueError(f'Optimizer {optimizer_config.optimizer} not supported')
+
+    return optimizer
+
+
+def create_scheduler(optimizer, scheduler_config):
+    r"""
+    Create learning rate scheduler for the optimizer
+
+    Args:
+        optimizer: PyTorch optimizer
+
+    Returns: PyTorch scheduler
+
+    """
+
+    # Try to load customized scheduler
+    if scheduler_config.scheduler == 'none':
+        scheduler = optim.lr_scheduler.StepLR(
+            optimizer, step_size=scheduler_config.max_epoch + 1)
+    elif scheduler_config.scheduler == 'step':
+        scheduler = optim.lr_scheduler.MultiStepLR(
+            optimizer, milestones=scheduler_config.steps,
+            gamma=scheduler_config.lr_decay)
+    elif scheduler_config.scheduler == 'cos':
+        scheduler = \
+            optim.lr_scheduler.CosineAnnealingLR(
+                optimizer,
+                T_max=scheduler_config.max_epoch)
+    else:
+        raise ValueError(f'Scheduler {scheduler_config.scheduler} not supported')
+    return scheduler
+
+
+def init_model_from_pretrained(model, pretrained_dir, freeze_pretrained=False):
+    """ Copy model parameters from pretrained model except the prediction head.
+
+    Args:
+        model: Initialized model with random weights.
+        pretrained_dir: Root directory of saved pretrained model.
+        freeze_pretrained: If True, do not finetune the loaded pretrained
+            parameters, train the prediction head only. If False, train all.
+
+    Returns:
+        Updated pytorch model object.
+    """
+    ckpt_file = get_final_pretrained_ckpt(osp.join(pretrained_dir, '0', 'ckpt'))
+    logging.info(f"[*] Loading from pretrained model: {ckpt_file}")
+
+    ckpt = torch.load(ckpt_file)
+    pretrained_dict = ckpt['model_state']
+    model_dict = model.state_dict()
+
+    # Filter out prediction head parameter keys.
+    pretrained_dict = {k: v for k, v in pretrained_dict.items()
+                       if not k.startswith('post_mp')}
+    # Overwrite entries in the existing state dict.
+    model_dict.update(pretrained_dict)
+    # Load the new state dict.
+    model.load_state_dict(model_dict)
+
+    if freeze_pretrained:
+        for key, param in model.named_parameters():
+            if not key.startswith('post_mp'):
+                param.requires_grad = False
+    return model
+
+
+
 if __name__ == "__main__":
 
-    FILE_PATH = get_git_repo_root_path() + '/'
+    FILE_PATH = f'{get_git_repo_root_path()}/'
 
     args = parse_args()
     # Load args file
-    
+
     cfg = set_cfg(FILE_PATH, args)
     cfg.merge_from_list(args.opts)
     custom_set_out_dir(cfg, args.cfg_file, cfg.wandb.name_tag)
     dump_cfg(cfg)
-    
+
     # Set Pytorch environment
     torch.set_num_threads(cfg.run.num_threads)
-    
+
     for run_id, seed, split_index in zip(*run_loop_settings()):
         # Set configurations for each run
         custom_set_run_dir(cfg, run_id)
@@ -129,32 +248,32 @@ if __name__ == "__main__":
         cfg.run_id = run_id
         seed_everything(cfg.seed)
         auto_select_device()
-        
-        dataset, data_cited, splits = data_loader[cfg.data.name](cfg)   
 
-        if cfg.model.type == 'GAT':
-            model = LinkPredModel(GAT(cfg))
-        elif cfg.model.type == 'GraphSage':
-            model = LinkPredModel(GraphSage(cfg))
-        elif cfg.model.type == 'GCNEncode':
-            model = LinkPredModel(GCNEncoder(cfg))
+        dataset, data_cited, splits = data_loader[cfg.data.name](cfg)
+
+        model = create_model(cfg)
         
-        if cfg.model.type == 'gae':
-            model = GAE(GCNEncoder(cfg))
-        elif cfg.model.type == 'vgae':
-            model = VGAE(VariationalGCNEncoder(cfg))
-            
-        optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+        logging.info(model)
+        logging.info(cfg)
+        cfg.params = params_count(model)
+        logging.info(f'Num parameters: {cfg.params}')
+
+        # optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+        optimizer = create_optimizer(model, cfg)
+
+        if cfg.train.finetune:
+            model = init_model_from_pretrained(model, cfg.train.finetune,
+                                               cfg.train.freeze_pretrained)
 
         trainer = Trainer(FILE_PATH,
                     cfg,
                     model, 
                     optimizer,
                     splits)
-        
+
         trainer.train()
-        results_dict = trainer.evaluate()
-        
+        results_dict = trainer._evaluate()
+
         trainer.save_result(results_dict)
         
     

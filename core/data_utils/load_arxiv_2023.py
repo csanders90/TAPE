@@ -15,7 +15,7 @@ FILE_PATH = get_git_repo_root_path() + '/'
 def get_raw_text_arxiv_2023(use_text=False, seed=0):
     """
     Load and process the arxiv_2023 dataset for node classification task. 
-    
+    # TODO add data resource
     Args:
         use_text (bool, False): If True, the raw text of the dataset will be used. 
         seed (int, 0): The seed RNG for reproducibility of the dataset split. 
@@ -70,4 +70,4 @@ def get_raw_text_arxiv_2023(use_text=False, seed=0):
 if __name__ == '__main__':
     data, text = get_raw_text_arxiv_2023(use_text=True)
     print(data)
-    print(len(text))
+    print(text[0])

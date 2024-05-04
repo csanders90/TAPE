@@ -1,12 +1,11 @@
-
-import torch
-import torch.nn.functional as F
-
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from utils import *
 # from logger import Logger
+
 import torch
+import torch.nn.functional as F
+import torch_geometric
 from torch.utils.data import DataLoader
 from torch_sparse import SparseTensor
 from torch_geometric.utils import negative_sampling
@@ -14,6 +13,7 @@ from torch_geometric.graphgym.config import cfg
 from sklearn.metrics import *
 from torch_sparse import SparseTensor
 from heuristic.eval import get_metric_score
+from torch.utils.data import DataLoader
 
 
 def train(model, 
@@ -95,6 +95,53 @@ def train(model,
         total_examples += num_examples
 
     return total_loss / total_examples
+
+
+def train_opt(model, score_func, train_pos, x, optimizer, batch_size):
+    model.train()
+    score_func.train()
+
+    total_loss = total_examples = 0
+
+    for perm in DataLoader(train_pos, batch_size, shuffle=True):
+        optimizer.zero_grad()
+
+        num_nodes = x.size(0)
+
+        mask = torch.ones(train_pos.size(0), dtype=torch.bool).to(train_pos.device)
+        mask[perm] = 0
+
+        train_edge_mask = train_pos[mask].transpose(1, 0)
+        train_edge_mask = torch.cat((train_edge_mask, train_edge_mask[[1, 0]]), dim=1)
+        edge_weight_mask = torch.ones(train_edge_mask.size(1)).to(torch.float).to(train_pos.device)
+
+        adj = SparseTensor.from_edge_index(train_edge_mask, edge_weight_mask, [num_nodes, num_nodes]).to(train_pos.device)
+
+        h = model(x, adj)
+
+        edge_index = train_pos[perm].t()
+
+        pos_out = score_func(h[edge_index[0]], h[edge_index[1]])
+        pos_loss = torch.nn.BCEWithLogitsLoss()(pos_out, torch.ones_like(pos_out))
+
+        neg_edge_index = torch_geometric.nn.negative_sampling(edge_index, num_nodes=num_nodes)
+        neg_out = score_func(h[neg_edge_index[0]], h[neg_edge_index[1]])
+        neg_loss = torch.nn.BCEWithLogitsLoss()(neg_out, torch.zeros_like(neg_out))
+
+        loss = pos_loss + neg_loss
+        loss.backward()
+
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        torch.nn.utils.clip_grad_norm_(score_func.parameters(), 1.0)
+
+        optimizer.step()
+
+        num_examples = pos_out.size(0)
+        total_loss += loss.item() * num_examples
+        total_examples += num_examples
+
+    return total_loss / total_examples
+
 
 
 @torch.no_grad()
