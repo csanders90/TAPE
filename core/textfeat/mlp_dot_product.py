@@ -12,7 +12,7 @@ from sklearn.neural_network import MLPClassifier
 from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
 
 from heuristic.eval import get_metric_score
-from data_utils.load import data_loader
+from data_utils.load import data_loader_nc
 from embedding.tune_utils import parse_args, param_tune_acc_mrr 
 from utils import get_git_repo_root_path, append_acc_to_excel, append_mrr_to_excel, set_cfg
 from lpda.adjacency import plot_coo_matrix, construct_sparse_adj
@@ -123,7 +123,7 @@ def MLP_as_compat(splits, max_iter=10000, method='node_sim', predict='soft', dat
 def eval_node_sim_acc(cfg) -> None:
     """load text attribute graph in link predicton setting
     """
-    dataset, data_cited, splits = data_loader[cfg.data.name](cfg)
+    dataset, data_cited, splits = data_loader_nc[cfg.data.name](cfg)
     
     # ust test edge_index as full_A
     full_edge_index = splits['test'].edge_index

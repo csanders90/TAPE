@@ -352,9 +352,9 @@ def load_text_pubmed() -> List[str]:
     return ['Title: ' + ti + '\n'+'Abstract: ' + ab for ti, ab in zip(TI, AB)]
 
 
-def load_tag_pubmed() -> Tuple[Data, List[str]]:
+def load_tag_pubmed(use_mask) -> Tuple[Data, List[str]]:
     # Add your implementation here
-    graph = load_graph_pubmed()
+    graph = load_graph_pubmed(use_mask)
     text = load_text_pubmed()
     return graph, text
 

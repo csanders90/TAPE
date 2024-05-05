@@ -1,25 +1,19 @@
 # TODO: Not tested error 
-from ogb.nodeproppred import PygNodePropPredDataset
 import torch_geometric.transforms as T
 import torch
 import pandas as pd
-import json
-import numpy as np
 import os, sys
-import time
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from torch_geometric.transforms import RandomLinkSplit
 from data_utils.dataset import CustomPygDataset, CustomLinkDataset
 from heuristic.lsf import CN, AA, RA, InverseRA
 from heuristic.gsf import Ben_PPR, shortest_path, katz_apro, katz_close , SymPPR
-from data_utils.load_pubmed import get_raw_text_pubmed, get_pubmed_casestudy, parse_pubmed
 import matplotlib.pyplot as plt
 from lpda.adjacency import construct_sparse_adj
 import scipy.sparse as ssp
 from lpda.adjacency import plot_coo_matrix, plot_pos_neg_adj
 from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
 from eval import evaluate_auc, evaluate_hits, evaluate_mrr, get_metric_score, get_prediction
-from utils import get_git_repo_root_path
 FILE_PATH = get_git_repo_root_path() + '/'
 from utils import get_git_repo_root_path, append_acc_to_excel, append_mrr_to_excel
 

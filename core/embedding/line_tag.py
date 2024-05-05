@@ -28,9 +28,7 @@ import itertools
 import scipy.sparse as ssp
 
 from heuristic.eval import get_metric_score
-from heuristic.pubmed_heuristic import get_pubmed_casestudy
-from heuristic.cora_heuristic import get_cora_casestudy
-from heuristic.arxiv2023_heuristic import get_raw_text_arxiv_2023
+from data_utils.load import load_data_lp
 from lpda.adjacency import plot_coo_matrix, construct_sparse_adj
 from embedding.tune_utils import (
     get_git_repo_root_path,
@@ -38,12 +36,6 @@ from embedding.tune_utils import (
 )
 import wandb 
 
-
-data_loader = {
-    'cora': get_cora_casestudy,
-    'pubmed': get_pubmed_casestudy,
-    'arxiv_2023': get_raw_text_arxiv_2023
-}
 
 if __name__ == "__main__":
 
@@ -69,7 +61,7 @@ if __name__ == "__main__":
         device = 'cpu'
         
     max_iter = cfg.model.line.max_iter
-    dataset, data_cited, splits = data_loader[cfg.data.name](cfg)
+    dataset, data_cited, splits = load_data_lp[cfg.data.name](cfg)
     
     full_edge_index = splits['test'].edge_index
     full_edge_weight = torch.ones(full_edge_index.size(1))
