@@ -14,9 +14,7 @@ from ogb.linkproppred import Evaluator
 from yacs.config import CfgNode as CN
 
 from heuristic.eval import get_metric_score
-from heuristic.pubmed_heuristic import get_pubmed_casestudy
-from heuristic.cora_heuristic import get_cora_casestudy
-from heuristic.arxiv2023_heuristic import get_raw_text_arxiv_2023
+from data_utils.load import load_data_lp as data_loader
 
 from embedding.tune_utils import (
     get_git_repo_root_path
@@ -32,13 +30,6 @@ from embedding.tune_utils import (
     param_tune_acc_mrr,
     FILE_PATH,
 )
-
-# Constants
-data_loader = {
-    'cora': get_cora_casestudy,
-    'pubmed': get_pubmed_casestudy,
-    'arxiv_2023': get_raw_text_arxiv_2023
-}
 
 
 if __name__ == "__main__":

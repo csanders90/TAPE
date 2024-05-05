@@ -189,10 +189,12 @@ def append_mrr_to_excel(uuid_val, metrics_mrr, root, name, method):
 def config_device(cfg):
     # device 
     try:
-        if cfg.data.device is not None:
-            return cfg.data.device
+        if cfg.device is not None:
+            return cfg.device
         elif cfg.train.device is not None:
             return cfg.train.device
+        elif cfg.data.device is not None:
+            return cfg.data.device
     except:
         num_cuda_devices = 0
         if torch.cuda.is_available():
@@ -230,6 +232,10 @@ def init_cfg_test():
             'val_pct': 0.1,
             'test_pct': 0.1,
             'split_labels': True,
+            'device': 'cpu'
+            },
+        'train':  {
+                'device': 'cpu'
             }
     }
     cfg = CN(cfg_dict)

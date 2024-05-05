@@ -12,7 +12,7 @@ from torch_geometric.transforms import RandomLinkSplit
 import pandas as pd
 from torch_geometric.data import Data, InMemoryDataset
 from lpda.adjacency import plot_coo_matrix
-from data_utils.load_pubmed import get_raw_text_pubmed, get_pubmed_casestudy, parse_pubmed
+from data_utils.load_data_lp import get_raw_text_pubmed, get_pubmed_lp
 import matplotlib.pyplot as plt
 from lpda.adjacency import construct_sparse_adj
 import scipy.sparse as ssp
@@ -31,62 +31,9 @@ from textfeat.mlp_dot_product import pairwise_prediction
 
 FILE_PATH = get_git_repo_root_path() + '/'
 
-
-def get_pubmed_casestudy(
-                        undirected = True,
-                        include_negatives = True,
-                        val_pct = 0.15,
-                        test_pct = 0.05,
-                        split_labels = True):
-    corrected = False
-    
-    _, data_X, data_Y, data_pubid, data_edges = parse_pubmed()
-    data_X = normalize(data_X, norm="l1")
-
-    # load data
-    data_name = 'PubMed'
-    # path = osp.join(osp.dirname(osp.realpath(__file__)), 'dataset')
-    dataset = Planetoid('./dataset', data_name, transform=T.NormalizeFeatures())
-    data = dataset[0]
-
-    # replace dataset matrices with the PubMed-Diabetes data, for which we have the original pubmed IDs
-    x = torch.tensor(data_X)
-    edge_index = torch.tensor(data_edges)
-    y = torch.tensor(data_Y)
-    num_nodes = data.num_nodes
-    
-    # split data
-    if corrected:
-        is_mistake = np.loadtxt(
-            'pubmed_casestudy/pubmed_mistake.txt', dtype='bool')
-        train_id = [i for i in train_id if not is_mistake[i]]
-        val_id = [i for i in val_id if not is_mistake[i]]
-        test_id = [i for i in test_id if not is_mistake[i]]
-
-
-    data = Data(x=x,
-        edge_index=edge_index,
-        y=y,
-        num_nodes=num_nodes,
-        node_attrs=x, 
-        edge_attrs = None, 
-        graph_attrs = None
-    )        
-
-    undirected = data.is_undirected()
-
-    transform = RandomLinkSplit(is_undirected=undirected, num_val=val_pct, num_test=test_pct,
-                                add_negative_train_samples=include_negatives, split_labels=split_labels)
-    train_data, val_data, test_data = transform(dataset._data)
-    splits = {'train': train_data, 'valid': val_data, 'test': test_data}
-    
-    dataset._data = data
-    
-    return dataset, data_pubid, splits
-
        
 def eval_pubmed_acc(name) -> Dict:
-    dataset, data_pubid, splits = get_pubmed_casestudy(
+    dataset, data_pubid, splits = get_pubmed_lp(
                             undirected = True,
                             include_negatives = True,
                             val_pct = 0.15,
@@ -97,34 +44,28 @@ def eval_pubmed_acc(name) -> Dict:
     test_split = splits['test']
     labels = test_split.edge_label
     test_index = test_split.edge_label_index
-    
+
     edge_index = splits['test'].edge_index
     edge_weight = torch.ones(edge_index.size(1))
     num_nodes = dataset._data.num_nodes
-    
+
     A = ssp.csr_matrix((edge_weight.view(-1), (edge_index[0], edge_index[1])), shape=(num_nodes, num_nodes)) 
 
     result_acc = {}
     for use_lsf in ['CN', 'AA', 'RA', 'InverseRA']:
         scores, edge_index = eval(use_lsf)(A, test_index)
-        
+
         plt.figure()
         plt.plot(scores)
         plt.plot(labels)
         plt.savefig(f'pubmed{use_lsf}.png')
-        
+
         acc = torch.sum(scores == labels)/scores.shape[0]
         result_acc.update({f"{use_lsf}_acc" :acc})
-        
+
     m = construct_sparse_adj(edge_index)
     plot_coo_matrix(m, f'{name}_test_edge_index.png')
-            
-    # 'shortest_path', 'katz_apro', 'katz_close', 'Ben_PPR'
-    # for use_gsf in ['Ben_PPR', 'SymPPR']:
-    #     scores, edge_reindex = eval(use_gsf)(A, test_index)
-        
-        # print(scores)
-        # print(f" {use_heuristic}: accuracy: {scores}")
+
     #     pred = torch.zeros(scores.shape)
     #     cutoff = 0.05
     #     thres = scores.max()*cutoff 
@@ -133,8 +74,8 @@ def eval_pubmed_acc(name) -> Dict:
 
     #     acc = torch.sum(pred == labels)/scores.shape[0]
     #     result_acc.update({f"{use_gsf}_acc" :acc})
-    
-    
+
+
     # for use_gsf in ['shortest_path', 'katz_apro', 'katz_close']:
     #     scores = eval(use_gsf)(A, test_index)
         
@@ -145,7 +86,7 @@ def eval_pubmed_acc(name) -> Dict:
         
     #     acc = torch.sum(pred == labels)/labels.shape[0]
     #     result_acc.update({f"{use_gsf}_acc" :acc})
-        
+
     for use_heuristic in ['pairwise_pred']:
         for dist in ['dot']:
             scores = pairwise_prediction(dataset._data.x, test_index, dist)
@@ -155,19 +96,20 @@ def eval_pubmed_acc(name) -> Dict:
             test_pred[scores <= thres] = 0
             test_pred[scores > thres] = 1
             acc = torch.sum(test_pred == labels)/labels.shape[0]
-            
+
             plt.figure()
             plt.plot(test_pred)
             plt.plot(labels)
             plt.savefig(f'{use_heuristic}.png')
-        
-        result_acc.update({f"{use_heuristic}_acc" :acc})
-        
+
+        result_acc[f"{use_heuristic}_acc"] = acc
+
     return result_acc
+
 
 def eval_pubmed_mrr(name):
     
-    dataset, data_pubid, splits = get_pubmed_casestudy(
+    dataset, data_pubid, splits = get_pubmed_lp(
                             undirected = True,
                             include_negatives = True,
                             val_pct = 0.15,
@@ -198,26 +140,26 @@ def eval_pubmed_mrr(name):
     
     result_mrr = {}
     # 'InverseRA'
-    # for use_heuristic in ['CN', 'AA', 'RA']:
-    #     pos_test_pred, _ = eval(use_heuristic)(full_A, pos_test_index)
-    #     neg_test_pred, _ = eval(use_heuristic)(full_A, neg_test_index)
+    for use_heuristic in ['CN', 'AA', 'RA']:
+        pos_test_pred, _ = eval(use_heuristic)(full_A, pos_test_index)
+        neg_test_pred, _ = eval(use_heuristic)(full_A, neg_test_index)
         
-    #     result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
-    #     result_mrr.update({f'{use_heuristic}': result})
+        result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
+        result_mrr.update({f'{use_heuristic}': result})
 
-    # # , 'SymPPR'
-    # for use_heuristic in ['Ben_PPR']:
-    #     pos_test_pred, _ = eval(use_heuristic)(full_A, pos_test_index)
-    #     neg_test_pred, _ = eval(use_heuristic)(full_A, neg_test_index)
-    #     result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
-    #     result_mrr.update({f'{use_heuristic}': result})
+    # , 'SymPPR'
+    for use_heuristic in ['Ben_PPR']:
+        pos_test_pred, _ = eval(use_heuristic)(full_A, pos_test_index)
+        neg_test_pred, _ = eval(use_heuristic)(full_A, neg_test_index)
+        result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
+        result_mrr.update({f'{use_heuristic}': result})
     
     
-    # for use_heuristic in ['shortest_path', 'katz_apro', 'katz_close']:
-    #     pos_test_pred = eval(use_heuristic)(full_A, pos_test_index)
-    #     neg_test_pred = eval(use_heuristic)(full_A, neg_test_index)
-    #     result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
-    #     result_mrr.update({f'{use_heuristic}': result})
+    for use_heuristic in ['shortest_path', 'katz_apro', 'katz_close']:
+        pos_test_pred = eval(use_heuristic)(full_A, pos_test_index)
+        neg_test_pred = eval(use_heuristic)(full_A, neg_test_index)
+        result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
+        result_mrr.update({f'{use_heuristic}': result})
 
     for use_heuristic in ['pairwise_pred']:
         for dist in ['dot']:
