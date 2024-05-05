@@ -12,130 +12,89 @@ import torch_geometric.transforms as T
 from sklearn.preprocessing import normalize
 from torch_geometric.data import InMemoryDataset, Dataset, Data
 from torch_geometric.datasets import Planetoid
+from torch_geometric.transforms import RandomLinkSplit
 from utils import get_git_repo_root_path, time_logger
+from typing import Tuple, List, Dict, Set, Any 
 
 FILE = 'core/dataset/ogbn_products_orig/ogbn-products.csv'
 FILE_PATH = get_git_repo_root_path() + '/'
 
 
-# arxiv_2023
-def get_raw_text_arxiv_2023_nc(use_text=False, 
-                            seed=0):
-    """
-    Load and process the arxiv_2023 dataset for node classification task. 
-    # TODO add data resource
-    Args:
-        use_text (bool, False): If True, the raw text of the dataset will be used. 
-        seed (int, 0): The seed RNG for reproducibility of the dataset split. 
+
+def get_node_mask(num_nodes: int) -> tuple:
+    node_id = torch.randperm(num_nodes)
+
+    train_end = int(num_nodes * 0.6)
+    val_end = int(num_nodes * 0.8)
+
+    train_id = torch.sort(node_id[:train_end])[0]
+    val_id = torch.sort(node_id[train_end:val_end])[0]
+    test_id = torch.sort(node_id[val_end:])[0]
+
+    train_mask = torch.zeros(num_nodes, dtype=torch.bool)
+    train_mask[train_id] = True
+
+    val_mask = torch.zeros(num_nodes, dtype=torch.bool)
+    val_mask[val_id] = True
+
+    test_mask = torch.zeros(num_nodes, dtype=torch.bool)
+    test_mask[test_id] = True
     
-    Default Vars:
-    graph path: dataset/arxiv_2023/graph.pt
-    text path:'dataset/arxiv_2023_orig/paper_info.csv'
+    return train_id, val_id, test_id, train_mask, val_mask, test_mask
 
-    Returns:
-        data (Data): A PyTorch Geometric Data object containing the processed dataset. 
-        The dataset is split into training, validation, and test sets. 
-        The split is determined by the provided seed.
-    """
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed(seed)
-    np.random.seed(seed)  # Numpy module.
-    random.seed(seed)  # Python random module.
 
-    data = torch.load(FILE_PATH + 'core/dataset/arxiv_2023/graph.pt')
+def get_node_mask_ogb(num_nodes: int, idx_splits: Dict[str, torch.Tensor]) -> tuple:
 
-    # split data
-    data.num_nodes = len(data.y)
-    num_nodes = data.num_nodes
-    node_id = np.arange(num_nodes)
-    np.random.shuffle(node_id)
+    train_mask = torch.zeros(num_nodes).bool()
+    val_mask = torch.zeros(num_nodes).bool()
+    test_mask = torch.zeros(num_nodes).bool()
+    train_mask[idx_splits['train']] = True
+    val_mask[idx_splits['valid']] = True
+    test_mask[idx_splits['test']] = True
+    return train_mask, val_mask, test_mask
 
-    data.train_id = np.sort(node_id[:int(num_nodes * 0.6)])
-    data.val_id = np.sort(
-        node_id[int(num_nodes * 0.6):int(num_nodes * 0.8)])
-    data.test_id = np.sort(node_id[int(num_nodes * 0.8):])
 
-    data.train_mask = torch.tensor(
-        [x in data.train_id for x in range(num_nodes)])
-    data.val_mask = torch.tensor(
-        [x in data.val_id for x in range(num_nodes)])
-    data.test_mask = torch.tensor(
-        [x in data.test_id for x in range(num_nodes)])
 
-    if not use_text:
-        return data, None
+# Function to parse Cora dataset
+def load_graph_arxiv23() -> Data:
+    return torch.load(FILE_PATH + 'core/dataset/arxiv_2023/graph.pt')
+
+
+# Function to parse PubMed dataset
+def load_text_arxiv23() -> List[str]:
+    # Add your implementation here
     df = pd.read_csv(FILE_PATH + 'core/dataset/arxiv_2023_orig/paper_info.csv')
-    text = [
+    return [
         f'Title: {ti}\nAbstract: {ab}'
         for ti, ab in zip(df['title'], df['abstract'])
     ]
-    return data, text
 
 
-# cora
-def get_cora_nc(SEED=0) -> InMemoryDataset:
-    data_X, data_Y, data_citeid, data_edges = parse_cora()
-    # data_X = sklearn.preprocessing.normalize(data_X, norm="l1")
+def load_tag_arxiv23() -> Tuple[Data, List[str]]:
+    graph = load_graph_arxiv23()
+    text = load_text_arxiv23()
+    train_id, val_id, test_id, train_mask, val_mask, test_mask = get_node_mask(graph.num_nodes)
+    graph.train_id = train_id
+    graph.val_id = val_id
+    graph.test_id = test_id
+    graph.train_mask = train_mask
+    graph.val_mask = val_mask
+    graph.test_mask = test_mask
+    return graph, text
 
-    torch.manual_seed(SEED)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed(SEED)
-    np.random.seed(SEED)  # Numpy module.
-    random.seed(SEED)  # Python random module.
 
-    # load data
-    dataset = Planetoid('./generated_dataset', 'cora',
-                        transform=T.NormalizeFeatures())
+def load_graph_cora(use_mask) -> Data:
 
-    data = dataset[0]
-    # check is data has changed and try to return dataset
-    x = torch.tensor(data_X).float()
-    edge_index = torch.LongTensor(data_edges).long()
-    y = torch.tensor(data_Y).long()
-    num_nodes = len(data_Y)
-
-    # split data
-    node_id = np.arange(data.num_nodes)
-    np.random.shuffle(node_id)
-
-    train_id = np.sort(node_id[:int(data.num_nodes * 0.6)])
-    val_id = np.sort(
-        node_id[int(data.num_nodes * 0.6):int(data.num_nodes * 0.8)])
-    test_id = np.sort(node_id[int(data.num_nodes * 0.8):])
-    
-    train_mask = torch.tensor(
-        [x in train_id for x in range(data.num_nodes)])
-    val_mask = torch.tensor(
-        [x in val_id for x in range(data.num_nodes)])
-    test_mask = torch.tensor(
-        [x in test_id for x in range(data.num_nodes)])
-
-    data = Data(x=x,
-        edge_index=edge_index,
-        y=y,
-        num_nodes=num_nodes,
-        train_mask=train_mask,
-        test_mask=test_mask,
-        val_mask=val_mask,
-        node_attrs=x, 
-        edge_attrs = None, 
-        graph_attrs = None
-    )        
-    dataset._data = data
-    
-    return dataset, data_citeid
-
-# credit: https://github.com/tkipf/pygcn/issues/27, xuhaiyun
-
-def parse_cora():
     path = f'{FILE_PATH}core/dataset/cora_orig/cora'
     idx_features_labels = np.genfromtxt(f"{path}.content", dtype=np.dtype(str))
     data_X = idx_features_labels[:, 1:-1].astype(np.float32)
-    labels = idx_features_labels[:, -1]
-    class_map = {x: i for i, x in enumerate(['Case_Based', 'Genetic_Algorithms', 'Neural_Networks',
-                                            'Probabilistic_Methods', 'Reinforcement_Learning', 'Rule_Learning', 'Theory'])}
-    data_Y = np.array([class_map[l] for l in labels])
+    
+    if use_mask:
+        labels = idx_features_labels[:, -1]
+        class_map = {x: i for i, x in enumerate(['Case_Based', 'Genetic_Algorithms', 'Neural_Networks',
+                                                'Probabilistic_Methods', 'Reinforcement_Learning', 'Rule_Learning', 'Theory'])}
+        data_Y = np.array([class_map[l] for l in labels])
+        
     data_citeid = idx_features_labels[:, 0]
     idx = np.array(data_citeid, dtype=np.dtype(str))
     idx_map = {j: i for i, j in enumerate(idx)}
@@ -144,14 +103,55 @@ def parse_cora():
         edges_unordered.shape)
     data_edges = np.array(edges[~(edges == None).max(1)], dtype='int')
     data_edges = np.vstack((data_edges, np.fliplr(data_edges)))
-    return data_X, data_Y, data_citeid, np.unique(data_edges, axis=0).transpose()
+
+    
+    dataset = Planetoid('./generated_dataset', 'cora',
+                        transform=T.NormalizeFeatures())
+
+    x = torch.tensor(data_X).float()
+    edge_index =  torch.LongTensor(data_edges).T.clone().detach().long() 
+    num_nodes = len(data_X)
+    
+    if use_mask:
+        y = torch.tensor(data_Y).long()
+        
+    train_id, val_id, test_id, train_mask, val_mask, test_mask = get_node_mask(num_nodes)
+    
+    if use_mask:
+        return Data(x=x,
+        edge_index=edge_index,
+        y=y,
+        num_nodes=num_nodes,
+        train_mask=train_mask,
+        test_mask=test_mask,
+        val_mask=val_mask,
+        node_attrs=x, 
+        edge_attrs = None, 
+        graph_attrs = None,
+        train_id = train_id,
+        val_id = val_id,
+        test_id = test_id
+    ), data_citeid
+        
+    else:
+        return Data(
+        x=x,
+        edge_index=edge_index,
+        num_nodes=num_nodes,
+        node_attrs=x,
+        edge_attrs=None,
+        graph_attrs=None,
+    ), data_citeid
 
 
-def get_raw_text_cora(use_text, seed=0):
-    data, data_citeid = get_cora_nc(seed)
-    if not use_text:
-        return data, None
+def load_tag_cora()  -> Tuple[Data, List[str]]:
+    data, data_citeid = load_graph_cora()
+    text = load_text_cora(data_citeid)
+    return data, text
 
+
+# Function to parse PubMed dataset
+def load_text_cora(data_citeid) -> List[str]:
     with open(f'{FILE_PATH}core/dataset/cora_orig/mccallum/cora/papers') as f:
         lines = f.readlines()
     pid_filename = {}
@@ -196,73 +196,23 @@ def get_raw_text_cora(use_text, seed=0):
             i += 1
 
     print(f"not loaded {i} papers.")
-    print(f"not loaded papers: {not_loaded}")
-    return data, text
-
-# ogbn_arxiv 
-def get_raw_text_ogbn_arxiv_nc(use_text=False, seed=0):
-
-    dataset = PygNodePropPredDataset(root='./generated_dataset',
-        name='ogbn-arxiv', transform=T.ToSparseTensor())
-    data = dataset[0]
-
-    idx_splits = dataset.get_idx_split()
-    train_mask = torch.zeros(data.num_nodes).bool()
-    val_mask = torch.zeros(data.num_nodes).bool()
-    test_mask = torch.zeros(data.num_nodes).bool()
-    train_mask[idx_splits['train']] = True
-    val_mask[idx_splits['valid']] = True
-    test_mask[idx_splits['test']] = True
-
-    train_mask = train_mask
-    val_mask = val_mask
-    test_mask = test_mask
-
-    if data.adj_t.is_symmetric():
-        is_symmetric = True
-    else:
-        edge_index = data.adj_t.to_symmetric()
-
-    if not use_text:
-        return data, None
-
-    nodeidx2paperid = pd.read_csv(
-        'generated_dataset/ogbn_arxiv/mapping/nodeidx2paperid.csv.gz', compression='gzip')
-
-    tsv_path = FILE_PATH + 'core/dataset/ogbn_arixv_orig/titleabs.tsv'
-    raw_text = pd.read_csv(tsv_path,
-                           sep='\t', header=None, names=['paper id', 'title', 'abs'])
-
-    raw_text['paper id'] = pd.to_numeric(raw_text['paper id'], errors='coerce')
-    df = pd.merge(nodeidx2paperid, raw_text, on='paper id')
-
-    text = [
-        'Title: ' + ti + '\n' + 'Abstract: ' + ab
-        for ti, ab in zip(df['title'], df['abs'])
-    ]
-    # recreate InMemoryDataset
-    num_nodes = data.num_nodes
-    x = data.x
-    y = data.y
-
-    data = Data(x=x,
-        edge_index=edge_index,
-        y=y,
-        num_nodes=num_nodes,
-        train_mask=train_mask,
-        test_mask=test_mask,
-        val_mask=val_mask,
-        node_attrs=x, 
-        edge_attrs = None, 
-        graph_attrs = None
-    )
-    dataset._data = data
-
-    return dataset, text
+    return text
 
 
-# products
-def get_raw_text_products_nc(use_text=False, seed=0):
+# Function to parse PubMed dataset
+
+def load_graph_product():
+    raise NotImplementedError
+    # Add your implementation here
+    
+def load_text_product() -> List[str]:
+    text = pd.read_csv(FILE_PATH + 'core/dataset/ogbn_products_orig/ogbn-products_subset.csv')
+    text = [f'Product:{ti}; Description: {cont}\n'for ti,
+            cont in zip(text['title'], text['content'])]
+    return text
+
+# Function to parse PubMed dataset
+def load_tag_product() -> Tuple[Data, List[str]]:
     data = torch.load(FILE_PATH + 'core/dataset/ogbn_products_orig/ogbn-products_subset.pt')
     text = pd.read_csv(FILE_PATH + 'core/dataset/ogbn_products_orig/ogbn-products_subset.csv')
     text = [f'Product:{ti}; Description: {cont}\n'for ti,
@@ -270,59 +220,7 @@ def get_raw_text_products_nc(use_text=False, seed=0):
 
     data.edge_index = data.adj_t.to_symmetric()
 
-    return (data, text) if use_text else (data, None)
-
-
-@time_logger
-def _process():
-    """Process raw text data and convert it into a DataFrame for ogbn-products dataset.
-        Download dataset from website http://manikvarma.org/downloads/XC/XMLRepository.html, 
-        we utilize https://drive.google.com/file/d/1gsabsx8KR2N9jJz16jTcA0QASXsNuKnN/view?usp=sharing
-    Args:
-        None
-
-    Returns:
-        None
-    """
-    if os.path.isfile(FILE):
-        return
-
-    print("Processing raw text...")
-
-    data = []
-    files = [FILE_PATH + 'core/dataset/ogbn_products/Amazon-3M.raw/trn.json',
-             FILE_PATH + 'core/dataset/ogbn_products/Amazon-3M.raw/tst.json']
-
-    for f in files:
-        # Read each line from the input file and parse JSON
-        with open(f, "r") as input_file:
-            for line in input_file:
-                json_object = json.loads(line)
-                data.append(json_object)
-        
-
-    df = pd.DataFrame(data)
-    df.set_index('uid', inplace=True)
-
-    dataset = PygNodePropPredDataset(root='./generated_dataset',
-        name='ogbn-products', transform=T.ToSparseTensor())
-    
-    nodeidx2asin = pd.read_csv(
-        'generated_dataset/ogbn_products/mapping/nodeidx2asin.csv.gz', compression='gzip')
-
-    graph = dataset[0]
-    graph.n_id = np.arange(graph.num_nodes)
-    graph.n_asin = nodeidx2asin.loc[graph.n_id]['asin'].values
-
-    graph_df = df.loc[graph.n_asin]
-    graph_df['nid'] = graph.n_id
-    graph_df.reset_index(inplace=True)
-
-    if not os.path.isdir(FILE_PATH + 'core/dataset/ogbn_products_orig'):
-        os.mkdir(FILE_PATH + 'core/dataset/ogbn_products_orig')
-
-    pd.DataFrame.to_csv(graph_df, FILE_PATH + FILE,
-                        index=False, columns=['uid', 'nid', 'title', 'content'])
+    return data, text
 
 
 def parse_pubmed():
@@ -400,31 +298,9 @@ def parse_pubmed():
     return data_A, data_X, data_Y, data_pubid, np.unique(data_edges, axis=0).transpose()
 
 
-def get_raw_text_pubmed(use_text=False, seed=0):
-    data, data_pubid = get_pubmed_nc(SEED=seed)
-    if not use_text:
-        return data, None
-
-    f = open(FILE_PATH + 'core/dataset/PubMed_orig/pubmed.json')
-    pubmed = json.load(f)
-    df_pubmed = pd.DataFrame.from_dict(pubmed)
-
-    AB = df_pubmed['AB'].fillna("")
-    TI = df_pubmed['TI'].fillna("")
-    text = ['Title: ' + ti + '\n'+'Abstract: ' + ab for ti, ab in zip(TI, AB)]
-    return data, text
-
-
-# pubmed
-def get_pubmed_nc(corrected=False, SEED=0):
+def load_graph_pubmed(use_mask) -> Data:
     _, data_X, data_Y, data_pubid, data_edges = parse_pubmed()
     data_X = normalize(data_X, norm="l1")
-
-    torch.manual_seed(SEED)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed(SEED)
-    np.random.seed(SEED)  # Numpy module.
-    random.seed(SEED)  # Python random module.
 
     # load data
     data_name = 'PubMed'
@@ -435,70 +311,153 @@ def get_pubmed_nc(corrected=False, SEED=0):
     # replace dataset matrices with the PubMed-Diabetes data, for which we have the original pubmed IDs
     x = torch.tensor(data_X)
     edge_index = torch.tensor(data_edges)
-    y = torch.tensor(data_Y)
+    num_nodes = data.num_nodes
+
+    # split data
+    if use_mask:
+        y = torch.tensor(data_Y)
+        train_id, val_id, test_id, train_mask, val_mask, test_mask = get_node_mask(num_nodes)
+        
+        return Data(x=x,
+            edge_index=edge_index,
+            y=y,
+            num_nodes=num_nodes,
+            train_mask=train_mask,
+            test_mask=test_mask,
+            val_mask=val_mask,
+            node_attrs=x, 
+            edge_attrs = None, 
+            graph_attrs = None,
+            train_id = train_id,
+            val_id = val_id,
+            test_id = test_id
+        ) 
+    else:
+        return Data(x=x,
+            edge_index=edge_index,
+            num_nodes=num_nodes,
+            node_attrs=x, 
+            edge_attrs = None, 
+            graph_attrs = None
+        )
+        
+# Function to parse PubMed dataset
+def load_text_pubmed() -> List[str]:
+    f = open(FILE_PATH + 'core/dataset/PubMed_orig/pubmed.json')
+    pubmed = json.load(f)
+    df_pubmed = pd.DataFrame.from_dict(pubmed)
+
+    AB = df_pubmed['AB'].fillna("")
+    TI = df_pubmed['TI'].fillna("")
+    return ['Title: ' + ti + '\n'+'Abstract: ' + ab for ti, ab in zip(TI, AB)]
+
+
+def load_tag_pubmed() -> Tuple[Data, List[str]]:
+    # Add your implementation here
+    graph = load_graph_pubmed()
+    text = load_text_pubmed()
+    return graph, text
+
+
+def load_text_ogbn_arxiv():
+    nodeidx2paperid = pd.read_csv(
+        'generated_dataset/ogbn_arxiv/mapping/nodeidx2paperid.csv.gz', compression='gzip')
+
+    tsv_path = FILE_PATH + 'core/dataset/ogbn_arixv_orig/titleabs.tsv'
+    raw_text = pd.read_csv(tsv_path,
+                           sep='\t', header=None, names=['paper id', 'title', 'abs'])
+
+    raw_text['paper id'] = pd.to_numeric(raw_text['paper id'], errors='coerce')
+    df = pd.merge(nodeidx2paperid, raw_text, on='paper id')
+
+    return [
+        'Title: ' + ti + '\n' + 'Abstract: ' + ab
+        for ti, ab in zip(df['title'], df['abs'])
+    ]
+    
+    
+    
+def load_graph_ogbn_arxiv(use_mask):
+    dataset = PygNodePropPredDataset(root='./generated_dataset',
+        name='ogbn-arxiv', transform=T.ToSparseTensor())
+    data = dataset[0]
+
+    if data.adj_t.is_symmetric():
+        is_symmetric = True
+    else:
+        edge_index = data.adj_t.to_symmetric()
+        
+    x = torch.tensor(data.x).float()
+    edge_index = torch.LongTensor(edge_index.to_torch_sparse_coo_tensor().coalesce().indices()).long()
     num_nodes = data.num_nodes
     
-    # split data
-    node_id = np.arange(data.num_nodes)
-    np.random.shuffle(node_id)
+    if use_mask:
+        y = torch.tensor(data.y).long()
+        train_mask, val_mask, test_mask = get_node_mask_ogb(data.num_nodes, dataset.get_idx_split())
 
-    train_id = np.sort(node_id[:int(data.num_nodes * 0.6)])
-    val_id = np.sort(
-        node_id[int(data.num_nodes * 0.6):int(data.num_nodes * 0.8)])
-    test_id = np.sort(node_id[int(data.num_nodes * 0.8):])
+        return Data(x=x,
+            edge_index=edge_index,
+            y=y,
+            num_nodes=num_nodes,
+            train_mask=train_mask,
+            test_mask=test_mask,
+            val_mask=val_mask,
+            node_attrs=x, 
+            edge_attrs = None, 
+            graph_attrs = None
+        ) 
 
-    if corrected:
-        is_mistake = np.loadtxt(
-            'pubmed_casestudy/pubmed_mistake.txt', dtype='bool')
-        train_id = [i for i in train_id if not is_mistake[i]]
-        val_id = [i for i in val_id if not is_mistake[i]]
-        test_id = [i for i in test_id if not is_mistake[i]]
+    else:
+            return Data(x=x,
+            edge_index=edge_index,
+            num_nodes=num_nodes,
+            node_attrs=x, 
+            edge_attrs = None, 
+            graph_attrs = None
+        )
+            
 
-    train_mask = torch.tensor(
-        [x in train_id for x in range(data.num_nodes)])
-    val_mask = torch.tensor(
-        [x in val_id for x in range(data.num_nodes)])
-    test_mask = torch.tensor(
-        [x in test_id for x in range(data.num_nodes)])
-
-    data = Data(x=x,
-        edge_index=edge_index,
-        y=y,
-        num_nodes=num_nodes,
-        train_mask=train_mask,
-        test_mask=test_mask,
-        val_mask=val_mask,
-        node_attrs=x, 
-        edge_attrs = None, 
-        graph_attrs = None
-    )        
-    dataset._data = data
-    
-    return dataset, data_pubid
+def load_tag_ogbn_arxiv() -> List[str]:
+    graph = load_graph_ogbn_arxiv()
+    text = load_text_ogbn_arxiv()
+    return graph, text
 
 
-# TEST CODE
+def load_tag_product() -> Tuple[Data, List[str]]:
+    data = torch.load(FILE_PATH + 'core/dataset/ogbn_products_orig/ogbn-products_subset.pt')
+    text = pd.read_csv(FILE_PATH + 'core/dataset/ogbn_products_orig/ogbn-products_subset.csv')
+    text = [f'Product:{ti}; Description: {cont}\n'for ti,
+            cont in zip(text['title'], text['content'])]
+
+    edge_index = data.adj_t.to_symmetric().to_torch_sparse_coo_tensor().coalesce().indices()
+    data.edge_index = torch.LongTensor(edge_index).long()
+
+    return data, text
+
+
+# Test code
 if __name__ == '__main__':
-    data, text = get_raw_text_arxiv_2023_nc(use_text=True)
-    print(data)
-    print(text[0])
-    
-    data, text = get_raw_text_cora(use_text=True)
-    print(data)
-    print(text[:3])
-    data, citeid = get_cora_nc()
-    print(data)
-    print(text[:3])
-    data_X, data_Y, data_citeid, edge_index = parse_cora()
-    print(data)
-    print(text[:3])
+    graph = load_graph_arxiv23()
+    # print(type(graph))
+    graph, text = load_tag_arxiv23()
+    print(type(graph))
+    print(type(text))
 
-    data, text = get_raw_text_ogbn_arxiv_nc(use_text=True)
-    print(data)
-    print(len(text))
+    graph, _ = load_graph_cora(True)
+    # print(type(graph))
+    graph, text = load_tag_cora()
+    print(type(graph))
+    print(type(text))
+
+    graph, text = load_tag_ogbn_arxiv()
+    print(type(graph))
+    print(type(text))
     
-    data, text = get_raw_text_products_nc(True)
-    print(data)
-    print(text[0])
-    _process()
+    graph, text = load_tag_product()
+    print(type(graph))
+    print(type(text))
     
+    graph = load_graph_pubmed()
+    graph, text = load_tag_pubmed()
+    print(type(graph))
+    print(type(text))
