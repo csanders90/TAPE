@@ -17,11 +17,11 @@ from torch_geometric.graphgym.utils.device import auto_select_device
 from torch_geometric.graphgym.cmd_args import parse_args
 from torch_geometric.graphgym.config import (cfg, dump_cfg, 
                                              makedirs_rm_exist, set_cfg)
-
+import torch_geometric.transforms as T
+from torch_geometric.datasets import Planetoid
 from graphgps.train.opt_train import Trainer 
 from graphgps.network.custom_gnn import create_model
-
-from data_utils.load import data_loader
+from data_utils.load import load_data_nc, load_data_lp
 from utils import set_cfg, parse_args, get_git_repo_root_path
 from graphgps.finetuning import get_final_pretrained_ckpt
 
@@ -149,12 +149,9 @@ def create_optimizer(model, optimizer_config):
     )
     optimizer = optimizer_config.optimizer
     if optimizer.type == 'adam':
-        optimizer = optim.Adam(params, lr=optimizer.base_lr,
-                               weight_decay=optimizer.weight_decay)
+        optimizer = optim.Adam(params, lr=optimizer.base_lr)
     elif optimizer.type == 'sgd':
-        optimizer = optim.SGD(params, lr=optimizer.base_lr,
-                              momentum=optimizer.momentum,
-                              weight_decay=optimizer.weight_decay)
+        optimizer = optim.SGD(params, lr=optimizer.base_lr)
     else:
         raise ValueError(f'Optimizer {optimizer_config.optimizer} not supported')
 
@@ -249,8 +246,11 @@ if __name__ == "__main__":
         seed_everything(cfg.seed)
         auto_select_device()
 
-        dataset, data_cited, splits = data_loader[cfg.data.name](cfg)
-
+        splits, text = load_data_lp[cfg.data.name](cfg.data)
+        in_channels, out_channels = splits['train'].x.shape[1], 16
+        cfg.model.in_channels = in_channels
+        cfg.out_channels = out_channels
+        
         model = create_model(cfg)
         
         logging.info(model)
@@ -261,7 +261,8 @@ if __name__ == "__main__":
         # optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
         optimizer = create_optimizer(model, cfg)
 
-        if cfg.train.finetune:
+        # LLM: finetuning
+        if cfg.train.finetune: 
             model = init_model_from_pretrained(model, cfg.train.finetune,
                                                cfg.train.freeze_pretrained)
 

@@ -191,10 +191,10 @@ def config_device(cfg):
     try:
         if cfg.device is not None:
             return cfg.device
-        elif cfg.train.device is not None:
-            return cfg.train.device
         elif cfg.data.device is not None:
             return cfg.data.device
+        elif cfg.train.device is not None:
+            return cfg.train.device
     except:
         num_cuda_devices = 0
         if torch.cuda.is_available():
@@ -483,7 +483,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='GraphGym')
 
     parser.add_argument('--cfg', dest='cfg_file', type=str, required=False,
-                        default='core/yamls/cora/gcns/graphsage.yaml',
+                        default='core/yamls/cora/gcns/gae.yaml',
                         help='The configuration file path.')
     parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
                         default='core/yamls/cora/gcns/gat_sp1.yaml',

@@ -5,19 +5,16 @@ from torch import sigmoid
 
 
 class InnerProductDecoder(torch.nn.Module):
-    """
-    A PyTorch neural network module that computes the inner product between node embedding vectors based on the provided edge indices.
-
-    Args:
-        z: Node embeddings tensor.
-        edge_index: Tensor containing the edge indices.
-
-    Returns:
-        Tensor: Result of computing the inner product between node embedding vectors.
-    """
-
-    def forward(self, z, edge_index):
-        return (z[edge_index[0]] * z[edge_index[1]]).sum(dim=1)
+    """解码器，用向量内积表示重建的图结构"""
+    
+    def forward(self, z, edge_index, sigmoid=True):
+        """
+        参数说明：
+        z: 节点表示
+        edge_index: 边索引，也就是节点对
+        """
+        value = (z[edge_index[0]] * z[edge_index[1]]).sum(dim=1)
+        return torch.sigmoid(value) if sigmoid else value
 
 
 class RecLoss(nn.Module):

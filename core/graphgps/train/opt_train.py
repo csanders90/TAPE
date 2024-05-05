@@ -1,15 +1,17 @@
 import os
+import sys
+import os.path as osp
+sys.path.insert(0, osp.abspath(osp.join(osp.join(osp.dirname(__file__), '..'), '..')))
+
 import torch
 import wandb
 from ogb.linkproppred import Evaluator
 from torch_geometric.graphgym.config import cfg
-from graphgps.loss.custom_loss import RecLoss
-
 from sklearn.metrics import roc_auc_score, average_precision_score, roc_curve, auc
 
-from utils import config_device
 from embedding.tune_utils import param_tune_acc_mrr
 from heuristic.eval import get_metric_score
+from utils import config_device
 
 class Trainer():
     def __init__(self, FILE_PATH, cfg, model, optimizer, splits):
@@ -33,29 +35,24 @@ class Trainer():
         self.evaluator_mrr = Evaluator(name='ogbl-citation2')
 
     def _train_gae(self):
-        z = self._extracted_from__train_vgae_2()
-        loss_func = RecLoss()
-        loss = loss_func(z, self.train_data.pos_edge_label_index)
-        return self._extracted_from__train_vgae_7(loss)
-
-    def _train_vgae(self):
-        z = self._extracted_from__train_vgae_2()
+        self.model.train()
+        self.optimizer.zero_grad()
+        z = self.model.encoder(self.train_data.x, self.train_data.edge_index)
         loss = self.model.recon_loss(z, self.train_data.pos_edge_label_index)
-        loss = loss + (1 / self.train_data.num_nodes) * self.model.kl_loss()
-        return self._extracted_from__train_vgae_7(loss)
-
-    # TODO Rename this here and in `_train_gae` and `_train_vgae`
-    def _extracted_from__train_vgae_7(self, loss):
         loss.backward()
         self.optimizer.step()
         return loss.item()
 
-    # TODO Rename this here and in `_train_gae` and `_train_vgae`
-    def _extracted_from__train_vgae_2(self):
+
+    def _train_vgae(self):
         self.model.train()
         self.optimizer.zero_grad()
-        return self.model.encoder(self.train_data.x, self.train_data.edge_index)
-
+        z = self.model.encoder(self.train_data.x, self.train_data.edge_index)
+        loss = self.model.recon_loss(z, self.train_data.pos_edge_label_index)
+        loss = loss + (1 / self.train_data.num_nodes) * self.model.kl_loss()
+        loss.backward()
+        self.optimizer.step()
+        return loss.item()
 
     @torch.no_grad()
     def _test(self):
@@ -118,7 +115,7 @@ class Trainer():
                 auc, ap, acc = self.test_func[self.model_name]()
                 result_mrr = self.evaluate_func[self.model_name]()
                 print('Epoch: {:03d}, Loss_train: {:.4f}, AUC: {:.4f}, \
-                      AP: {:.4f}, ACC: {:.4f}, MRR'.format(epoch, loss, auc, ap, acc, result_mrr['Hits@100']))
+                      AP: {:.4f}, ACC: {:.4f}, MRR {:.4f}'.format(epoch, loss, auc, ap, acc, result_mrr['Hits@100']))
                 if auc > best_auc:
                     best_auc = auc 
                 elif result_mrr['Hits@100'] > best_hits:

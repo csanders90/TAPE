@@ -155,10 +155,9 @@ class GCNEncoder(torch.nn.Module):
         out_channels: number of output features of node (dimension of node embedding)
         """
         in_channels = cfg.model.in_channels
-        hidden_channels = cfg.model.hidden_channels
         out_channels = cfg.model.out_channels
-        self.conv1 = GCNConv(in_channels, hidden_channels)
-        self.conv2 = GCNConv(hidden_channels, out_channels)
+        self.conv1 = GCNConv(in_channels, 2 * out_channels)
+        self.conv2 = GCNConv(2 * out_channels, out_channels)
 
     def forward(self, x, edge_index):
         x = self.conv1(x, edge_index).relu()
@@ -169,10 +168,10 @@ class GCNEncoder(torch.nn.Module):
 class GAE(torch.nn.Module):
     """graph auto encoder。
     """
-    def __init__(self, encoder, decoder):
+    def __init__(self, encoder):
         super().__init__()
         self.encoder = encoder
-        self.decoder = decoder
+        self.decoder = InnerProductDecoder()
 
     def encode(self, *args, **kwargs):
         return self.encoder(*args, **kwargs)
@@ -204,12 +203,30 @@ class GAE(torch.nn.Module):
 
 MAX_LOGSTD = 10  # Sets an upper limit for the logarithmic standard deviation
         
+
+class VariationalGCNEncoder(torch.nn.Module):
+    def __init__(self, cfg):
+        super().__init__()
+            
+        in_channels = cfg.data.num_features
+        out_channels = cfg.model.out_channels
+        
+        self.conv1 = GCNConv(in_channels, 2 * out_channels)  # 2*out_channels because we want to output both mu and logstd
+        self.conv_mu = GCNConv(2 * out_channels, out_channels)  # We use 2*out_channels for the input because we want to concatenate mu and logstd
+        self.conv_logstd = GCNConv(2 * out_channels, out_channels)  # We use 2*out_channels for the input because we want to concatenate mu and logstd
+
+    def forward(self, x, edge_index):
+        x = self.conv1(x, edge_index).relu()
+        return self.conv_mu(x, edge_index), self.conv_logstd(x, edge_index)
+    
 class VGAE(GAE):
     """inhert GAE class, since we need to use encode, decode and loss
     """
 
     def __init__(self, encoder, decoder=None):
         super().__init__(encoder, decoder)
+        self.encoder = encoder
+        self.decoder = InnerProductDecoder()
 
     def reparametrize(self, mu, logstd):
         if self.training:
@@ -234,24 +251,7 @@ class VGAE(GAE):
             torch.sum(1 + 2 * logstd - mu**2 - logstd.exp()**2, dim=1)) # KL loss between gaussian distribution and hidden variables
 
 
-class VariationalGCNEncoder(torch.nn.Module):
-    def __init__(self, cfg):
-        super().__init__()
-            
-        in_channels = cfg.data.num_features
-        out_channels = cfg.model.out_channels
-        
-        self.conv1 = GCNConv(in_channels, 2 * out_channels)  # 2*out_channels because we want to output both mu and logstd
-        self.conv_mu = GCNConv(2 * out_channels, out_channels)  # We use 2*out_channels for the input because we want to concatenate mu and logstd
-        self.conv_logstd = GCNConv(2 * out_channels, out_channels)  # We use 2*out_channels for the input because we want to concatenate mu and logstd
 
-    def forward(self, x, edge_index):
-        x = self.conv1(x, edge_index).relu()
-        mu = self.conv_mu(x, edge_index)
-        logstd = self.conv_logstd(x, edge_index)
-        return mu, logstd
-    
-    
 def create_model(cfg):
     if cfg.model.type == 'GAT':
         model = LinkPredModel(encoder=GAT(cfg),
@@ -264,7 +264,9 @@ def create_model(cfg):
                               decoder=InnerProductDecoder())
     
     if cfg.model.type == 'GAE':
-        model = GAE(GCNEncoder(cfg))
+        model = GAE(encoder = GCNEncoder(cfg) )
     elif cfg.model.type == 'VGAE':
-        model = VGAE(VariationalGCNEncoder(cfg))
+        model = VGAE(encoder= VariationalGCNEncoder(cfg),
+                     decoder=InnerProductDecoder())
+
     return model 
