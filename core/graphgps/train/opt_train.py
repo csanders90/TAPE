@@ -57,7 +57,7 @@ class Trainer():
     @torch.no_grad()
     def _test(self):
         """test"""
-        # raise NotImplementedError
+        
         self.model.eval()
 
         pos_edge_index = self.test_data.pos_edge_label_index
@@ -78,12 +78,12 @@ class Trainer():
 
     @torch.no_grad()
     def _evaluate(self):
-        # raise NotImplementedError
+       
         self.model.eval()
-        pos_edge_index = self.test_data.pos_edge_label_index
-        neg_edge_index = self.test_data.neg_edge_label_index
+        pos_edge_index = self.valid_data.pos_edge_label_index
+        neg_edge_index = self.valid_data.neg_edge_label_index
 
-        z = self.model.encoder(self.test_data.x, self.test_data.edge_index)
+        z = self.model.encoder(self.valid_data.x, self.valid_data.edge_index)
         pos_pred = self.model.decoder(z, pos_edge_index)
         neg_pred = self.model.decoder(z, neg_edge_index)
         y_pred = torch.cat([pos_pred, neg_pred], dim=0)
@@ -106,7 +106,7 @@ class Trainer():
         return result_mrr
     
     def train(self):
-        # raise NotImplementedError
+        
         best_hits, best_auc = 0, 0
         for epoch in range(1, self.epochs + 1):
 
@@ -114,8 +114,7 @@ class Trainer():
             if epoch % 100 == 0:
                 auc, ap, acc = self.test_func[self.model_name]()
                 result_mrr = self.evaluate_func[self.model_name]()
-                print('Epoch: {:03d}, Loss_train: {:.4f}, AUC: {:.4f}, \
-                      AP: {:.4f}, ACC: {:.4f}, MRR {:.4f}'.format(epoch, loss, auc, ap, acc, result_mrr['Hits@100']))
+                print('Epoch: {:03d}, Loss_train: {:.4f}, AUC: {:.4f}, AP: {:.4f}, ACC: {:.4f}, Hit@100 {:.4f}'.format(epoch, loss, auc, ap, acc, result_mrr['Hits@100']))
                 if auc > best_auc:
                     best_auc = auc 
                 elif result_mrr['Hits@100'] > best_hits:
@@ -123,9 +122,10 @@ class Trainer():
         return best_auc, best_hits, result_mrr
 
 
-    def save_result(self, results_dict):
+    def save_result(self, results_dict):  # sourcery skip: avoid-builtin-shadow
         root = os.path.join(self.FILE_PATH, cfg.out_dir)
-        acc_file = os.path.join(root, f'{self.model_name}_acc_mrr.csv')
+        acc_file = os.path.join(root, f'{self.data_name}_acc_mrr.csv')
+        print(acc_file)
         os.makedirs(root, exist_ok=True)
         id = wandb.util.generate_id()
         param_tune_acc_mrr(id, results_dict, acc_file, self.data_name, self.model_name)

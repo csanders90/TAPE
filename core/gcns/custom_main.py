@@ -143,7 +143,7 @@ def create_optimizer(model, optimizer_config):
 
     """
     params = []
-    # Iterate over named parameters of the model
+
     params.extend(
         param for _, param in model.named_parameters() if param.requires_grad
     )
@@ -247,7 +247,7 @@ if __name__ == "__main__":
         auto_select_device()
 
         splits, text = load_data_lp[cfg.data.name](cfg.data)
-        in_channels, out_channels = splits['train'].x.shape[1], 16
+        in_channels, out_channels = splits['train'].x.shape[1], cfg.model.out_channels
         cfg.model.in_channels = in_channels
         cfg.out_channels = out_channels
         
