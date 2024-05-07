@@ -35,12 +35,12 @@ def get_raw_text_arxiv_2023(args):
     test_pct = args.data.test_pct
     split_labels = args.data.split_labels
     
-    data = torch.load(FILE_PATH + 'dataset/arxiv_2023/graph.pt')
+    data = torch.load(FILE_PATH + 'core/dataset/arxiv_2023/graph.pt') # Missed folder name core/
     
     # data.edge_index = data.adj_t.to_symmetric()
     text = None
 
-    df = pd.read_csv(FILE_PATH + 'dataset/arxiv_2023_orig/paper_info.csv')
+    df = pd.read_csv(FILE_PATH + 'core/dataset/arxiv_2023_orig/paper_info.csv') # Missed folder name core/
     text = []
     for ti, ab in zip(df['title'], df['abstract']):
         text.append(f'Title: {ti}\nAbstract: {ab}')

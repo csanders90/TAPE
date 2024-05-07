@@ -2,7 +2,7 @@
 
 out_dir: results
 metric_best: acc
-cfg_dest: vgae.yaml
+cfg_dest: gsaint.yaml
 print: file
 seed: 0
 run_multiple_splits: None
@@ -10,7 +10,7 @@ run_multiple_splits: None
 wandb:
   use: True
   project: gtblueprint
-  name_tag: vgae-arxiv_2023-origin
+  name_tag: gsaint-arxiv_2023-origin
 
 train:
   mode: custom
@@ -19,9 +19,9 @@ train:
   epochs: 2000
   auto_resume: False
   lr: 0.01
-  
+
 model:
-  type: vgae
+  type: gsaint_vgae
   out_channels: 16
   hidden_channels: 8  # Assume that the dimension of the hidden layer feature is 8
   in_channels: 300 # Missed! AttrubuteError

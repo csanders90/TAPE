@@ -8,6 +8,7 @@ print: file
 wandb:
   use: True
   project: gtblueprint
+  name_tag: gae-cora-origin # Without this tag I got Attribute error
 
 train:
   mode: custom

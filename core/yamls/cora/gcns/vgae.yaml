@@ -4,7 +4,8 @@ out_dir: results
 metric_best: acc
 cfg_dest: vgae.yaml
 print: file
-
+seed: 0
+run_multiple_splits: None
 
 wandb:
   use: True
@@ -16,7 +17,9 @@ train:
   batch_size: 32   
   eval_period: 1
   epochs: 2000
-  
+  auto_resume: False
+  lr: 0.01
+
 model:
   type: vgae
   out_channels: 16

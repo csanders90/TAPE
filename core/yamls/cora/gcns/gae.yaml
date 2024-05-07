@@ -4,6 +4,8 @@ out_dir: results
 metric_best: acc
 cfg_dest: gae.yaml
 print: file
+seed: 0
+run_multiple_splits: None
 
 wandb:
   use: True
@@ -16,6 +18,8 @@ train:
   eval_period: 1
   epochs: 2000
   device: 0
+  auto_resume: False
+  lr: 0.01
   
 model:
   type: gae
