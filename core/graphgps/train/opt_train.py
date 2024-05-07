@@ -8,13 +8,25 @@ import wandb
 from ogb.linkproppred import Evaluator
 from torch_geometric.graphgym.config import cfg
 from sklearn.metrics import roc_auc_score, average_precision_score, roc_curve, auc
+from yacs.config import CfgNode as CN
 
+from torch_geometric.data import Data
 from embedding.tune_utils import param_tune_acc_mrr
 from heuristic.eval import get_metric_score
 from utils import config_device
+from typing import Dict, Tuple
+from utils import Logger
 
 class Trainer():
-    def __init__(self, FILE_PATH, cfg, model, optimizer, splits):
+    def __init__(self, 
+                 FILE_PATH: str, 
+                 cfg: CN, 
+                 model: torch.nn.Module, 
+                 optimizer: torch.optim.Optimizer, 
+                 splits: Dict[str, Data], 
+                 run: int, 
+                 repeat: int):
+        
         self.device = config_device(cfg)
         self.model = model.to(self.device)
         self.model_name = cfg.model.type 
@@ -33,6 +45,30 @@ class Trainer():
 
         self.evaluator_hit = Evaluator(name='ogbl-collab')
         self.evaluator_mrr = Evaluator(name='ogbl-citation2')
+        
+        self.run = run
+        self.repeat = repeat
+        self.results_rank = {}
+        self.loggers = {
+            'Hits@1': Logger(repeat),
+            'Hits@3': Logger(repeat),
+            'Hits@10': Logger(repeat),
+            'Hits@20': Logger(repeat),
+            'Hits@50': Logger(repeat),
+            'Hits@100': Logger(repeat),
+            'MRR': Logger(repeat),
+            'mrr_hit1': Logger(repeat),
+            'mrr_hit3': Logger(repeat), 
+            'mrr_hit10': Logger(repeat),
+            'mrr_hit20': Logger(repeat),
+            'mrr_hit50': Logger(repeat),
+            'mrr_hit100': Logger(repeat),
+            'AUC': Logger(repeat),
+            'AP': Logger(repeat),
+            'acc': Logger(repeat)
+
+        }
+
 
     def _train_gae(self):
         self.model.train()
@@ -55,7 +91,7 @@ class Trainer():
         return loss.item()
 
     @torch.no_grad()
-    def _test(self):
+    def _test(self, data: Data):
         """test"""
         
         self.model.eval()
@@ -77,13 +113,13 @@ class Trainer():
         return roc_auc_score(y, pred), average_precision_score(y, pred), auc(fpr, tpr)
 
     @torch.no_grad()
-    def _evaluate(self):
+    def _evaluate(self, data: Data):
        
         self.model.eval()
-        pos_edge_index = self.valid_data.pos_edge_label_index
-        neg_edge_index = self.valid_data.neg_edge_label_index
+        pos_edge_index = data.pos_edge_label_index
+        neg_edge_index = data.neg_edge_label_index
 
-        z = self.model.encoder(self.valid_data.x, self.valid_data.edge_index)
+        z = self.model.encoder(data.x, data.edge_index)
         pos_pred = self.model.decoder(z, pos_edge_index)
         neg_pred = self.model.decoder(z, neg_edge_index)
         y_pred = torch.cat([pos_pred, neg_pred], dim=0)
@@ -105,24 +141,70 @@ class Trainer():
     
         return result_mrr
     
+    
     def train(self):
+        best_hits, best_auc = 0, 0 
         
-        best_hits, best_auc = 0, 0
         for epoch in range(1, self.epochs + 1):
 
             loss = self.train_func[self.model_name]()
             if epoch % 100 == 0:
-                auc, ap, acc = self.test_func[self.model_name]()
-                result_mrr = self.evaluate_func[self.model_name]()
-                print('Epoch: {:03d}, Loss_train: {:.4f}, AUC: {:.4f}, AP: {:.4f}, ACC: {:.4f}, Hit@100 {:.4f}'.format(epoch, loss, auc, ap, acc, result_mrr['Hits@100']))
-                if auc > best_auc:
-                    best_auc = auc 
-                elif result_mrr['Hits@100'] > best_hits:
-                    best_hits = result_mrr['Hits@100']
-        return best_auc, best_hits, result_mrr
+                result_test = self.evaluate_func[self.model_name](self.test_data)
+                result_valid = self.evaluate_func[self.model_name](self.valid_data)
+                result_train = self.evaluate_func[self.model_name](self.train_data)
 
+                self.results_rank = {
+                    key: (result_train[key], result_valid[key], result_test[key])
+                    for key in result_test.keys()
+                }
+
+                print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {self.results_rank["AUC"][0]:.4f}, AP: {self.results_rank["AP"][0]:.4f}, MRR: {self.results_rank["MRR"][0]:.4f}, Hit@100 {self.results_rank["Hits@100"][0]:.4f}')
+                print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {self.results_rank["AUC"][1]:.4f}, AP: {self.results_rank["AP"][1]:.4f}, MRR: {self.results_rank["MRR"][1]:.4f}, Hit@100 {self.results_rank["Hits@100"][1]:.4f}')               
+                if self.results_rank["AUC"][1] > best_auc:
+                    best_auc = self.results_rank["AUC"][1]
+                elif result_valid['Hits@100'] > best_hits:
+                    best_hits = result_valid['Hits@100']
+
+            
+            for key, result in self.results_rank.items():
+                self.loggers[key].add_result(self.run, result)
+                if epoch % 500 == 0:
+                    for key, result in self.results_rank.items():
+                        print(key)
+                        train_hits, valid_hits, test_hits = result
+                        print(
+                            f'Run: {self.run + 1:02d}, '
+                              f'Epoch: {epoch:02d}, '
+                              f'Loss: {loss:.4f}, '
+                              f'Train: {100 * train_hits:.2f}%, '
+                              f'Valid: {100 * valid_hits:.2f}%, '
+                              f'Test: {100 * test_hits:.2f}%')
+                    print('---')
+        return best_auc, best_hits
+
+    def result_statistic(self):
+        result_all_run = {}
+        for key in self.loggers.keys():
+            if len(self.loggers[key].results[0]) > 0:
+                print(key)
+                
+                best_metric,  best_valid_mean, mean_list, var_list = self.loggers[key].print_statistics()
+
+                if key == 'Hits@100':
+                    best_metric_valid_str = best_metric
+                    best_valid_mean_metric = best_valid_mean
+                    
+                if key == 'AUC':
+                    best_auc_valid_str = best_metric
+                    best_auc_metric = best_valid_mean
+
+                result_all_run[key] = [mean_list, var_list]
+            
+        print(str(best_metric_valid_str) +' ' +str(best_auc_valid_str))
+        
 
     def save_result(self, results_dict):  # sourcery skip: avoid-builtin-shadow
+        
         root = os.path.join(self.FILE_PATH, cfg.out_dir)
         acc_file = os.path.join(root, f'{self.data_name}_acc_mrr.csv')
         print(acc_file)

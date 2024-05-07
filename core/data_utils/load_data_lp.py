@@ -25,7 +25,7 @@ from data_utils.load_data_nc import load_tag_cora, load_tag_pubmed, \
                     
 from utils import get_git_repo_root_path, config_device, init_cfg_test
 from utils import time_logger
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple, List, Union
 
 FILE = 'core/dataset/ogbn_products_orig/ogbn-products.csv'
 FILE_PATH = get_git_repo_root_path() + '/'
@@ -57,8 +57,7 @@ def load_taglp_cora(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
     text = load_text_cora(data_citeid)
     undirected = data.is_directed()
     
-    if not hasattr(cfg, 'device'):
-        cfg.device = config_device(cfg)
+    cfg.device = config_device(cfg)
         
     splits = get_edge_split(data, 
                        undirected,
@@ -94,7 +93,7 @@ def load_taglp_ogbn_arxiv(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
 
 def get_edge_split(data: Data,
               undirected: bool, 
-              device: None,
+              device: Union[str, int],
               val_pct: float,
               test_pct: float,
               include_negatives: bool,

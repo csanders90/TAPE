@@ -187,29 +187,25 @@ def append_mrr_to_excel(uuid_val, metrics_mrr, root, name, method):
 
 
 def config_device(cfg):
-    # device 
-    try:
-        if cfg.device is not None:
-            return cfg.device
-        elif cfg.data.device is not None:
-            return cfg.data.device
-        elif cfg.train.device is not None:
-            return cfg.train.device
-    except:
-        num_cuda_devices = 0
-        if torch.cuda.is_available():
-            # Get the number of available CUDA devices
-            num_cuda_devices = torch.cuda.device_count()
 
-        if num_cuda_devices > 0:
-            # Set the first CUDA device as the active device
-            torch.cuda.set_device(0)
-            device = cfg.train.device
-        else:
-            device = 'cpu'
-        
+    if hasattr(cfg, 'device'):
+        device = cfg.device
+    elif cfg.data.device is not None:
+        device = cfg.data.device
+    elif cfg.train.device is not None:
+        device = cfg.train.device
+
+    num_cuda_devices = 0
+    if torch.cuda.is_available():
+        # Get the number of available CUDA devices
+        num_cuda_devices = torch.cuda.device_count()
+
+    if num_cuda_devices <= 0:
+        return 'cpu'
+    # Set the first CUDA device as the active device
+    torch.cuda.set_device(device)
     return device
-
+    
 
 def set_cfg(file_path, args):
     with open(file_path + args.cfg_file, "r") as f:
@@ -238,8 +234,7 @@ def init_cfg_test():
                 'device': 'cpu'
             }
     }
-    cfg = CN(cfg_dict)
-    return cfg
+    return CN(cfg_dict)
 
 class Logger(object):
     def __init__(self, runs, info=None):
@@ -489,7 +484,7 @@ def parse_args() -> argparse.Namespace:
                         default='core/yamls/cora/gcns/gat_sp1.yaml',
                         help='The configuration file path.')
     
-    parser.add_argument('--repeat', type=int, default=1,
+    parser.add_argument('--repeat', type=int, default=3,
                         help='The number of repeated jobs.')
     parser.add_argument('--mark_done', action='store_true',
                         help='Mark yaml as done after a job has finished.')
