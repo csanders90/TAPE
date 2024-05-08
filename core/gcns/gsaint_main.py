@@ -20,30 +20,6 @@ from utils import set_cfg, parse_args, get_git_repo_root_path, Logger, custom_se
 def get_loader(data, batch_size, walk_length, num_steps, sample_coverage):
     return GraphSAINTRandomWalkSampler(data, batch_size=batch_size, walk_length=walk_length, num_steps=num_steps, sample_coverage=sample_coverage)
 
-# def run_experiment(cfg, model, optimizer, splits, sampler, batch_size, walk_length, num_steps, sample_coverage):
-#     trainer = Trainer_Saint(FILE_PATH, 
-#                             cfg, 
-#                             model, 
-#                             optimizer, 
-#                             splits, 
-#                             run_id, 
-#                             args.repeat,
-#                             loggers,
-#                             sampler, 
-#                             batch_size, 
-#                             walk_length, 
-#                             num_steps, 
-#                             sample_coverage)
-    
-#     start = time.time()
-#     trainer.train()
-#     end = time.time()
-    
-#     print('Training time: ', end - start)
-#     results_dict = trainer.evaluate()
-#     trainer.save_result(results_dict)
-#     return results_dict
-
 if __name__ == "__main__":
     FILE_PATH = f'{get_git_repo_root_path()}/'
 

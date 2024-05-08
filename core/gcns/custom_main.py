@@ -86,6 +86,7 @@ if __name__ == "__main__":
             
         print(trainer.results_rank)
 
-    best_auc_metric, result_all_run = trainer.result_statistic()
+    best_valid_mean_metric, best_auc_metric, result_all_run = trainer.result_statistic()
     
-    print(f"best_auc_metric: {best_auc_metric}, result_all_run: {result_all_run}")
+    # trainer.save_result(result_all_run)
+    print(f"best_valid_mean_metric: {best_valid_mean_metric}, best_auc_metric: {best_auc_metric}, result_all_run: {result_all_run}")

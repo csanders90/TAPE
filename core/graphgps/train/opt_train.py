@@ -177,21 +177,24 @@ class Trainer():
         for key in self.loggers:
             print(key)
             best_metric,  best_valid_mean, mean_list, var_list = self.loggers[key].print_statistics()
-            # if key == eval_metric:
-            #     best_metric_valid_str = best_metric
-            #     best_valid_mean_metric = best_valid_mean
 
             if key == 'AUC':
                 best_auc_valid_str = best_metric
                 best_auc_metric = best_valid_mean
 
+            elif key == 'Hits@100':
+                best_metric_valid_str = best_metric
+                best_valid_mean_metric = best_valid_mean
+
             result_all_run[key] = [mean_list, var_list]
-        print(best_auc_valid_str)
-        return best_auc_metric, result_all_run
 
-        
+        print(f'{best_metric_valid_str} {best_auc_valid_str}')
+        print(best_metric_valid_str)
+        best_auc_metric = best_valid_mean_metric
+        return best_valid_mean_metric, best_auc_metric, result_all_run
+    
 
-    def save_result(self, results_dict):  # sourcery skip: avoid-builtin-shadow
+    def save_result(self, results_dict: Dict[str, float]):  # sourcery skip: avoid-builtin-shadow
         
         root = os.path.join(self.FILE_PATH, cfg.out_dir)
         acc_file = os.path.join(root, f'{self.data_name}_acc_mrr.csv')

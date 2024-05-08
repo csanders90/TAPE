@@ -269,7 +269,6 @@ class Logger(object):
                 best_results.append((train1, valid, train2, test))
 
             best_result = torch.tensor(best_results)
-
             print(f'All runs:')
 
             r = best_result[:, 0].float()
@@ -282,12 +281,10 @@ class Logger(object):
             best_valid = str(best_valid_mean) +' ' + '±' +  ' ' + str(best_valid_var)
             print(f'Highest Valid: {r.mean():.2f} ± {r.std():.2f}')
 
-
             r = best_result[:, 2].float()
             best_train_mean = round(r.mean().item(), 2)
             best_train_var = round(r.std().item(), 2)
             print(f'  Final Train: {r.mean():.2f} ± {r.std():.2f}')
-
 
             r = best_result[:, 3].float()
             best_test_mean = round(r.mean().item(), 2)
@@ -297,8 +294,10 @@ class Logger(object):
             mean_list = [best_train_mean, best_valid_mean, best_test_mean]
             var_list = [best_train_var, best_valid_var, best_test_var]
 
-
             return best_valid, best_valid_mean, mean_list, var_list
+
+    def get_best_result(self):
+        print(self.results)
 
 
 def get_logger(name, log_dir, config_dir):
@@ -338,6 +337,7 @@ def save_emb(score_emb, save_path):
         'neg_test_score': neg_test_pred,
         'node_emb': x
         }
+        
     elif len(score_emb) == 4:
         pos_valid_pred,neg_valid_pred, pos_test_pred, neg_test_pred, = score_emb
         state = {
