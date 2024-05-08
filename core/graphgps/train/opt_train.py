@@ -199,3 +199,48 @@ class Trainer():
         os.makedirs(root, exist_ok=True)
         id = wandb.util.generate_id()
         param_tune_acc_mrr(id, results_dict, acc_file, self.data_name, self.model_name)
+
+
+class Trainer_Saint(Trainer):
+    def __init__(self, 
+                 FILE_PATH,
+                 cfg,
+                 model, 
+                 optimizer,
+                 splits,
+                 run, 
+                 repeat, 
+                 loggers,
+                 gsaint=None,
+                 batch_size=None, 
+                 walk_length=None, 
+                 num_steps=None, 
+                 sample_coverage=None):
+        super().__init__(FILE_PATH, cfg, model, optimizer, splits, run, repeat, loggers)
+
+        
+        self.device = config_device(cfg)
+            
+        self.model = model.to(self.device)
+        
+        self.model_name = cfg.model.type 
+        self.data_name = cfg.data.name
+
+        self.FILE_PATH = FILE_PATH 
+        self.epochs = cfg.train.epochs
+        
+        # Added GSAINT normalization
+        if gsaint is not None:
+            self.test_data = gsaint(splits['test'], batch_size, walk_length, num_steps, sample_coverage)
+            self.train_data = gsaint(splits['train'], batch_size, walk_length, num_steps, sample_coverage)
+            self.valid_data = gsaint(splits['valid'], batch_size, walk_length, num_steps, sample_coverage)
+        else:
+            self.test_data = splits['test']
+            self.train_data = splits['train']
+            self.valid_data = splits['valid']
+        
+        self.test_data = splits['test'].to(self.device)
+        self.train_data = splits['train'].to(self.device)
+        self.valid_data = splits['valid'].to(self.device)
+        self.optimizer = optimizer
+        
