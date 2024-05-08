@@ -46,7 +46,7 @@ def mkdir_p(path, log=True):
     # path = path.replace('\ ',' ')
     # print(path)
     try:
-        os.makedirs(path)
+        os.makedirs(path, exist_ok=True)
         if log:
             print('Created directory {}'.format(path))
     except OSError as exc:

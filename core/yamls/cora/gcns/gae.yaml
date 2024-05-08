@@ -20,7 +20,7 @@ train:
   mode: custom
   batch_size: 32   
   eval_period: 1
-  epochs: 2000
+  epochs: 200
   device: 0
   auto_resume: False
   final_eval: False

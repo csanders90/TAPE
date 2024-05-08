@@ -1,7 +1,8 @@
 import os
 import sys
-import os.path as osp
-sys.path.insert(0, osp.abspath(osp.join(osp.join(osp.dirname(__file__), '..'), '..')))
+from os.path import abspath, dirname, join
+
+sys.path.insert(0, abspath(join(dirname(dirname(__file__)))))
 
 import torch
 import wandb
@@ -25,7 +26,8 @@ class Trainer():
                  optimizer: torch.optim.Optimizer, 
                  splits: Dict[str, Data], 
                  run: int, 
-                 repeat: int):
+                 repeat: int,
+                 loggers: Logger):
         
         self.device = config_device(cfg)
         self.model = model.to(self.device)
@@ -37,7 +39,8 @@ class Trainer():
         self.train_data = splits['train'].to(self.device)
         self.valid_data = splits['valid'].to(self.device)
         self.optimizer = optimizer
-
+        self.loggers = loggers
+        
         model_types = ['VGAE', 'GAE', 'GAT', 'GraphSage', 'GNNStack']
         self.train_func = {model_type: self._train_gae if model_type in ['GAE', 'GAT', 'GraphSage', 'GNNStack'] else self._train_vgae for model_type in model_types}
         self.test_func = {model_type: self._test for model_type in model_types}
@@ -49,25 +52,7 @@ class Trainer():
         self.run = run
         self.repeat = repeat
         self.results_rank = {}
-        self.loggers = {
-            'Hits@1': Logger(repeat),
-            'Hits@3': Logger(repeat),
-            'Hits@10': Logger(repeat),
-            'Hits@20': Logger(repeat),
-            'Hits@50': Logger(repeat),
-            'Hits@100': Logger(repeat),
-            'MRR': Logger(repeat),
-            'mrr_hit1': Logger(repeat),
-            'mrr_hit3': Logger(repeat), 
-            'mrr_hit10': Logger(repeat),
-            'mrr_hit20': Logger(repeat),
-            'mrr_hit50': Logger(repeat),
-            'mrr_hit100': Logger(repeat),
-            'AUC': Logger(repeat),
-            'AP': Logger(repeat),
-            'acc': Logger(repeat)
 
-        }
 
 
     def _train_gae(self):
@@ -90,18 +75,18 @@ class Trainer():
         self.optimizer.step()
         return loss.item()
 
+
     @torch.no_grad()
     def _test(self, data: Data):
         """test"""
-        
         self.model.eval()
 
         pos_edge_index = self.test_data.pos_edge_label_index
         neg_edge_index = self.test_data.neg_edge_label_index
 
         z = self.model.encoder(self.test_data.x, self.test_data.edge_index)
-        pos_y = z.new_ones(pos_edge_index.size(1)) # positive samples
-        neg_y = z.new_zeros(neg_edge_index.size(1)) # negative samples
+        pos_y = z.new_ones(pos_edge_index.size(1)) 
+        neg_y = z.new_zeros(neg_edge_index.size(1))
         y = torch.cat([pos_y, neg_y], dim=0)
 
         pos_pred = self.model.decoder(z, pos_edge_index)
@@ -126,8 +111,8 @@ class Trainer():
         
         hard_thres = (y_pred.max() + y_pred.min())/2
 
-        pos_y = z.new_ones(pos_edge_index.size(1)) # positive samples
-        neg_y = z.new_zeros(neg_edge_index.size(1)) # negative samples
+        pos_y = z.new_ones(pos_edge_index.size(1))
+        neg_y = z.new_zeros(neg_edge_index.size(1)) 
         y = torch.cat([pos_y, neg_y], dim=0)
         
         y_pred[y_pred >= hard_thres] = 1
@@ -142,65 +127,68 @@ class Trainer():
         return result_mrr
     
     
+    def merge_result_rank(self):
+        result_test = self.evaluate_func[self.model_name](self.test_data)
+        result_valid = self.evaluate_func[self.model_name](self.valid_data)
+        result_train = self.evaluate_func[self.model_name](self.train_data)
+
+        return {
+            key: (result_train[key], result_valid[key], result_test[key])
+            for key in result_test.keys()
+        }
+    
     def train(self):
         best_hits, best_auc = 0, 0 
         
         for epoch in range(1, self.epochs + 1):
 
             loss = self.train_func[self.model_name]()
-            if epoch % 100 == 0:
-                result_test = self.evaluate_func[self.model_name](self.test_data)
-                result_valid = self.evaluate_func[self.model_name](self.valid_data)
-                result_train = self.evaluate_func[self.model_name](self.train_data)
-
-                self.results_rank = {
-                    key: (result_train[key], result_valid[key], result_test[key])
-                    for key in result_test.keys()
-                }
-
-                print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {self.results_rank["AUC"][0]:.4f}, AP: {self.results_rank["AP"][0]:.4f}, MRR: {self.results_rank["MRR"][0]:.4f}, Hit@100 {self.results_rank["Hits@100"][0]:.4f}')
-                print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {self.results_rank["AUC"][1]:.4f}, AP: {self.results_rank["AP"][1]:.4f}, MRR: {self.results_rank["MRR"][1]:.4f}, Hit@100 {self.results_rank["Hits@100"][1]:.4f}')               
-                if self.results_rank["AUC"][1] > best_auc:
-                    best_auc = self.results_rank["AUC"][1]
-                elif result_valid['Hits@100'] > best_hits:
-                    best_hits = result_valid['Hits@100']
-
             
-            for key, result in self.results_rank.items():
-                self.loggers[key].add_result(self.run, result)
-                if epoch % 500 == 0:
-                    for key, result in self.results_rank.items():
-                        print(key)
-                        train_hits, valid_hits, test_hits = result
-                        print(
-                            f'Run: {self.run + 1:02d}, '
-                              f'Epoch: {epoch:02d}, '
-                              f'Loss: {loss:.4f}, '
-                              f'Train: {100 * train_hits:.2f}%, '
-                              f'Valid: {100 * valid_hits:.2f}%, '
-                              f'Test: {100 * test_hits:.2f}%')
-                    print('---')
+            if epoch % 100 == 0:
+                results_rank = self.merge_result_rank()
+                
+                for key, result in results_rank.items():
+                    print(key, result)
+                    self.loggers[key].add_result(self.run, result)
+                    print(self.run)
+                    print(result)
+                    # for key, result in results_rank.items():
+                    #     print(key)
+                    #     train_hits, valid_hits, test_hits = result
+
+                    #     print(
+                    #         f'Run: {self.run + 1:02d}, '
+                    #           f'Epoch: {epoch:02d}, '
+                    #           f'Loss: {loss:.4f}, '
+                    #           f'Train: {100 * train_hits:.2f}%, '
+                    #           f'Valid: {100 * valid_hits:.2f}%, '
+                    #           f'Test: {100 * test_hits:.2f}%')
+                    # print('---')
+        
+        # for key in self.loggers:
+        #     print(key)
+        #     self.loggers[key].print_statistics(self.run)
+            
         return best_auc, best_hits
+
 
     def result_statistic(self):
         result_all_run = {}
-        for key in self.loggers.keys():
-            if len(self.loggers[key].results[0]) > 0:
-                print(key)
-                
-                best_metric,  best_valid_mean, mean_list, var_list = self.loggers[key].print_statistics()
+        for key in self.loggers:
+            print(key)
+            best_metric,  best_valid_mean, mean_list, var_list = self.loggers[key].print_statistics()
+            # if key == eval_metric:
+            #     best_metric_valid_str = best_metric
+            #     best_valid_mean_metric = best_valid_mean
 
-                if key == 'Hits@100':
-                    best_metric_valid_str = best_metric
-                    best_valid_mean_metric = best_valid_mean
-                    
-                if key == 'AUC':
-                    best_auc_valid_str = best_metric
-                    best_auc_metric = best_valid_mean
+            if key == 'AUC':
+                best_auc_valid_str = best_metric
+                best_auc_metric = best_valid_mean
 
-                result_all_run[key] = [mean_list, var_list]
-            
-        print(str(best_metric_valid_str) +' ' +str(best_auc_valid_str))
+            result_all_run[key] = [mean_list, var_list]
+        print(best_auc_valid_str)
+        return best_auc_metric, result_all_run
+
         
 
     def save_result(self, results_dict):  # sourcery skip: avoid-builtin-shadow

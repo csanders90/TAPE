@@ -238,17 +238,28 @@ if __name__ == "__main__":
     # Set Pytorch environment
     torch.set_num_threads(cfg.run.num_threads)
     
+    loggers = {
+        'Hits@1': Logger(args.repeat),
+        'Hits@3': Logger(args.repeat),
+        'Hits@10': Logger(args.repeat),
+        'Hits@20': Logger(args.repeat),
+        'Hits@50': Logger(args.repeat),
+        'Hits@100': Logger(args.repeat),
+        'MRR': Logger(args.repeat),
+        'mrr_hit1': Logger(args.repeat),
+        'mrr_hit3': Logger(args.repeat), 
+        'mrr_hit10': Logger(args.repeat),
+        'mrr_hit20': Logger(args.repeat),
+        'mrr_hit50': Logger(args.repeat),
+        'mrr_hit100': Logger(args.repeat),
+        'AUC': Logger(args.repeat),
+        'AP': Logger(args.repeat),
+        'acc': Logger(args.repeat)
+    }
+    
     for run_id, seed, split_index in zip(*run_loop_settings()):
         # Set configurations for each run
         custom_set_run_dir(cfg, run_id)
-        loggers = {
-            'Hits@1': Logger(args.repeat),
-            'Hits@3': Logger(args.repeat),
-            'Hits@10': Logger(args.repeat),
-            'Hits@100': Logger(args.repeat),
-            'MRR': Logger(args.repeat),
-
-        }
     
         set_printing()
         cfg.seed = seed
@@ -265,24 +276,30 @@ if __name__ == "__main__":
         cfg.params = params_count(model)
         logging.info(f'Num parameters: {cfg.params}')
 
-        # optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
         optimizer = create_optimizer(model, cfg)
 
         # LLM: finetuning
         if cfg.train.finetune: 
             model = init_model_from_pretrained(model, cfg.train.finetune,
                                                cfg.train.freeze_pretrained)
-
+        
         trainer = Trainer(FILE_PATH,
                     cfg,
                     model, 
                     optimizer,
                     splits,
                     run_id, 
-                    args.repeat)
+                    args.repeat,
+                    loggers)
 
         best_auc, best_hits = trainer.train()
         
+        for key in loggers:
+            print(key)
+            trainer.loggers[key].print_statistics(run_id)
+            
         print(trainer.results_rank)
 
-        
+    best_auc_metric, result_all_run = trainer.result_statistic()
+    
+    print(f"best_auc_metric: {best_auc_metric}, result_all_run: {result_all_run}")
