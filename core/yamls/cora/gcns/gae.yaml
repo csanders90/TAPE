@@ -4,6 +4,7 @@ out_dir: results
 metric_best: acc
 cfg_dest: gae.yaml
 print: file
+seed: 0
 
 run:
   seed: 0
@@ -19,7 +20,7 @@ train:
   mode: custom
   batch_size: 32   
   eval_period: 1
-  epochs: 2000
+  epochs: 200
   device: 0
   auto_resume: False
   final_eval: False
@@ -41,6 +42,7 @@ data:
   split_labels: True
   num_features:  1433
   device: 0
+  split_index: [0.8, 0.15, 0.05]
 
 optimizer:
   type: adam
