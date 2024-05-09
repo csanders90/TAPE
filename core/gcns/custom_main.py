@@ -18,7 +18,7 @@ from torch_geometric.graphgym.config import (cfg, dump_cfg,
                                              makedirs_rm_exist, set_cfg)
 import torch_geometric.transforms as T
 from torch_geometric.datasets import Planetoid
-from graphgps.train.opt_train import Trainer 
+from graphgps.train.opt_train import Trainer
 from graphgps.network.custom_gnn import create_model
 from data_utils.load import load_data_nc, load_data_lp
 from utils import set_cfg, parse_args, get_git_repo_root_path, Logger, custom_set_out_dir \
@@ -42,11 +42,11 @@ if __name__ == "__main__":
     torch.set_num_threads(cfg.run.num_threads)
 
     loggers = create_logger(args)
-    
+
     for run_id, seed, split_index in zip(*run_loop_settings(cfg, args)):
         # Set configurations for each run
         custom_set_run_dir(cfg, run_id)
-    
+
         set_printing(cfg)
         cfg.seed = seed
         cfg.run_id = run_id
@@ -56,7 +56,7 @@ if __name__ == "__main__":
         splits, text = load_data_lp[cfg.data.name](cfg.data)
         cfg.model.in_channels = splits['train'].x.shape[1]
         model = create_model(cfg)
-        
+
         logging.info(model)
         logging.info(cfg)
         cfg.params = params_count(model)
@@ -68,7 +68,7 @@ if __name__ == "__main__":
         if cfg.train.finetune: 
             model = init_model_from_pretrained(model, cfg.train.finetune,
                                                cfg.train.freeze_pretrained)
-        
+
         trainer = Trainer(FILE_PATH,
                     cfg,
                     model, 
@@ -79,17 +79,17 @@ if __name__ == "__main__":
                     loggers)
 
         best_auc, best_hits = trainer.train()
-        
+
         # statistic for each run
         for key in loggers:
-            trainer.loggers[key].print_statistics(run_id)
-            print(trainer.loggers[key].results[run_id])
+            trainer.loggers[key].calc_run_stats(run_id)
 
-
+    print('All runs:')
+    result_dict = {}
+    # import IPython; IPython.embed()
     for key in loggers:
-        best_valid, best_valid_mean, mean_list, var_list = trainer.loggers[key].print_statistics()
- 
-    best_valid_mean_metric, best_auc_metric, result_all_run = trainer.result_statistic()
-    
-    # trainer.save_result(result_all_run)
-    print(f"best_valid_mean_metric: {best_valid_mean_metric}, best_auc_metric: {best_auc_metric}, result_all_run: {result_all_run}")
+        print(key)
+        best_train, best_valid, valid_train, valid_test, mean_list, var_list = trainer.loggers[key].calc_all_stats()
+        result_dict.update({key: valid_test})
+
+    trainer.save_result(result_dict)

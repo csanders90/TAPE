@@ -33,7 +33,7 @@ train:
   auto_resume: false
   batch_size: 32
   device: 0
-  epochs: 2000
+  epochs: 200
   eval_period: 1
   final_eval: false
   finetune: false

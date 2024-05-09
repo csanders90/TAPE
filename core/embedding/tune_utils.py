@@ -17,6 +17,9 @@ from utils import (
 )
 
 import pandas as pd 
+from typing import Dict
+import copy
+
 # Constants
 FILE_PATH = get_git_repo_root_path() + '/'
 
@@ -103,34 +106,55 @@ def train_and_evaluate_logistic_regression(id, X_train, y_train, X_test, y_test,
 
 def param_tune_acc_mrr(uuid_val, metrics, root, name, method):
     # if not exists save the first row
+    # one for new string line 
+    # another for new highest value line
     
-    csv_columns = ['Metric'] + list(k for k in metrics) 
+    metrics, float_metrics = convert_to_float(metrics)
+    head = f'{name}_{uuid_val}_{method}'
 
-    # load old csv
+    new_df, csv_columns = dict2df(metrics, head)
+    float_new_df, csv_columns = dict2df(float_metrics, head)
+    
     try:
         Data = pd.read_csv(root)[:-1]
     except:
         Data = pd.DataFrame(None, columns=csv_columns)
         Data.to_csv(root, index=False)
     
-    # create new line 
-    acc_lst = []
-    
-    for k, v in metrics.items():
-        acc_lst.append(process_value(v))
-        
-    # merge with old lines, 
-    v_lst = [f'{name}_{uuid_val}_{method}'] + acc_lst
-    new_df = pd.DataFrame([v_lst], columns=csv_columns)
+
     new_Data = pd.concat([Data, new_df])
+    new_Data_float = pd.concat([Data, float_new_df])
     
     # best value
-    highest_values = new_Data.apply(lambda column: max(column, default=None))
+    highest_values = new_Data_float.apply(lambda column: max(column, default=None))
 
     # concat and save
     Best_list = ['Best'] + highest_values[1:].tolist()
     Best_df = pd.DataFrame([Best_list], columns=Data.columns)
     upt_Data = pd.concat([new_Data, Best_df])
+    
     upt_Data.to_csv(root, index=False)
 
     return upt_Data
+
+
+def dict2df(metrics: Dict[str, float], head: str) -> pd.DataFrame:
+    csv_columns = ['Metric'] + list(k for k in metrics) 
+
+    # create new line 
+    acc_lst = []
+    
+    for _, v in metrics.items():
+        acc_lst.append(process_value(v))
+        
+    # merge with old lines
+    v_lst = [head] + acc_lst
+    new_df = pd.DataFrame([v_lst], columns=csv_columns)
+    
+    return new_df, csv_columns
+
+def convert_to_float(metrics: Dict[str, str]) -> Dict[str, float]:
+    float_metrics = copy.deepcopy(metrics)
+    for key, val in float_metrics.items():
+        float_metrics[key] = float(val.split(' ± ')[0])
+    return metrics, float_metrics

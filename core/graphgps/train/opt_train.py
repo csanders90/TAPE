@@ -143,12 +143,11 @@ class Trainer():
             self.train_func[self.model_name]()
             if epoch % 100 == 0:
                 results_rank = self.merge_result_rank()
-                print(results_rank.keys(), '\n', results_rank.values())
                 
                 for key, result in results_rank.items():
                     # result - (train, valid, test)
                     self.loggers[key].add_result(self.run, result)
-                    print(self.loggers[key].results)
+                    # print(self.loggers[key].results)
             
         return best_auc, best_hits
 
@@ -157,7 +156,7 @@ class Trainer():
         result_all_run = {}
         for key in self.loggers:
             print(key)
-            best_metric,  best_valid_mean, mean_list, var_list = self.loggers[key].print_statistics()
+            best_metric,  best_valid_mean, mean_list, var_list = self.loggers[key].calc_all_stats()
             
             if key == 'AUC':
                 best_auc_valid_str = best_metric
@@ -179,6 +178,7 @@ class Trainer():
         
         root = os.path.join(self.FILE_PATH, cfg.out_dir)
         acc_file = os.path.join(root, f'{self.data_name}_acc_mrr.csv')
+        print(results_dict)
         print(acc_file)
         os.makedirs(root, exist_ok=True)
         id = wandb.util.generate_id()

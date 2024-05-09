@@ -289,61 +289,76 @@ class Logger(object):
     def reset(self):
         return [[] for _ in range(self.runs)]
     
+    
     def add_result(self, run, result):
         assert len(result) == 3
         assert run >= 0 and run < len(self.results)
         self.results[run].append(result)
 
-    def print_statistics(self, run=None) -> Tuple[str, float, List[float], List[float]]:
-        if run is not None:
-            # there are two results for each run
-            result = 100 * torch.tensor(self.results[run])
-            argmax = result[:, 1].argmax().item()
+
+    def calc_run_stats(self, 
+                       run:int =None, 
+                       print_mode:bool =True) -> Tuple[float, float, float, float]:
+        result = 100 * torch.tensor(self.results[run])
+        best_valid_epoch = result[:, 1].argmax().item()
+        best_train_valid, _, best_test_valid = result[best_valid_epoch]
+
+        if print_mode:
             print(f'Run {run + 1:02d}:')
-            print(f'Highest Train: {result[:, 0].max():.2f}')
-            print(f'Highest Valid: {result[:, 1].max():.2f}')
-            print(f'  Final Train: {result[argmax, 0]:.2f}')
-            print(f'   Final Test: {result[argmax, 2]:.2f}')
-        else:
-            best_results = []
+            print(f'Highest Train: {result[:, 0].max().item():.2f} at Epoch {100*result[:, 0].argmax().item()}')
+            print(f'Highest Valid: {result[:, 1].max().item():.2f} at Epoch {100*best_valid_epoch}')
+            print(f'  Final Train: {best_train_valid:.2f} at Epoch {100*best_valid_epoch}')
+            print(f'   Final Test: {best_test_valid:.2f} at Epoch {100*best_valid_epoch}')
+        
+        # best train, best valid, train with the best valid epoch, test with the best valid epoch
+        return result[:, 0].max().item(), result[:, 1].max().item(), best_train_valid.item(), best_test_valid.item()
+    
+    
+    def calc_all_stats(self, print_mode: bool=True) -> Tuple[str, str, str, List[float], List[float]]:
+        
+        best_results = [self.calc_run_stats(run=i, print_mode=False) for i in range(self.runs)]
+        
+        best_result = torch.tensor(best_results)
 
-            for r in self.results:
-                r = 100 * torch.tensor(r)
-                train1 = r[:, 0].max().item()
-                valid = r[:, 1].max().item()
-                train2 = r[r[:, 1].argmax(), 0].item()
-                test = r[r[:, 1].argmax(), 2].item()
-                
-                best_results.append((train1, valid, train2, test))
+        # best train
+        r = best_result[:, 0].float()
+        best_train = f'{r.mean():.2f} ± {r.std():.2f}'
 
-            best_result = torch.tensor(best_results)
-            print(f'All runs:')
+        # best valid 
+        r = best_result[:, 1].float()
+        best_valid_mean = round(r.mean().item(), 2)
+        best_valid_var = round(r.std().item(), 2)
+        best_valid = f'{best_valid_mean:.2f} ± {best_valid_var:.2f}'
 
-            r = best_result[:, 0].float()
-            print(f'Highest Train: {r.mean():.2f} ± {r.std():.2f}')
 
-            r = best_result[:, 1].float()
-            best_valid_mean = round(r.mean().item(), 2)
-            best_valid_var = round(r.std().item(), 2)
+        # train with best valid
+        r = best_result[:, 2].float()
+        valid_train_mean = round(r.mean().item(), 2)
+        valid_train_var = round(r.std().item(), 2) 
+        valid_train = f'{valid_train_mean:.2f} ± {valid_train_var:.2f}'
+        
+        # test with best valid
+        r = best_result[:, 3].float()
+        valid_test_mean = round(r.mean().item(), 2)
+        valid_test_var = round(r.std().item(), 2)
+        valid_test = f'{valid_train_mean:.2f} ± {valid_train_var:.2f}'
+        
+        # neglect best train and best valid
+        mean_list = [valid_train_mean, best_valid_mean, valid_test_mean]
+        var_list = [valid_train_var, best_valid_var, valid_test_var]
 
-            best_valid = str(best_valid_mean) +' ' + '±' +  ' ' + str(best_valid_var)
-            print(f'Highest Valid: {r.mean():.2f} ± {r.std():.2f}')
+        if print_mode:
+            print(f'Highest Train: {best_train}')
+            print(f'Highest Valid: {best_valid}')
+            print(f'Train with the best valid: {valid_train}')
+            print(f'Test with the best valid epoch: {valid_test}')
+        
+        return best_train, best_valid, valid_train, valid_test, mean_list, var_list
 
-            r = best_result[:, 2].float()
-            best_train_mean = round(r.mean().item(), 2)
-            best_train_var = round(r.std().item(), 2)
-            print(f'  Final Train: {r.mean():.2f} ± {r.std():.2f}')
-
-            r = best_result[:, 3].float()
-            best_test_mean = round(r.mean().item(), 2)
-            best_test_var = round(r.std().item(), 2)
-            print(f'   Final Test: {r.mean():.2f} ± {r.std():.2f}')
-
-            mean_list = [best_train_mean, best_valid_mean, best_test_mean]
-            var_list = [best_train_var, best_valid_var, best_test_var]
-
-            return best_valid, best_valid_mean, mean_list, var_list
-
+    def save2dict(self):
+        "save the result into csv based on calc_all_stats"
+        
+        
 
 def get_logger(name, log_dir, config_dir):
 	
