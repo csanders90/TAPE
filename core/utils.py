@@ -10,8 +10,11 @@ import torch
 import git
 import subprocess
 import pandas as pd
+import argparse
+import torch.optim as optim
 from IPython import embed
 from torch_scatter import scatter
+from yacs.config import CfgNode as CN
 from graphgps.finetuning import get_final_pretrained_ckpt
 from torch_geometric.data.makedirs import makedirs
 from torch_geometric.graphgym.train import train
@@ -19,10 +22,7 @@ from torch_geometric.graphgym.utils.agg_runs import agg_runs
 from torch_geometric.graphgym.config import (cfg, dump_cfg, 
                                              makedirs_rm_exist, set_cfg)
 from torch_geometric.utils import remove_self_loops
-from yacs.config import CfgNode as CN
-import torch.optim as optim
-import argparse
-from typing import Tuple, List
+from typing import Tuple, List, Dict
 
 def init_random_state(seed=0):
     # Libraries using GPU should be imported after specifying GPU-ID
@@ -182,7 +182,6 @@ def append_mrr_to_excel(uuid_val, metrics_mrr, root, name, method):
     upt_Data = pd.concat([new_Data, Best_df])
     
     upt_Data.to_csv(root, index=False)
-
     
     return upt_Data
 
@@ -212,6 +211,7 @@ def set_cfg(file_path, args):
     with open(file_path + args.cfg_file, "r") as f:
         return CN.load_cfg(f)
     
+    
 def init_cfg_test():
     """
     Initialize a CfgNode instance to test dataloader for link prediction.
@@ -237,18 +237,66 @@ def init_cfg_test():
     }
     return CN(cfg_dict)
 
+def create_logger(args):
+    return {
+        'Hits@1': Logger(args.repeat),
+        'Hits@3': Logger(args.repeat),
+        'Hits@10': Logger(args.repeat),
+        'Hits@20': Logger(args.repeat),
+        'Hits@50': Logger(args.repeat),
+        'Hits@100': Logger(args.repeat),
+        'MRR': Logger(args.repeat),
+        'mrr_hit1': Logger(args.repeat),
+        'mrr_hit3': Logger(args.repeat), 
+        'mrr_hit10': Logger(args.repeat),
+        'mrr_hit20': Logger(args.repeat),
+        'mrr_hit50': Logger(args.repeat),
+        'mrr_hit100': Logger(args.repeat),
+        'AUC': Logger(args.repeat),
+        'AP': Logger(args.repeat),
+        'acc': Logger(args.repeat)
+    }
+
 class Logger(object):
+    """
+    Creates a Logger object for tracking and printing various metrics during the execution of an experiment.
+
+    Args:
+        runs: The number of runs to track metrics for.
+        info: Additional information or context to include in the logger.
+
+    Methods:
+        - add_result(run, result): Add a result Dict for a specific run int to the logger.
+        - print_statistics(run=None): Print statistics for a specific run or aggregated statistics across all runs.
+            Calculating statistics across all runs:
+            Iterate over all runs and calculate statistics for each run.
+            Append these statistics (highest train, highest validation, final train, final test) to best_results.
+            Convert best_results to a PyTorch tensor.
+            Print the overall statistics across all runs:
+            Mean and standard deviation of the highest train accuracy (r.mean():.2f ± r.std():.2f)
+            Mean and standard deviation of the highest validation accuracy (r.mean():.2f ± r.std():.2f)
+            Mean and standard deviation of the final train accuracy (r.mean():.2f ± r.std():.2f)
+            Mean and standard deviation of the final test accuracy (r.mean():.2f ± r.std():.2f)
+            Return the mean and variance of the highest validation accuracy for potential further use.
+        - get_best_result(): Get the results stored in the logger.
+   
+    """
     def __init__(self, runs, info=None):
         self.info = info
+        self.runs = runs
         self.results = [[] for _ in range(runs)]
 
+    def reset(self):
+        return [[] for _ in range(self.runs)]
+    
     def add_result(self, run, result):
         assert len(result) == 3
         assert run >= 0 and run < len(self.results)
         self.results[run].append(result)
 
-    def print_statistics(self, run=None):
+    def print_statistics(self, run=None) -> Tuple[str, float, List[float], List[float]]:
         if run is not None:
+            # there are two results for each run
             result = 100 * torch.tensor(self.results[run])
             argmax = result[:, 1].argmax().item()
             print(f'Run {run + 1:02d}:')
@@ -295,9 +343,6 @@ class Logger(object):
             var_list = [best_train_var, best_valid_var, best_test_var]
 
             return best_valid, best_valid_mean, mean_list, var_list
-
-    def get_best_result(self):
-        print(self.results)
 
 
 def get_logger(name, log_dir, config_dir):
@@ -486,7 +531,7 @@ def parse_args() -> argparse.Namespace:
                         default='core/yamls/cora/gcns/gat_sp1.yaml',
                         help='The configuration file path.')
     
-    parser.add_argument('--repeat', type=int, default=3,
+    parser.add_argument('--repeat', type=int, default=4,
                         help='The number of repeated jobs.')
     parser.add_argument('--mark_done', action='store_true',
                         help='Mark yaml as done after a job has finished.')
@@ -537,6 +582,7 @@ def run_loop_settings(cfg: CN,
     return run_ids, seeds, split_indices
 
 
+
 def build_optimizer(args, params):
     weight_decay = args.weight_decay
     filter_fn = filter(lambda p : p.requires_grad, params)
@@ -555,6 +601,7 @@ def build_optimizer(args, params):
     elif args.opt_scheduler == 'cos':
         scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.opt_restart)
     return scheduler, optimizer
+
 
 
 def custom_set_out_dir(cfg, cfg_fname, name_tag):
@@ -699,22 +746,3 @@ def init_model_from_pretrained(model, pretrained_dir, freeze_pretrained=False):
                 param.requires_grad = False
     return model
 
-def create_logger(args):
-    return {
-    'Hits@1': Logger(args.repeat),
-    'Hits@3': Logger(args.repeat),
-    'Hits@10': Logger(args.repeat),
-    'Hits@20': Logger(args.repeat),
-    'Hits@50': Logger(args.repeat),
-    'Hits@100': Logger(args.repeat),
-    'MRR': Logger(args.repeat),
-    'mrr_hit1': Logger(args.repeat),
-    'mrr_hit3': Logger(args.repeat), 
-    'mrr_hit10': Logger(args.repeat),
-    'mrr_hit20': Logger(args.repeat),
-    'mrr_hit50': Logger(args.repeat),
-    'mrr_hit100': Logger(args.repeat),
-    'AUC': Logger(args.repeat),
-    'AP': Logger(args.repeat),
-    'acc': Logger(args.repeat)
-}

@@ -139,35 +139,16 @@ class Trainer():
     
     def train(self):
         best_hits, best_auc = 0, 0 
-        
         for epoch in range(1, self.epochs + 1):
-
-            loss = self.train_func[self.model_name]()
-            
+            self.train_func[self.model_name]()
             if epoch % 100 == 0:
                 results_rank = self.merge_result_rank()
+                print(results_rank.keys(), '\n', results_rank.values())
                 
                 for key, result in results_rank.items():
-                    print(key, result)
+                    # result - (train, valid, test)
                     self.loggers[key].add_result(self.run, result)
-                    print(self.run)
-                    print(result)
-                    # for key, result in results_rank.items():
-                    #     print(key)
-                    #     train_hits, valid_hits, test_hits = result
-
-                    #     print(
-                    #         f'Run: {self.run + 1:02d}, '
-                    #           f'Epoch: {epoch:02d}, '
-                    #           f'Loss: {loss:.4f}, '
-                    #           f'Train: {100 * train_hits:.2f}%, '
-                    #           f'Valid: {100 * valid_hits:.2f}%, '
-                    #           f'Test: {100 * test_hits:.2f}%')
-                    # print('---')
-        
-        # for key in self.loggers:
-        #     print(key)
-        #     self.loggers[key].print_statistics(self.run)
+                    print(self.loggers[key].results)
             
         return best_auc, best_hits
 
@@ -177,7 +158,7 @@ class Trainer():
         for key in self.loggers:
             print(key)
             best_metric,  best_valid_mean, mean_list, var_list = self.loggers[key].print_statistics()
-
+            
             if key == 'AUC':
                 best_auc_valid_str = best_metric
                 best_auc_metric = best_valid_mean
