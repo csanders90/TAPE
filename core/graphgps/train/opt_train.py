@@ -141,6 +141,7 @@ class Trainer():
         best_auc, best_hits, best_hit100 = 0, 0, 0
         for epoch in range(1, self.epochs + 1):
             loss = self.train_func[self.model_name]()
+            
             if epoch % 100 == 0:
                 results_rank = self.merge_result_rank()
                 print(results_rank)
@@ -151,13 +152,15 @@ class Trainer():
                     self.loggers[key].add_result(self.run, result)
                     # print(self.loggers[key].results)
                     
-                print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][0]:.4f}, AP: {results_rank["AP"][0]:.4f}, MRR: {results_rank["MRR"][0]:.4f}, Hit@100 {results_rank["Hits@100"][0]:.4f}')
-                print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][1]:.4f}, AP: {results_rank["AP"][1]:.4f}, MRR: {results_rank["MRR"][1]:.4f}, Hit@100 {results_rank["Hits@100"][1]:.4f}')               
+                print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][0]:.4f}, AP: {results_rank["AP"][0]:.4f}, MRR: {results_rank["MRR"][0]:.4f}, Hit@10 {results_rank["Hits@10"][0]:.4f}')
+                print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][1]:.4f}, AP: {results_rank["AP"][1]:.4f}, MRR: {results_rank["MRR"][1]:.4f}, Hit@10 {results_rank["Hits@10"][1]:.4f}')               
+                print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][2]:.4f}, AP: {results_rank["AP"][2]:.4f}, MRR: {results_rank["MRR"][2]:.4f}, Hit@10 {results_rank["Hits@10"][2]:.4f}')               
 
                 if results_rank["AUC"][1] > best_auc:
                     best_auc = results_rank["AUC"][1]
                 elif results_rank['Hits@100'][1] > best_hit100:
                     best_hits = results_rank['Hits@100'][1]
+                    
                     
             for key, result in self.results_rank.items():
                 self.loggers[key].add_result(self.run, result)
@@ -203,7 +206,7 @@ class Trainer():
     def save_result(self, results_dict: Dict[str, float]):  # sourcery skip: avoid-builtin-shadow
         
         root = os.path.join(self.FILE_PATH, cfg.out_dir)
-        acc_file = os.path.join(root, f'{self.data_name}_acc_mrr.csv')
+        acc_file = os.path.join(root, f'{self.data_name}_wb_acc_mrr.csv')
         print(results_dict)
         print(acc_file)
         os.makedirs(root, exist_ok=True)

@@ -99,6 +99,7 @@ def run_experiment():  # sourcery skip: avoid-builtin-shadow
 
 
     for epoch in range(1, cfg.train.epochs + 1):
+        print(epoch)
         loss = trainer.train_func[trainer.model_name]()
         wandb.log({'loss': loss})
         
@@ -108,22 +109,19 @@ def run_experiment():  # sourcery skip: avoid-builtin-shadow
             for key, result in results_rank.items():
                 # result - (train, valid, test)
                 loggers[key].add_result(0, result)
-                # print(self.loggers[key].results)
-                print(loggers[key].results)
                 
     print('All runs:')
     
     result_dict = {}
     for key in loggers:
-        print(key)
-        _, _, _, valid_test, _, _ = trainer.loggers[key].calc_all_stats(0)
+        _, _, _, valid_test, _, _ = loggers[key].calc_all_stats(0)
         result_dict.update({key: valid_test})
 
     trainer.save_result(result_dict)
-    print(result_dict['Hits@100'])
     wandb.log({'Hits@100': set_float(result_dict['Hits@100'])})
     run.log_code("../", include_fn=wandb_record_files)
 
+    return  set_float(result_dict['Hits@100'])
 
 import torch
 

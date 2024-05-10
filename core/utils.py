@@ -24,7 +24,7 @@ from torch_geometric.graphgym.config import (cfg, dump_cfg,
 from torch_geometric.utils import remove_self_loops
 from typing import Tuple, List, Dict
 
-set_float = lambda result: float(result.split(' ±')[0])
+set_float = lambda result: float(result.split(' ± ')[0])
 
 
 def init_random_state(seed=0):
