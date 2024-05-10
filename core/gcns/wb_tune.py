@@ -15,12 +15,13 @@ from torch_geometric.graphgym.config import (dump_cfg,
                                              makedirs_rm_exist)
 import torch_geometric.transforms as T
 from torch_geometric.datasets import Planetoid
-from graphgps.train.opt_train import Trainer
+from graphgps.train.opt_train import Trainer, Trainer_Saint
 from graphgps.network.custom_gnn import create_model
 from data_utils.load import load_data_nc, load_data_lp
 from utils import parse_args, create_optimizer, config_device, \
         init_model_from_pretrained, create_logger, set_cfg, set_cfg_sweep
 
+from gcns.gsaint_main import get_loader
 import wandb 
 from sklearn.metrics import *
 from embedding.tune_utils import (
@@ -86,7 +87,7 @@ def run_experiment():  # sourcery skip: avoid-builtin-shadow
     model = create_model(cfg)
 
     optimizer = create_optimizer(model, cfg)
-    loggers = create_logger(1)
+    loggers = create_logger(args)
 
     seed_everything(cfg.seed)
     auto_select_device()
@@ -102,7 +103,7 @@ def run_experiment():  # sourcery skip: avoid-builtin-shadow
                     model, 
                     optimizer, 
                     splits, 
-                    run_id, 
+                    0, 
                     args.repeat,
                     loggers,
                     sampler, 
