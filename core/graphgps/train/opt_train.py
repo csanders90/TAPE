@@ -138,16 +138,42 @@ class Trainer():
         }
     
     def train(self):
-        best_hits, best_auc = 0, 0 
+        best_auc, best_hits, best_hit100 = 0, 0, 0
         for epoch in range(1, self.epochs + 1):
-            self.train_func[self.model_name]()
+            loss = self.train_func[self.model_name]()
             if epoch % 100 == 0:
                 results_rank = self.merge_result_rank()
+                print(results_rank)
                 
                 for key, result in results_rank.items():
                     # result - (train, valid, test)
+                    
                     self.loggers[key].add_result(self.run, result)
                     # print(self.loggers[key].results)
+                    
+                print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][0]:.4f}, AP: {results_rank["AP"][0]:.4f}, MRR: {results_rank["MRR"][0]:.4f}, Hit@100 {results_rank["Hits@100"][0]:.4f}')
+                print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][1]:.4f}, AP: {results_rank["AP"][1]:.4f}, MRR: {results_rank["MRR"][1]:.4f}, Hit@100 {results_rank["Hits@100"][1]:.4f}')               
+
+                if results_rank["AUC"][1] > best_auc:
+                    best_auc = results_rank["AUC"][1]
+                elif results_rank['Hits@100'][1] > best_hit100:
+                    best_hits = results_rank['Hits@100'][1]
+                    
+            for key, result in self.results_rank.items():
+                self.loggers[key].add_result(self.run, result)
+                if epoch % 500 == 0:
+                    for key, result in self.results_rank.items():
+                        print(key)
+                        train_hits, valid_hits, test_hits = result
+                        print(
+                            f'Run: {self.run + 1:02d}, '
+                              f'Epoch: {epoch:02d}, '
+                              f'Loss: {loss:.4f}, '
+                              f'Train: {100 * train_hits:.2f}%, '
+                              f'Valid: {100 * valid_hits:.2f}%, '
+                              f'Test: {100 * test_hits:.2f}%')
+                    print('---')
+        return best_auc, best_hits
             
         return 
 
