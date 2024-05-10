@@ -138,32 +138,31 @@ class Trainer():
         }
     
     def train(self):
-        best_hits, best_auc = 0, 0 
-        
+        best_auc, best_hits, best_hit100 = 0, 0, 0
         for epoch in range(1, self.epochs + 1):
-
             loss = self.train_func[self.model_name]()
             
             if epoch % 100 == 0:
                 results_rank = self.merge_result_rank()
+                print(results_rank)
                 
                 for key, result in results_rank.items():
-                    # print(key, result)
+                    print(key, result)
                     self.loggers[key].add_result(self.run, result)
-                    # print(self.run)
-                    # print(result)
-                    for key, result in results_rank.items():
-                        print(key)
-                        train_hits, valid_hits, test_hits = result
+                    print(self.run)
+                    print(result)
+                    # for key, result in results_rank.items():
+                    #     print(key)
+                    #     train_hits, valid_hits, test_hits = result
 
-                        print(
-                            f'Run: {self.run + 1:02d}, '
-                              f'Epoch: {epoch:02d}, '
-                              f'Loss: {loss:.4f}, '
-                              f'Train: {100 * train_hits:.2f}%, '
-                              f'Valid: {100 * valid_hits:.2f}%, '
-                              f'Test: {100 * test_hits:.2f}%')
-                    print('---')
+                    #     print(
+                    #         f'Run: {self.run + 1:02d}, '
+                    #           f'Epoch: {epoch:02d}, '
+                    #           f'Loss: {loss:.4f}, '
+                    #           f'Train: {100 * train_hits:.2f}%, '
+                    #           f'Valid: {100 * valid_hits:.2f}%, '
+                    #           f'Test: {100 * test_hits:.2f}%')
+                    # print('---')
         
         # for key in self.loggers:
         #     print(key)
@@ -172,12 +171,13 @@ class Trainer():
         return best_auc, best_hits
 
 
+
     def result_statistic(self):
         result_all_run = {}
         for key in self.loggers:
             print(key)
-            best_metric,  best_valid_mean, mean_list, var_list = self.loggers[key].print_statistics()
-
+            best_metric,  best_valid_mean, mean_list, var_list = self.loggers[key].calc_all_stats()
+            
             if key == 'AUC':
                 best_auc_valid_str = best_metric
                 best_auc_metric = best_valid_mean
@@ -197,7 +197,8 @@ class Trainer():
     def save_result(self, results_dict: Dict[str, float]):  # sourcery skip: avoid-builtin-shadow
         
         root = os.path.join(self.FILE_PATH, cfg.out_dir)
-        acc_file = os.path.join(root, f'{self.data_name}_acc_mrr.csv')
+        acc_file = os.path.join(root, f'{self.data_name}_wb_acc_mrr.csv')
+        print(results_dict)
         print(acc_file)
         os.makedirs(root, exist_ok=True)
         id = wandb.util.generate_id()

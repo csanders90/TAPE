@@ -10,8 +10,11 @@ import torch
 import git
 import subprocess
 import pandas as pd
+import argparse
+import torch.optim as optim
 from IPython import embed
 from torch_scatter import scatter
+from yacs.config import CfgNode as CN
 from graphgps.finetuning import get_final_pretrained_ckpt
 from torch_geometric.data.makedirs import makedirs
 from torch_geometric.graphgym.train import train
@@ -19,10 +22,10 @@ from torch_geometric.graphgym.utils.agg_runs import agg_runs
 from torch_geometric.graphgym.config import (cfg, dump_cfg, 
                                              makedirs_rm_exist, set_cfg)
 from torch_geometric.utils import remove_self_loops
-from yacs.config import CfgNode as CN
-import torch.optim as optim
-import argparse
-from typing import Tuple, List
+from typing import Tuple, List, Dict
+
+set_float = lambda result: float(result.split(' ± ')[0])
+
 
 def init_random_state(seed=0):
     # Libraries using GPU should be imported after specifying GPU-ID
@@ -182,7 +185,6 @@ def append_mrr_to_excel(uuid_val, metrics_mrr, root, name, method):
     upt_Data = pd.concat([new_Data, Best_df])
     
     upt_Data.to_csv(root, index=False)
-
     
     return upt_Data
 
@@ -191,11 +193,12 @@ def config_device(cfg):
 
     if hasattr(cfg, 'device'):
         device = cfg.device
-    elif cfg.data.device is not None:
+    elif hasattr(cfg, 'data') and hasattr(cfg.data, 'device'):
         device = cfg.data.device
-    elif cfg.train.device is not None:
+    elif hasattr(cfg, 'train') and hasattr(cfg.data, 'device'):
         device = cfg.train.device
-
+    else:
+        device = 'cpu'
     num_cuda_devices = 0
     if torch.cuda.is_available():
         # Get the number of available CUDA devices
@@ -211,6 +214,7 @@ def config_device(cfg):
 def set_cfg(file_path, args):
     with open(file_path + args.cfg_file, "r") as f:
         return CN.load_cfg(f)
+    
     
 def init_cfg_test():
     """
@@ -237,68 +241,130 @@ def init_cfg_test():
     }
     return CN(cfg_dict)
 
+
+def create_logger(repeat):
+    return {
+        'Hits@1': Logger(repeat),
+        'Hits@3': Logger(repeat),
+        'Hits@10': Logger(repeat),
+        'Hits@20': Logger(repeat),
+        'Hits@50': Logger(repeat),
+        'Hits@100': Logger(repeat),
+        'MRR': Logger(repeat),
+        'mrr_hit1': Logger(repeat),
+        'mrr_hit3': Logger(repeat), 
+        'mrr_hit10': Logger(repeat),
+        'mrr_hit20': Logger(repeat),
+        'mrr_hit50': Logger(repeat),
+        'mrr_hit100': Logger(repeat),
+        'AUC': Logger(repeat),
+        'AP': Logger(repeat),
+        'acc': Logger(repeat)
+    }
+
+
 class Logger(object):
+    """
+    Creates a Logger object for tracking and printing various metrics during the execution of an experiment.
+
+    Args:
+        runs: The number of runs to track metrics for.
+        info: Additional information or context to include in the logger.
+
+    Methods:
+        - add_result(run, result): Add a result Dict for a specific run int to the logger.
+        - print_statistics(run=None): Print statistics for a specific run or aggregated statistics across all runs.
+            Calculating statistics across all runs:
+            Iterate over all runs and calculate statistics for each run.
+            Append these statistics (highest train, highest validation, final train, final test) to best_results.
+            Convert best_results to a PyTorch tensor.
+            Print the overall statistics across all runs:
+            Mean and standard deviation of the highest train accuracy (r.mean():.2f ± r.std():.2f)
+            Mean and standard deviation of the highest validation accuracy (r.mean():.2f ± r.std():.2f)
+            Mean and standard deviation of the final train accuracy (r.mean():.2f ± r.std():.2f)
+            Mean and standard deviation of the final test accuracy (r.mean():.2f ± r.std():.2f)
+            Return the mean and variance of the highest validation accuracy for potential further use.
+        - get_best_result(): Get the results stored in the logger.
+   
+    """
     def __init__(self, runs, info=None):
         self.info = info
+        self.runs = runs
         self.results = [[] for _ in range(runs)]
 
+    def reset(self):
+        return [[] for _ in range(self.runs)]
+    
+    
     def add_result(self, run, result):
         assert len(result) == 3
         assert run >= 0 and run < len(self.results)
         self.results[run].append(result)
 
-    def print_statistics(self, run=None):
-        if run is not None:
-            result = 100 * torch.tensor(self.results[run])
-            argmax = result[:, 1].argmax().item()
+
+    def calc_run_stats(self, 
+                       run:int =None, 
+                       print_mode:bool =True) -> Tuple[float, float, float, float]:
+        result = 100 * torch.tensor(self.results[run])
+        best_valid_epoch = result[:, 1].argmax().item()
+        best_train_valid, _, best_test_valid = result[best_valid_epoch]
+
+        if print_mode:
             print(f'Run {run + 1:02d}:')
-            print(f'Highest Train: {result[:, 0].max():.2f}')
-            print(f'Highest Valid: {result[:, 1].max():.2f}')
-            print(f'  Final Train: {result[argmax, 0]:.2f}')
-            print(f'   Final Test: {result[argmax, 2]:.2f}')
-        else:
-            best_results = []
+            print(f'Highest Train: {result[:, 0].max().item():.2f} at Epoch {100*result[:, 0].argmax().item()}')
+            print(f'Highest Valid: {result[:, 1].max().item():.2f} at Epoch {100*best_valid_epoch}')
+            print(f'  Final Train: {best_train_valid:.2f} at Epoch {100*best_valid_epoch}')
+            print(f'   Final Test: {best_test_valid:.2f} at Epoch {100*best_valid_epoch}')
+        
+        # best train, best valid, train with the best valid epoch, test with the best valid epoch
+        return result[:, 0].max().item(), result[:, 1].max().item(), best_train_valid.item(), best_test_valid.item()
+    
+    
+    def calc_all_stats(self, print_mode: bool=True) -> Tuple[str, str, str, List[float], List[float]]:
+        
+        best_results = [self.calc_run_stats(run=i, print_mode=False) for i in range(self.runs)]
+        
+        best_result = torch.tensor(best_results)
 
-            for r in self.results:
-                r = 100 * torch.tensor(r)
-                train1 = r[:, 0].max().item()
-                valid = r[:, 1].max().item()
-                train2 = r[r[:, 1].argmax(), 0].item()
-                test = r[r[:, 1].argmax(), 2].item()
-                
-                best_results.append((train1, valid, train2, test))
+        # best train
+        r = best_result[:, 0].float()
+        best_train = f'{r.mean():.2f} ± {r.std():.2f}'
 
-            best_result = torch.tensor(best_results)
-            print(f'All runs:')
+        # best valid 
+        r = best_result[:, 1].float()
+        best_valid_mean = round(r.mean().item(), 2)
+        best_valid_var = round(r.std().item(), 2)
+        best_valid = f'{best_valid_mean:.2f} ± {best_valid_var:.2f}'
 
-            r = best_result[:, 0].float()
-            print(f'Highest Train: {r.mean():.2f} ± {r.std():.2f}')
 
-            r = best_result[:, 1].float()
-            best_valid_mean = round(r.mean().item(), 2)
-            best_valid_var = round(r.std().item(), 2)
+        # train with best valid
+        r = best_result[:, 2].float()
+        valid_train_mean = round(r.mean().item(), 2)
+        valid_train_var = round(r.std().item(), 2) 
+        valid_train = f'{valid_train_mean:.2f} ± {valid_train_var:.2f}'
+        
+        # test with best valid
+        r = best_result[:, 3].float()
+        valid_test_mean = round(r.mean().item(), 2)
+        valid_test_var = round(r.std().item(), 2)
+        valid_test = f'{valid_train_mean:.2f} ± {valid_train_var:.2f}'
+        
+        # neglect best train and best valid
+        mean_list = [valid_train_mean, best_valid_mean, valid_test_mean]
+        var_list = [valid_train_var, best_valid_var, valid_test_var]
 
-            best_valid = str(best_valid_mean) +' ' + '±' +  ' ' + str(best_valid_var)
-            print(f'Highest Valid: {r.mean():.2f} ± {r.std():.2f}')
+        if print_mode:
+            print(f'Highest Train: {best_train}')
+            print(f'Highest Valid: {best_valid}')
+            print(f'Train with the best valid: {valid_train}')
+            print(f'Test with the best valid epoch: {valid_test}')
+        
+        return best_train, best_valid, valid_train, valid_test, mean_list, var_list
 
-            r = best_result[:, 2].float()
-            best_train_mean = round(r.mean().item(), 2)
-            best_train_var = round(r.std().item(), 2)
-            print(f'  Final Train: {r.mean():.2f} ± {r.std():.2f}')
-
-            r = best_result[:, 3].float()
-            best_test_mean = round(r.mean().item(), 2)
-            best_test_var = round(r.std().item(), 2)
-            print(f'   Final Test: {r.mean():.2f} ± {r.std():.2f}')
-
-            mean_list = [best_train_mean, best_valid_mean, best_test_mean]
-            var_list = [best_train_var, best_valid_var, best_test_var]
-
-            return best_valid, best_valid_mean, mean_list, var_list
-
-    def get_best_result(self):
-        print(self.results)
-
+    def save2dict(self):
+        "save the result into csv based on calc_all_stats"
+        
+        
 
 def get_logger(name, log_dir, config_dir):
 	
@@ -483,10 +549,10 @@ def parse_args() -> argparse.Namespace:
                         default='core/yamls/cora/gcns/gae.yaml',
                         help='The configuration file path.')
     parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
-                        default='core/yamls/cora/gcns/gat_sp1.yaml',
+                        default='core/yamls/cora/gcns/gae_sp1.yaml',
                         help='The configuration file path.')
     
-    parser.add_argument('--repeat', type=int, default=3,
+    parser.add_argument('--repeat', type=int, default=4,
                         help='The number of repeated jobs.')
     parser.add_argument('--mark_done', action='store_true',
                         help='Mark yaml as done after a job has finished.')
@@ -496,8 +562,8 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def set_cfg(file_path, args):
-    with open(file_path + args.cfg_file, "r") as f:
+def set_cfg(file_path, cfg_file):
+    with open(file_path + cfg_file, "r") as f:
         return CN.load_cfg(f)
 
 # A new method for saving the path to "sweep_file"
@@ -526,8 +592,7 @@ def run_loop_settings(cfg: CN,
     if cfg.run.multiple_splits == 'None':
         # 'multi-seed' run mode
         num_iterations = args.repeat
-        # I got here error
-        seeds = [cfg.run.seed + x for x in range(num_iterations)]
+        seeds = [cfg.seed + x for x in range(num_iterations)]
         split_indices = [cfg.data.split_index] * num_iterations
         run_ids = seeds
     else:
@@ -540,6 +605,7 @@ def run_loop_settings(cfg: CN,
         split_indices = cfg.run.multiple_splits
         run_ids = split_indices
     return run_ids, seeds, split_indices
+
 
 
 def build_optimizer(args, params):
@@ -560,6 +626,7 @@ def build_optimizer(args, params):
     elif args.opt_scheduler == 'cos':
         scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.opt_restart)
     return scheduler, optimizer
+
 
 
 def custom_set_out_dir(cfg, cfg_fname, name_tag):
@@ -704,22 +771,3 @@ def init_model_from_pretrained(model, pretrained_dir, freeze_pretrained=False):
                 param.requires_grad = False
     return model
 
-def create_logger(args):
-    return {
-    'Hits@1': Logger(args.repeat),
-    'Hits@3': Logger(args.repeat),
-    'Hits@10': Logger(args.repeat),
-    'Hits@20': Logger(args.repeat),
-    'Hits@50': Logger(args.repeat),
-    'Hits@100': Logger(args.repeat),
-    'MRR': Logger(args.repeat),
-    'mrr_hit1': Logger(args.repeat),
-    'mrr_hit3': Logger(args.repeat), 
-    'mrr_hit10': Logger(args.repeat),
-    'mrr_hit20': Logger(args.repeat),
-    'mrr_hit50': Logger(args.repeat),
-    'mrr_hit100': Logger(args.repeat),
-    'AUC': Logger(args.repeat),
-    'AP': Logger(args.repeat),
-    'acc': Logger(args.repeat)
-}

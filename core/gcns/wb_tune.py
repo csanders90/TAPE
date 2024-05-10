@@ -19,7 +19,7 @@ from graphgps.train.opt_train import Trainer, Trainer_Saint
 from graphgps.network.custom_gnn import create_model
 from data_utils.load import load_data_nc, load_data_lp
 from utils import parse_args, create_optimizer, config_device, \
-        init_model_from_pretrained, create_logger, set_cfg, set_cfg_sweep
+        init_model_from_pretrained, create_logger, set_cfg
 
 from gcns.gsaint_main import get_loader
 import wandb 
@@ -87,7 +87,7 @@ def run_experiment():  # sourcery skip: avoid-builtin-shadow
     model = create_model(cfg)
 
     optimizer = create_optimizer(model, cfg)
-    loggers = create_logger(args)
+    loggers = create_logger(args.repeat)
 
     seed_everything(cfg.seed)
     auto_select_device()
@@ -145,7 +145,9 @@ def run_experiment():  # sourcery skip: avoid-builtin-shadow
 
     trainer.save_result(result_dict)
     print(result_dict['Hits@100'])
-    wandb.log({'Hits@100': set_float(result_dict['Hits@100'])})
+    wandb.log({'Hits@100': set_float(result_dict['Hits@100']),
+               'AUC'     : set_float(result_dict['AUC']),
+               'ACC'     : set_float(result_dict['acc'])})
     run.log_code("../", include_fn=wandb_record_files)
 
 
@@ -159,9 +161,8 @@ print(args)
 # cfg_sweep= 'core/yamls/cora/gcns/gsait_sweep.yaml'
 # cfg_config = 'core/yamls/cora/gcns/gsaint.yaml'
 
-# Here I got error, because the second parameter should be args, but not string
-cfg_sweep = set_cfg_sweep(FILE_PATH, args)
-cfg_config = set_cfg(FILE_PATH, args)
+cfg_sweep = set_cfg(FILE_PATH, args.sweep_file)
+cfg_config = set_cfg(FILE_PATH, args.cfg_file)
 
 
 sweep_id = wandb.sweep(sweep=cfg_sweep, project=f"{cfg_config.model.type}-sweep-{cfg_config.data.name}")
