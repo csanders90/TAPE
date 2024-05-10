@@ -18,7 +18,7 @@ wandb:
 
 train:
   mode: custom
-  batch_size: 32   
+  batch_size: 1024 
   eval_period: 1
   epochs: 200
   device: 0
@@ -28,7 +28,7 @@ train:
 
 model:
   type: GAE
-  out_channels: 16
+  out_channels: 32
   in_channels: 1433
 
 num_threads: 11
