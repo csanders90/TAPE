@@ -98,25 +98,52 @@ def run_experiment():  # sourcery skip: avoid-builtin-shadow
                 loggers)
 
 
+    best_auc, best_hits, best_hit100 = 0, 0, 0
+    results_rank = {}
     for epoch in range(1, cfg.train.epochs + 1):
-        print(epoch)
-        loss = trainer.train_func[trainer.model_name]()
-        wandb.log({'loss': loss})
+        loss = trainer.train_func[cfg.model.type]()
         
         if epoch % 100 == 0:
             results_rank = trainer.merge_result_rank()
+            print(results_rank)
             
             for key, result in results_rank.items():
                 # result - (train, valid, test)
-                loggers[key].add_result(0, result)
                 
-    print('All runs:')
-    
+                trainer.loggers[key].add_result(0, result)
+                # print(self.loggers[key].results)
+                
+            print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][0]:.4f}, AP: {results_rank["AP"][0]:.4f}, MRR: {results_rank["MRR"][0]:.4f}, Hit@10 {results_rank["Hits@10"][0]:.4f}')
+            print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][1]:.4f}, AP: {results_rank["AP"][1]:.4f}, MRR: {results_rank["MRR"][1]:.4f}, Hit@10 {results_rank["Hits@10"][1]:.4f}')               
+            print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][2]:.4f}, AP: {results_rank["AP"][2]:.4f}, MRR: {results_rank["MRR"][2]:.4f}, Hit@10 {results_rank["Hits@10"][2]:.4f}')               
+
+            if results_rank["AUC"][1] > best_auc:
+                best_auc = results_rank["AUC"][1]
+            elif results_rank['Hits@100'][1] > best_hit100:
+                best_hits = results_rank['Hits@100'][1]
+                
+                
+        for key, result in results_rank.items():
+            trainer.loggers[key].add_result(0, result)
+            if epoch % 500 == 0:
+                for key, result in results_rank.items():
+                    print(key)
+                    train_hits, valid_hits, test_hits = result
+                    print(
+                        f'Run: {0 + 1:02d}, '
+                            f'Epoch: {epoch:02d}, '
+                            f'Loss: {loss:.4f}, '
+                            f'Train: {100 * train_hits:.2f}%, '
+                            f'Valid: {100 * valid_hits:.2f}%, '
+                            f'Test: {100 * test_hits:.2f}%')
+                print('---')
+                
     result_dict = {}
     for key in loggers:
-        _, _, _, valid_test, _, _ = loggers[key].calc_all_stats(0)
+        print(key)
+        _, _, _, valid_test, _, _ = trainer.loggers[key].calc_all_stats()
         result_dict.update({key: valid_test})
-
+        
     trainer.save_result(result_dict)
     wandb.log({'Hits@100': set_float(result_dict['Hits@100'])})
     run.log_code("../", include_fn=wandb_record_files)

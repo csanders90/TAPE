@@ -177,8 +177,7 @@ class Trainer():
                               f'Test: {100 * test_hits:.2f}%')
                     print('---')
         return best_auc, best_hits
-            
-        return 
+
 
 
     def result_statistic(self):
