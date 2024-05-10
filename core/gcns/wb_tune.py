@@ -1,33 +1,37 @@
 
+# modified from https://github.com/AndrewSpano/Stanford-CS224W-ML-with-Graphs/blob/main/CS224W_Colab_3.ipynb
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-import yaml
 import pprint
-import numpy as np
 
 # External module imports
-import torch
-from torch_geometric.graphgym.config import cfg
-from torch_geometric.nn import GCNConv
-from heuristic.eval import get_metric_score
-from textfeat.mlp_dot_product import data_loader, FILE_PATH, set_cfg
 
-from utils import config_device
-from IPython import embed
+from torch_geometric import seed_everything
+from torch_geometric.data.makedirs import makedirs
+from torch_geometric.graphgym.train import train
+from torch_geometric.graphgym.utils.agg_runs import agg_runs
+from torch_geometric.graphgym.utils.comp_budget import params_count
+from torch_geometric.graphgym.utils.device import auto_select_device
+from torch_geometric.graphgym.config import (dump_cfg, 
+                                             makedirs_rm_exist)
+import torch_geometric.transforms as T
+from torch_geometric.datasets import Planetoid
+from graphgps.train.opt_train import Trainer
+from graphgps.network.custom_gnn import create_model
+from data_utils.load import load_data_nc, load_data_lp
+from utils import parse_args, create_optimizer, config_device, \
+        init_model_from_pretrained, create_logger, set_cfg
+
 import wandb 
 from sklearn.metrics import *
 from embedding.tune_utils import (
-    set_cfg,
-    parse_args,
-    load_sweep_config, 
-    initialize_config, 
-    param_tune_acc_mrr,
-    process_edge_index,
+
     FILE_PATH
 )
-from core.graphgps.network.custom_gnn import GraphSage, GAT, LinkPredModel, GCNEncoder, GAE, VGAE, VariationalGCNEncoder
-from core.graphgps.train.opt_train import Trainer
 import argparse
+
+set_float = lambda result: float(result.split(' ±')[0])
+
 
 def merge_cfg_from_sweep(cfg, wandb_config):
     for ind, k in wandb_config.items():
@@ -35,58 +39,11 @@ def merge_cfg_from_sweep(cfg, wandb_config):
             cfg.model.ind = k
         if hasattr(cfg.train, ind):
             cfg.train.ind = k
-    
+            
     pprint.pprint(cfg)
     pprint.pprint(wandb.config)
     return cfg
 
-def train_and_evaluate(id, splits, cfg, wandb_config):
-    
-    cfg = merge_cfg_from_sweep(cfg, wandb_config)
-    
-    if cfg.model.type == 'GAT':
-        model = LinkPredModel(GAT(cfg))
-    elif cfg.model.type == 'GraphSage':
-        model = LinkPredModel(GraphSage(cfg))
-    elif cfg.model.type == 'GCNEncode':
-        model = LinkPredModel(GCNEncoder(cfg))
-    
-    if cfg.model.type == 'gae':
-        model = GAE(GCNEncoder(cfg))
-    elif cfg.model.type == 'vgae':
-        model = VGAE(VariationalGCNEncoder(cfg))
-        
-    optimizer = torch.optim.Adam(model.parameters(), lr=wandb_config.lr)
-
-    trainer = Trainer(FILE_PATH,
-                    cfg,
-                    model, 
-                    optimizer,
-                    splits)
-    
-    best_auc, best_hits, results_dict = trainer.train()
-
-    trainer.save_result(results_dict)
-
-    root = FILE_PATH + 'results'
-    mrr_file = root + f'/{cfg.data.name}_mrr.csv'
-    if not os.path.exists(root):
-        os.makedirs(root, exist_ok=True)
-    param_tune_acc_mrr(id, results_dict, mrr_file, cfg.data.name, cfg.model.type)
-
-    return best_auc, best_hits
-
-
-args = parse_args()
-
-print(args)
-
-SWEEP_FILE_PATH = FILE_PATH + args.sweep_file
-sweep_config = load_sweep_config(SWEEP_FILE_PATH)
-
-cfg = initialize_config(FILE_PATH, args)
-
-_, _, splits = data_loader[cfg.data.name](cfg)
 
 
 def wandb_record_files(path):
@@ -102,19 +59,86 @@ def wandb_record_files(path):
             break
     return record_or_not
 
-def run_experiment(config=None):
+def run_experiment():  # sourcery skip: avoid-builtin-shadow
+    
     id = wandb.util.generate_id()
-    run = wandb.init(id=id, config=config, settings=wandb.Settings(_service_wait=300), save_code=True)
+    
+    run = wandb.init(id=id, config=cfg_sweep, settings=wandb.Settings(_service_wait=300), save_code=True)
 
     wandb_config = wandb.config
     
-    wandb.log(dict(wandb_config))
+    wandb.log(dict(wandb_config))   
 
-    best_auc, best_hits = train_and_evaluate(id, splits, cfg, wandb_config)
-    run.log({"score": best_auc})
+    # merge model param
+    cfg = merge_cfg_from_sweep(cfg_config, cfg_sweep)
+    splits, _ = load_data_lp[cfg.data.name](cfg.data)
+    
+    torch.set_num_threads(cfg.run.num_threads)
+    splits, _ = load_data_lp[cfg.data.name](cfg.data)
+    cfg.model.in_channels = splits['train'].x.shape[1]
+    model = create_model(cfg)
+
+    optimizer = create_optimizer(model, cfg)
+    loggers = create_logger(1)
+
+    seed_everything(cfg.seed)
+    auto_select_device()
+
+    # LLM: finetuning
+    if cfg.train.finetune: 
+        model = init_model_from_pretrained(model, cfg.train.finetune,
+                                            cfg.train.freeze_pretrained)
+    trainer = Trainer(FILE_PATH,
+                cfg,
+                model, 
+                optimizer,
+                splits,
+                0, 
+                1,
+                loggers)
+
+
+    for epoch in range(1, cfg.train.epochs + 1):
+        loss = trainer.train_func[trainer.model_name]()
+        wandb.log({'loss': loss})
+        
+        if epoch % 100 == 0:
+            results_rank = trainer.merge_result_rank()
+            
+            for key, result in results_rank.items():
+                # result - (train, valid, test)
+                loggers[key].add_result(0, result)
+                # print(self.loggers[key].results)
+                print(loggers[key].results)
+                
+    print('All runs:')
+    
+    result_dict = {}
+    for key in loggers:
+        print(key)
+        _, _, _, valid_test, _, _ = trainer.loggers[key].calc_all_stats(0)
+        result_dict.update({key: valid_test})
+
+    trainer.save_result(result_dict)
+    print(result_dict['Hits@100'])
+    wandb.log({'Hits@100': set_float(result_dict['Hits@100'])})
     run.log_code("../", include_fn=wandb_record_files)
 
 
-sweep_id = wandb.sweep(sweep=sweep_config, project=f"{cfg.model.type}-sweep-{cfg.data.name}")
+import torch
+
+args = parse_args()
+
+print(args)
+
+
+cfg_sweep= 'core/yamls/cora/gcns/gae_sp1.yaml'
+cfg_config = 'core/yamls/cora/gcns/gae.yaml'
+
+cfg_sweep = set_cfg(FILE_PATH, cfg_sweep)
+cfg_config = set_cfg(FILE_PATH, cfg_config)
+
+
+sweep_id = wandb.sweep(sweep=cfg_sweep, project=f"{cfg_config.model.type}-sweep-{cfg_config.data.name}")
 
 wandb.agent(sweep_id, run_experiment, count=60)

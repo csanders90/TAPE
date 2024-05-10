@@ -14,8 +14,8 @@ from torch_geometric.graphgym.utils.agg_runs import agg_runs
 from torch_geometric.graphgym.utils.comp_budget import params_count
 from torch_geometric.graphgym.utils.device import auto_select_device
 from torch_geometric.graphgym.cmd_args import parse_args
-from torch_geometric.graphgym.config import (cfg, dump_cfg, 
-                                             makedirs_rm_exist, set_cfg)
+from torch_geometric.graphgym.config import (dump_cfg, 
+                                             makedirs_rm_exist)
 import torch_geometric.transforms as T
 from torch_geometric.datasets import Planetoid
 from graphgps.train.opt_train import Trainer
@@ -32,8 +32,8 @@ if __name__ == "__main__":
 
     args = parse_args()
     # Load args file
-
-    cfg = set_cfg(FILE_PATH, args)
+    
+    cfg = set_cfg(FILE_PATH, args.cfg_file)
     cfg.merge_from_list(args.opts)
     custom_set_out_dir(cfg, args.cfg_file, cfg.wandb.name_tag)
     dump_cfg(cfg)
@@ -41,7 +41,7 @@ if __name__ == "__main__":
     # Set Pytorch environment
     torch.set_num_threads(cfg.run.num_threads)
 
-    loggers = create_logger(args)
+    loggers = create_logger(args.repeat)
 
     for run_id, seed, split_index in zip(*run_loop_settings(cfg, args)):
         # Set configurations for each run
@@ -78,18 +78,15 @@ if __name__ == "__main__":
                     args.repeat,
                     loggers)
 
-        best_auc, best_hits = trainer.train()
+        trainer.train()
 
-        # statistic for each run
-        for key in loggers:
-            trainer.loggers[key].calc_run_stats(run_id)
-
+    # statistic for all runs
     print('All runs:')
+    
     result_dict = {}
-    # import IPython; IPython.embed()
     for key in loggers:
         print(key)
-        best_train, best_valid, valid_train, valid_test, mean_list, var_list = trainer.loggers[key].calc_all_stats()
+        _, _, _, valid_test, _, _ = trainer.loggers[key].calc_all_stats()
         result_dict.update({key: valid_test})
 
     trainer.save_result(result_dict)

@@ -149,7 +149,7 @@ class Trainer():
                     self.loggers[key].add_result(self.run, result)
                     # print(self.loggers[key].results)
             
-        return best_auc, best_hits
+        return 
 
 
     def result_statistic(self):

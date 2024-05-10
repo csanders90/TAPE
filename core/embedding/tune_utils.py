@@ -23,6 +23,8 @@ import copy
 # Constants
 FILE_PATH = get_git_repo_root_path() + '/'
 
+set_float = lambda result: float(result.split(' ± ')[0])
+
 def set_cfg(file_path, args):
     with open(file_path + args.cfg_file, "r") as f:
         return CN.load_cfg(f)
@@ -113,17 +115,19 @@ def param_tune_acc_mrr(uuid_val, metrics, root, name, method):
     head = f'{name}_{uuid_val}_{method}'
 
     new_df, csv_columns = dict2df(metrics, head)
-    float_new_df, csv_columns = dict2df(float_metrics, head)
+    new_df_float, csv_columns = dict2df(float_metrics, head)
     
     try:
         Data = pd.read_csv(root)[:-1]
+        Data, Data_float = df_str2float(Data)
     except:
         Data = pd.DataFrame(None, columns=csv_columns)
+        Data, Data_float = df_str2float(Data)
         Data.to_csv(root, index=False)
     
 
     new_Data = pd.concat([Data, new_df])
-    new_Data_float = pd.concat([Data, float_new_df])
+    new_Data_float = pd.concat([Data_float, new_df_float])
     
     # best value
     highest_values = new_Data_float.apply(lambda column: max(column, default=None))
@@ -153,8 +157,17 @@ def dict2df(metrics: Dict[str, float], head: str) -> pd.DataFrame:
     
     return new_df, csv_columns
 
+
+def df_str2float(df: pd.DataFrame) -> pd.DataFrame:
+    df_float = copy.deepcopy(df)
+    for index, row in df_float.iterrows():
+        for column_name, value in row.items():
+            df_float.at[index, column_name] = set_float(value)
+    return df, df_float
+
+
 def convert_to_float(metrics: Dict[str, str]) -> Dict[str, float]:
     float_metrics = copy.deepcopy(metrics)
     for key, val in float_metrics.items():
-        float_metrics[key] = float(val.split(' ± ')[0])
+        float_metrics[key] = set_float(val)
     return metrics, float_metrics

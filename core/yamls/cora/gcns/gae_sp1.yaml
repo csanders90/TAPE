@@ -1,7 +1,7 @@
 method: bayes
 metric:
   goal: maximize
-  name: score
+  name: Hits@100
 parameters:
   in_channels:
     values: [1433]
@@ -13,3 +13,4 @@ parameters:
     values: [256, 128, 64]
   lr:
     values: [0.001, 0.01]
+epochs: 1000

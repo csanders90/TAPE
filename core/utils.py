@@ -24,6 +24,9 @@ from torch_geometric.graphgym.config import (cfg, dump_cfg,
 from torch_geometric.utils import remove_self_loops
 from typing import Tuple, List, Dict
 
+set_float = lambda result: float(result.split(' ±')[0])
+
+
 def init_random_state(seed=0):
     # Libraries using GPU should be imported after specifying GPU-ID
     import torch
@@ -190,11 +193,12 @@ def config_device(cfg):
 
     if hasattr(cfg, 'device'):
         device = cfg.device
-    elif cfg.data.device is not None:
+    elif hasattr(cfg, 'data') and hasattr(cfg.data, 'device'):
         device = cfg.data.device
-    elif cfg.train.device is not None:
+    elif hasattr(cfg, 'train') and hasattr(cfg.data, 'device'):
         device = cfg.train.device
-
+    else:
+        device = 'cpu'
     num_cuda_devices = 0
     if torch.cuda.is_available():
         # Get the number of available CUDA devices
@@ -237,25 +241,27 @@ def init_cfg_test():
     }
     return CN(cfg_dict)
 
-def create_logger(args):
+
+def create_logger(repeat):
     return {
-        'Hits@1': Logger(args.repeat),
-        'Hits@3': Logger(args.repeat),
-        'Hits@10': Logger(args.repeat),
-        'Hits@20': Logger(args.repeat),
-        'Hits@50': Logger(args.repeat),
-        'Hits@100': Logger(args.repeat),
-        'MRR': Logger(args.repeat),
-        'mrr_hit1': Logger(args.repeat),
-        'mrr_hit3': Logger(args.repeat), 
-        'mrr_hit10': Logger(args.repeat),
-        'mrr_hit20': Logger(args.repeat),
-        'mrr_hit50': Logger(args.repeat),
-        'mrr_hit100': Logger(args.repeat),
-        'AUC': Logger(args.repeat),
-        'AP': Logger(args.repeat),
-        'acc': Logger(args.repeat)
+        'Hits@1': Logger(repeat),
+        'Hits@3': Logger(repeat),
+        'Hits@10': Logger(repeat),
+        'Hits@20': Logger(repeat),
+        'Hits@50': Logger(repeat),
+        'Hits@100': Logger(repeat),
+        'MRR': Logger(repeat),
+        'mrr_hit1': Logger(repeat),
+        'mrr_hit3': Logger(repeat), 
+        'mrr_hit10': Logger(repeat),
+        'mrr_hit20': Logger(repeat),
+        'mrr_hit50': Logger(repeat),
+        'mrr_hit100': Logger(repeat),
+        'AUC': Logger(repeat),
+        'AP': Logger(repeat),
+        'acc': Logger(repeat)
     }
+
 
 class Logger(object):
     """
@@ -543,7 +549,7 @@ def parse_args() -> argparse.Namespace:
                         default='core/yamls/cora/gcns/gae.yaml',
                         help='The configuration file path.')
     parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
-                        default='core/yamls/cora/gcns/gat_sp1.yaml',
+                        default='core/yamls/cora/gcns/gae_sp1.yaml',
                         help='The configuration file path.')
     
     parser.add_argument('--repeat', type=int, default=4,
@@ -556,8 +562,8 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def set_cfg(file_path, args):
-    with open(file_path + args.cfg_file, "r") as f:
+def set_cfg(file_path, cfg_file):
+    with open(file_path + cfg_file, "r") as f:
         return CN.load_cfg(f)
     
 
@@ -582,7 +588,7 @@ def run_loop_settings(cfg: CN,
     if cfg.run.multiple_splits == 'None':
         # 'multi-seed' run mode
         num_iterations = args.repeat
-        seeds = [cfg.seed + x for x in range(num_iterations)]
+        seeds = [cfg.run.seed + x for x in range(num_iterations)]
         split_indices = [cfg.data.split_index] * num_iterations
         run_ids = seeds
     else:
