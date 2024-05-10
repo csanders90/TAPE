@@ -129,3 +129,27 @@ def make_wandb_name(cfg):
     # Compose wandb run name.
     name = f"{dataset_name}.{model_name}.r{cfg.run_id}"
     return name
+
+# def config_device(cfg):
+    # # device 
+    # try:
+    #     if cfg.device is not None:
+    #         return cfg.device
+    #     elif cfg.train.device is not None:
+    #         return cfg.train.device
+    #     elif cfg.data.device is not None:
+    #         return cfg.data.device
+    # except:
+    #     num_cuda_devices = 0
+    #     if torch.cuda.is_available():
+    #         # Get the number of available CUDA devices
+    #         num_cuda_devices = torch.cuda.device_count()
+
+    #     if num_cuda_devices > 0:
+    #         # Set the first CUDA device as the active device
+    #         torch.cuda.set_device(0)
+    #         device = cfg.train.device
+    #     else:
+    #         device = 'cpu'
+        
+    # return device

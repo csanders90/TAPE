@@ -12,15 +12,14 @@ from torch_geometric.data import Data, InMemoryDataset
 from torch_geometric.transforms import RandomLinkSplit
 from heuristic.lsf import CN, AA, RA, InverseRA
 from heuristic.gsf import Ben_PPR, shortest_path, katz_apro, katz_close, SymPPR
-from textfeat.node_similarity import pairwise_prediction
+from textfeat.mlp_dot_product import pairwise_prediction
 import matplotlib.pyplot as plt
 from lpda.adjacency import plot_coo_matrix, construct_sparse_adj
 from utils import get_git_repo_root_path, append_acc_to_excel, append_mrr_to_excel
 from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
-from heuristic.eval import evaluate_auc, evaluate_hits, evaluate_mrr, get_metric_score, get_prediction
+from heuristic.eval import get_metric_score
 
-
-FILE_PATH = get_git_repo_root_path() + '/'
+FILE_PATH = f'{get_git_repo_root_path()}/'
 
 
 def eval_cora_mrr() -> None:
@@ -32,44 +31,44 @@ def eval_cora_mrr() -> None:
                                                 val_pct = 0.15,
                                                 test_pct = 0.05,
                                                 split_labels = True)
-    
+
     # ust test edge_index as full_A
     full_edge_index = splits['test'].edge_index
     full_edge_weight = torch.ones(full_edge_index.size(1))
     num_nodes = dataset._data.num_nodes
-    
+
     m = construct_sparse_adj(full_edge_index)
-    plot_coo_matrix(m, f'test_edge_index.png')
-    
+    plot_coo_matrix(m, 'test_edge_index.png')
+
     full_A = ssp.csr_matrix((full_edge_weight.view(-1), (full_edge_index[0], full_edge_index[1])), shape=(num_nodes, num_nodes)) 
 
     # only for debug
     pos_test_index = splits['test'].pos_edge_label_index
     neg_test_index = splits['test'].neg_edge_label_index
-    
+
     pos_m = construct_sparse_adj(pos_test_index)
     plot_coo_matrix(pos_m, f'test_pos_index.png')
     neg_m = construct_sparse_adj(neg_test_index)
     plot_coo_matrix(neg_m, f'test_neg_index.png')
-    
+
     evaluator_hit = Evaluator(name='ogbl-collab')
     evaluator_mrr = Evaluator(name='ogbl-citation2')
-    
+
     result_dict = {}
     # for use_heuristic in ['CN', 'AA', 'RA', 'InverseRA']:
     #     pos_test_pred, _ = eval(use_heuristic)(full_A, pos_test_index)
     #     neg_test_pred, _ = eval(use_heuristic)(full_A, neg_test_index)
-        
+
     #     result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
     #     result_dict.update({f'{use_heuristic}': result})
-        
+
     # # 'shortest_path', 'katz_apro', 'katz_close', 'Ben_PPR'
     # for use_heuristic in ['Ben_PPR', 'SymPPR']:
     #     pos_test_pred, _ = eval(use_heuristic)(full_A, pos_test_index)
     #     neg_test_pred, _ = eval(use_heuristic)(full_A, neg_test_index)
     #     result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
     #     result_dict.update({f'{use_heuristic}': result})
-    
+
     # for use_heuristic in ['shortest_path', 'katz_apro', 'katz_close']:
     #     pos_test_pred = eval(use_heuristic)(full_A, pos_test_index)
     #     neg_test_pred = eval(use_heuristic)(full_A, neg_test_index)
@@ -170,9 +169,8 @@ def eval_cora_acc() -> None:
         
 def parse_cora():
     # load original data from cora orig without text features
-    path = FILE_PATH + 'dataset/cora_orig/cora'
-    idx_features_labels = np.genfromtxt(
-        "{}.content".format(path), dtype=np.dtype(str))
+    path = f'{FILE_PATH}dataset/cora_orig/cora'
+    idx_features_labels = np.genfromtxt(f"{path}.content", dtype=np.dtype(str))
     data_X = idx_features_labels[:, 1:-1].astype(np.float32)
     labels = idx_features_labels[:, -1]
     class_map = {x: i for i, x in enumerate(['Case_Based', 'Genetic_Algorithms', 'Neural_Networks',
@@ -247,13 +245,13 @@ if __name__ == "__main__":
         print(key, val)
     for key, val in result_acc.items():
         print(key, val)    
-        
-    root = FILE_PATH + 'results'
-    acc_file = root + f'/{NAME}_acc.csv'
-    mrr_file = root +  f'/{NAME}_mrr.csv'
+
+    root = f'{FILE_PATH}results'
+    acc_file = f'{root}/{NAME}_acc.csv'
+    mrr_file = f'{root}/{NAME}_mrr.csv'
     if not os.path.exists(root):
         os.makedirs(root, exist_ok=True)
-    
+
     append_acc_to_excel(id, result_acc, acc_file, NAME, method='')
     append_mrr_to_excel(id, result_mrr, mrr_file, NAME, method='')
     

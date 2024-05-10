@@ -1,10 +1,9 @@
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import networkx as nx
-from matplotlib import pyplot, patches
+from matplotlib import pyplot
 import numpy as np 
 import torch
-import random
 import os 
 from torch_geometric.datasets import Planetoid
 import torch_geometric.transforms as T
@@ -12,7 +11,7 @@ from torch_geometric.utils import to_torch_coo_tensor
 from ogb.nodeproppred import NodePropPredDataset
 from scipy.sparse import csc_array
 
-from data_utils.load import load_data
+from data_utils.load import load_data_nc
 
 import matspy as spy # https://github.com/alugowski/matspy
 import math
@@ -22,8 +21,7 @@ def calculate_heterogeneity(graph):
     degrees = [degree for node, degree in graph.degree()]
     average_degree = sum(degrees) / len(degrees)
     variance_degree = sum((degree - average_degree) ** 2 for degree in degrees) / len(degrees)
-    heterogeneity = math.log10(math.sqrt(variance_degree) / average_degree)
-    return heterogeneity
+    return math.log10(math.sqrt(variance_degree) / average_degree)
 
 def plot_adjacency_matrix(G: nx.graph, name: str) -> None:
     """
@@ -242,7 +240,7 @@ if __name__ == '__main__':
                 fig.savefig(f"{name}_data_edges_spy.png", bbox_inches='tight')
 
 
-                data, num_class, text = load_data(name)
+                data, text = load_data_nc[name]()
                 m = construct_sparse_adj(data.edge_index.coo())
                 plot_coo_matrix(m, f'{name}_data_index.png')
 
@@ -276,7 +274,7 @@ if __name__ == '__main__':
 
             
             if name == 'arxiv_2023':
-                data, num_class, text = load_data(name)
+                data, text = load_data_nc[name]()
                 m = construct_sparse_adj(data.edge_index.numpy())
                 G = nx.from_scipy_sparse_array(m)
 
@@ -295,9 +293,8 @@ if __name__ == '__main__':
                       avg degree arithmetic {avg_degree_arithmetic},  \
                       avg degree G {avg_degree_G}, avg degree G2 {avg_degree_G2}, clustering {nx.average_clustering(G)}.")
 
-            for name in ['cora', 'pubmed']:
-                name = 'pubmed'
-                data, num_class, text = load_data(name)
+            if name == 'pubmed':
+                data,  text = load_data_nc[name](use_mask=False)
                 G = nx.from_scipy_sparse_array(m)
 
                 compare_adj(name, data.edge_index.numpy())

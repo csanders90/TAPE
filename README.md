@@ -56,6 +56,8 @@ python load_pubmed.py
 #TODO use SemOpenAlex
 ```
 
+In case, you have issue [#43](https://github.com/wkentaro/gdown/issues/43), please try solution [1](https://github.com/wkentaro/gdown/issues/43#issuecomment-1892954390), [2](https://stackoverflow.com/questions/65312867/how-to-download-large-file-from-google-drive-from-terminal-gdown-doesnt-work).
+
 ### A. Original Text Attributes
 All graph encoder modules including node encoder and edge encoder are implemented in GraphGym transferred from [PyTorch Geometric](https://pytorch-geometric.readthedocs.io/en/latest/modules/graphgym.html#).
 

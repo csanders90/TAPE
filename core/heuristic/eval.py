@@ -12,13 +12,8 @@ def evaluate_hits(evaluator, pos_pred, neg_pred, k_list):
             'y_pred_pos': pos_pred,
             'y_pred_neg': neg_pred,
         })[f'hits@{K}']
-        # test_hits = evaluator.eval({
-        #     'y_pred_pos': pos_test_pred,
-        #     'y_pred_neg': neg_test_pred,
-        # })[f'hits@{K}']
 
         hits = round(hits, 4)
-        # test_hits = round(test_hits, 4)
 
         results[f'Hits@{K}'] = hits
 
@@ -27,13 +22,10 @@ def evaluate_hits(evaluator, pos_pred, neg_pred, k_list):
 
 
 def evaluate_mrr(evaluator, pos_val_pred, neg_val_pred):
-                 # evaluator_mrr, test_pred, labels
                  
     neg_val_pred = neg_val_pred.view(pos_val_pred.shape[0], -1)
-    # neg_test_pred = neg_test_pred.view(pos_test_pred.shape[0], -1)
     
     mrr_output =  eval_mrr(pos_val_pred, neg_val_pred)
-
 
     valid_mrr =mrr_output['mrr_list'].mean().item()
     valid_mrr_hit1 = mrr_output['hits@1_list'].mean().item()
@@ -46,7 +38,6 @@ def evaluate_mrr(evaluator, pos_val_pred, neg_val_pred):
 
 
     valid_mrr = round(valid_mrr, 4)
-    # test_mrr = round(test_mrr, 4)
     valid_mrr_hit1 = round(valid_mrr_hit1, 4)
     valid_mrr_hit3 = round(valid_mrr_hit3, 4)
     valid_mrr_hit10 = round(valid_mrr_hit10, 4)
@@ -165,19 +156,37 @@ def get_prediction(full_A, use_heuristic, pos_test_edge, neg_test_edge):
 
     return pos_test_pred, neg_test_pred
 
+def get_metric_score(evaluator_hit, evaluator_mrr, pos_train_pred, pos_val_pred, neg_val_pred, pos_test_pred, neg_test_pred):
+    k_list = [1, 3, 10, 100]
+
+    result_mrr_train = evaluate_mrr(evaluator_mrr, pos_train_pred, neg_val_pred)
+    result_mrr_val = evaluate_mrr(evaluator_mrr, pos_val_pred, neg_val_pred )
+    result_mrr_test = evaluate_mrr(evaluator_mrr, pos_test_pred, neg_test_pred)
+
+    result = {
+        'MRR': (
+            result_mrr_train['MRR'],
+            result_mrr_val['MRR'],
+            result_mrr_test['MRR'],
+        )
+    }
+    for K in [1,3,10, 100]:
+        result[f'Hits@{K}'] = (result_mrr_train[f'mrr_hit{K}'], result_mrr_val[f'mrr_hit{K}'], result_mrr_test[f'mrr_hit{K}'])
+
+
+    return result
 
 def get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred):
 
     k_list  = [1, 3, 10, 20, 50, 100]
     result_hit_test = evaluate_hits(evaluator_hit, pos_test_pred, neg_test_pred, k_list)
-    
-    result = {}
 
-    for K in [1, 3, 10, 20, 50, 100]:
-        result[f'Hits@{K}'] = (result_hit_test[f'Hits@{K}'])
-
+    result = {
+        f'Hits@{K}': result_hit_test[f'Hits@{K}']
+        for K in [1, 3, 10, 20, 50, 100]
+    }
     result_mrr_test = evaluate_mrr(evaluator_mrr, pos_test_pred, neg_test_pred.repeat(pos_test_pred.size(0), 1))
-    
+
     result['MRR'] = (result_mrr_test['MRR'])
     result['mrr_hit1']  = (result_mrr_test['mrr_hit1'])
     result['mrr_hit3']  = (result_mrr_test['mrr_hit3'])
@@ -185,11 +194,11 @@ def get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
     result['mrr_hit20']  = (result_mrr_test['mrr_hit20'])
     result['mrr_hit50']  = (result_mrr_test['mrr_hit50'])
     result['mrr_hit100']  = (result_mrr_test['mrr_hit100'])
-   
+
     test_pred = torch.cat([pos_test_pred, neg_test_pred])
     test_true = torch.cat([torch.ones(pos_test_pred.size(0), dtype=int), 
                             torch.zeros(neg_test_pred.size(0), dtype=int)])
-    
+
     result_auc_test = evaluate_auc(test_pred, test_true)
 
     result['AUC'] = (result_auc_test['AUC'])

@@ -8,6 +8,7 @@ from torch.nn import (ModuleList, Linear, Conv1d, MaxPool1d, Embedding)
 from torch.nn import BatchNorm1d as BN
 from torch_geometric.nn import global_sort_pool
 
+
 class GCN(torch.nn.Module):
     def __init__(self, in_channels, hidden_channels, out_channels, num_layers,
                  dropout, data_name=None):
@@ -312,6 +313,7 @@ class MF(torch.nn.Module):
 
             return x
 
+
 class DGCNN(torch.nn.Module):
     def __init__(self, hidden_channels, num_layers, max_z, k=0.6, train_dataset=None, 
                  dynamic_train=False, GNN=GCNConv, use_feature=False, 
@@ -345,7 +347,7 @@ class DGCNN(torch.nn.Module):
             initial_channels += node_embedding.embedding_dim
 
         self.convs.append(GNN(initial_channels, hidden_channels))
-        for i in range(0, num_layers-1):
+        for _ in range(0, num_layers-1):
             self.convs.append(GNN(hidden_channels, hidden_channels))
         self.convs.append(GNN(hidden_channels, 1))
 

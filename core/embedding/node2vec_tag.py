@@ -15,19 +15,10 @@ from yacs.config import CfgNode as CN
 import networkx as nx 
 from torch_geometric.graphgym.cmd_args import parse_args
 from torch_geometric.graphgym.config import (cfg)
-
-from data_utils.load_pubmed_lp import get_pubmed_casestudy
-from data_utils.load_cora_lp import get_cora_casestudy
-from data_utils.load_arxiv_2023_lp import get_raw_text_arxiv_2023
 from embedding.node2vec_tagplus import node2vec
+from data_utils.load import load_data_lp as data_loader
 
 FILE_PATH = get_git_repo_root_path() + '/'
-
-data_loader = {
-    'cora': get_cora_casestudy,
-    'pubmed': get_pubmed_casestudy,
-    'arxiv_2023': get_raw_text_arxiv_2023
-}
 
 
 def set_cfg(args):

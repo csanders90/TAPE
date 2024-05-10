@@ -3,15 +3,26 @@
 out_dir: results
 metric_best: acc
 cfg_dest: gat.yaml
-seed: 0
-run_multiple_splits: None
-num_threads: 11
 print: file
+
+run:
+  seed: 0
+  num_threads: 11
+  multiple_splits: None
+
 
 wandb:
   use: True
   project: gtblueprint
   name_tag: gat-cora-origin
+
+run:
+  seed: 0
+  num_threads: 11
+  run_multiple_splits: None
+
+num_threads: 11
+
 
 train:
   mode: custom

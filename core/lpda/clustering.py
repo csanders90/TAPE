@@ -9,10 +9,10 @@ from ogb.nodeproppred import DglNodePropPredDataset
 from torch_geometric.utils import to_torch_coo_tensor
 from ogb.nodeproppred import NodePropPredDataset
 import networkx as nx 
-from adjacency import load_data
 from scipy.sparse import csc_array
 import numpy as np
 import matspy as spy
+from data_utils.load import load_data_nc
 
 def load_ogb_dataset(name, data_path):
     if name.startswith('ogbn'):
@@ -140,7 +140,7 @@ if __name__ == '__main__':
     for name in ['cora', 'pubmed']:
         # data
         if name in ['cora', 'citeseer', 'arxiv_2023', 'pubmed']:
-            data, num_class, text = load_data(name)
+            data, num_class, text = load_data_nc[name]()
             
         elif name in ['ogbn-arxiv', 'ogbn-products']:
             data = load_ogb_dataset(name, 'dataset')

@@ -82,3 +82,5 @@ scripts/log/
 *.pkl
 generated_dataset/
 dataset.tar.gz
+../results
+/results

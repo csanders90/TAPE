@@ -11,11 +11,18 @@ import git
 import subprocess
 import pandas as pd
 from IPython import embed
-from torch_geometric.utils import remove_self_loops
 from torch_scatter import scatter
+from graphgps.finetuning import get_final_pretrained_ckpt
+from torch_geometric.data.makedirs import makedirs
+from torch_geometric.graphgym.train import train
+from torch_geometric.graphgym.utils.agg_runs import agg_runs
+from torch_geometric.graphgym.config import (cfg, dump_cfg, 
+                                             makedirs_rm_exist, set_cfg)
+from torch_geometric.utils import remove_self_loops
 from yacs.config import CfgNode as CN
-
-
+import torch.optim as optim
+import argparse
+from typing import Tuple, List
 
 def init_random_state(seed=0):
     # Libraries using GPU should be imported after specifying GPU-ID
@@ -46,12 +53,12 @@ def mkdir_p(path, log=True):
     # path = path.replace('\ ',' ')
     # print(path)
     try:
-        os.makedirs(path)
+        os.makedirs(path, exist_ok=True)
         if log:
-            print('Created directory {}'.format(path))
+            print(f'Created directory {path}')
     except OSError as exc:
         if exc.errno == errno.EEXIST and os.path.isdir(path) and log:
-            print('Directory {} already exists.'.format(path))
+            print(f'Directory {path} already exists.')
         else:
             raise
 
@@ -110,9 +117,8 @@ def get_git_repo_root_path():
 
         if result.returncode == 0:
             return result.stdout.strip()
-        else:
-            print("Error:", result.stderr)
-            return None
+        print("Error:", result.stderr)
+        return None
 
 
 # Define a function that uses the lambda function
@@ -122,8 +128,8 @@ def process_value(v):
 
 def append_acc_to_excel(uuid_val, metrics_acc, root, name, method):
     # if not exists save the first row
-    
-    csv_columns = ['Metric'] + list(k for k in metrics_acc) 
+
+    csv_columns = ['Metric'] + list(metrics_acc) 
 
     # load old csv
     try:
@@ -131,18 +137,13 @@ def append_acc_to_excel(uuid_val, metrics_acc, root, name, method):
     except:
         Data = pd.DataFrame(None, columns=csv_columns)
         Data.to_csv(root, index=False)
-    
-    # create new line 
-    acc_lst = []
-    
-    for k, v in metrics_acc.items():
-        acc_lst.append(process_value(v))
-        
+
+    acc_lst = [process_value(v) for k, v in metrics_acc.items()]
     # merge with old lines, 
     v_lst = [f'{name}_{uuid_val}_{method}'] + acc_lst
     new_df = pd.DataFrame([v_lst], columns=csv_columns)
     new_Data = pd.concat([Data, new_df])
-    
+
     # best value
     highest_values = new_Data.apply(lambda column: max(column, default=None))
 
@@ -187,27 +188,25 @@ def append_mrr_to_excel(uuid_val, metrics_mrr, root, name, method):
 
 
 def config_device(cfg):
-    # device 
-    try:
-        if cfg.data.device is not None:
-            return cfg.data.device
-        elif cfg.train.device is not None:
-            return cfg.train.device
-    except:
-        num_cuda_devices = 0
-        if torch.cuda.is_available():
-            # Get the number of available CUDA devices
-            num_cuda_devices = torch.cuda.device_count()
 
-        if num_cuda_devices > 0:
-            # Set the first CUDA device as the active device
-            torch.cuda.set_device(0)
-            device = cfg.train.device
-        else:
-            device = 'cpu'
-        
+    if hasattr(cfg, 'device'):
+        device = cfg.device
+    elif cfg.data.device is not None:
+        device = cfg.data.device
+    elif cfg.train.device is not None:
+        device = cfg.train.device
+
+    num_cuda_devices = 0
+    if torch.cuda.is_available():
+        # Get the number of available CUDA devices
+        num_cuda_devices = torch.cuda.device_count()
+
+    if num_cuda_devices <= 0:
+        return 'cpu'
+    # Set the first CUDA device as the active device
+    torch.cuda.set_device(device)
     return device
-
+    
 
 def set_cfg(file_path, args):
     with open(file_path + args.cfg_file, "r") as f:
@@ -230,10 +229,13 @@ def init_cfg_test():
             'val_pct': 0.1,
             'test_pct': 0.1,
             'split_labels': True,
+            'device': 'cpu'
+            },
+        'train':  {
+                'device': 'cpu'
             }
     }
-    cfg = CN(cfg_dict)
-    return cfg
+    return CN(cfg_dict)
 
 class Logger(object):
     def __init__(self, runs, info=None):
@@ -267,7 +269,6 @@ class Logger(object):
                 best_results.append((train1, valid, train2, test))
 
             best_result = torch.tensor(best_results)
-
             print(f'All runs:')
 
             r = best_result[:, 0].float()
@@ -280,12 +281,10 @@ class Logger(object):
             best_valid = str(best_valid_mean) +' ' + '±' +  ' ' + str(best_valid_var)
             print(f'Highest Valid: {r.mean():.2f} ± {r.std():.2f}')
 
-
             r = best_result[:, 2].float()
             best_train_mean = round(r.mean().item(), 2)
             best_train_var = round(r.std().item(), 2)
             print(f'  Final Train: {r.mean():.2f} ± {r.std():.2f}')
-
 
             r = best_result[:, 3].float()
             best_test_mean = round(r.mean().item(), 2)
@@ -295,8 +294,10 @@ class Logger(object):
             mean_list = [best_train_mean, best_valid_mean, best_test_mean]
             var_list = [best_train_var, best_valid_var, best_test_var]
 
-
             return best_valid, best_valid_mean, mean_list, var_list
+
+    def get_best_result(self):
+        print(self.results)
 
 
 def get_logger(name, log_dir, config_dir):
@@ -336,6 +337,7 @@ def save_emb(score_emb, save_path):
         'neg_test_score': neg_test_pred,
         'node_emb': x
         }
+        
     elif len(score_emb) == 4:
         pos_valid_pred,neg_valid_pred, pos_test_pred, neg_test_pred, = score_emb
         state = {
@@ -400,8 +402,7 @@ def negate_edge_index(edge_index, batch=None):
         _edge_index, _ = remove_self_loops(_edge_index)
         negative_index_list.append(_edge_index + cum_nodes[i])
 
-    edge_index_negative = torch.cat(negative_index_list, dim=1).contiguous()
-    return edge_index_negative
+    return torch.cat(negative_index_list, dim=1).contiguous()
 
 
 def flatten_dict(metrics):
@@ -418,17 +419,19 @@ def flatten_dict(metrics):
     for i in range(len(metrics)):
         # Take the latest metrics.
         stats = metrics[i][-1]
-        result.update({f"{prefixes[i]}/{k}": v for k, v in stats.items()})
+        result |= {f"{prefixes[i]}/{k}": v for k, v in stats.items()}
     return result
 
 
-def cfg_to_dict(cfg_node, key_list=[]):
+def cfg_to_dict(cfg_node, key_list=None):
     """Convert a config node to dictionary.
 
     Yacs doesn't have a default function to convert the cfg object to plain
     python dict. The following function was taken from
     https://github.com/rbgirshick/yacs/issues/19
     """
+    if key_list is None:
+        key_list = []
     _VALID_TYPES = {tuple, list, str, int, float, bool}
 
     if not isinstance(cfg_node, CN):
@@ -470,3 +473,253 @@ def make_wandb_name(cfg):
     # Compose wandb run name.
     name = f"{dataset_name}.{model_name}.r{cfg.run_id}"
     return name
+
+
+def parse_args() -> argparse.Namespace:
+    r"""Parses the command line arguments."""
+    parser = argparse.ArgumentParser(description='GraphGym')
+
+    parser.add_argument('--cfg', dest='cfg_file', type=str, required=False,
+                        default='core/yamls/cora/gcns/gae.yaml',
+                        help='The configuration file path.')
+    parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
+                        default='core/yamls/cora/gcns/gat_sp1.yaml',
+                        help='The configuration file path.')
+    
+    parser.add_argument('--repeat', type=int, default=3,
+                        help='The number of repeated jobs.')
+    parser.add_argument('--mark_done', action='store_true',
+                        help='Mark yaml as done after a job has finished.')
+    parser.add_argument('opts', default=None, nargs=argparse.REMAINDER,
+                        help='See graphgym/config.py for remaining options.')
+
+    return parser.parse_args()
+
+
+def set_cfg(file_path, args):
+    with open(file_path + args.cfg_file, "r") as f:
+        return CN.load_cfg(f)
+
+# A new method for saving the path to "sweep_file"
+def set_cfg_sweep(file_path, args):
+    with open(file_path + args.sweep_file, "r") as f:
+        return CN.load_cfg(f)
+
+def run_loop_settings(cfg: CN,
+                      args: argparse.Namespace) -> Tuple[List[int], List[int], List[int]]:
+    """Create main loop execution settings based on the current cfg.
+
+    Configures the main execution loop to run in one of two modes:
+    1. 'multi-seed' - Reproduces default behaviour of GraphGym when
+        args.repeats controls how many times the experiment run is repeated.
+        Each iteration is executed with a random seed set to an increment from
+        the previous one, starting at initial cfg.seed.
+    2. 'multi-split' - Executes the experiment run over multiple dataset splits,
+        these can be multiple CV splits or multiple standard splits. The random
+        seed is reset to the initial cfg.seed value for each run iteration.
+
+    Returns:
+        List of run IDs for each loop iteration
+        List of rng seeds to loop over
+        List of dataset split indices to loop over
+    """
+    if cfg.run.multiple_splits == 'None':
+        # 'multi-seed' run mode
+        num_iterations = args.repeat
+        # I got here error
+        seeds = [cfg.run.seed + x for x in range(num_iterations)]
+        split_indices = [cfg.data.split_index] * num_iterations
+        run_ids = seeds
+    else:
+        # 'multi-split' run mode
+        if args.repeat != 1:
+            raise NotImplementedError("Running multiple repeats of multiple "
+                                      "splits in one run is not supported.")
+        num_iterations = len(cfg.run.multiple_splits)
+        seeds = [cfg.run.seed] * num_iterations
+        split_indices = cfg.run.multiple_splits
+        run_ids = split_indices
+    return run_ids, seeds, split_indices
+
+
+def build_optimizer(args, params):
+    weight_decay = args.weight_decay
+    filter_fn = filter(lambda p : p.requires_grad, params)
+    if args.opt == 'adam':
+        optimizer = optim.Adam(filter_fn, lr=args.lr, weight_decay=weight_decay)
+    elif args.opt == 'sgd':
+        optimizer = optim.SGD(filter_fn, lr=args.lr, momentum=0.95, weight_decay=weight_decay)
+    elif args.opt == 'rmsprop':
+        optimizer = optim.RMSprop(filter_fn, lr=args.lr, weight_decay=weight_decay)
+    elif args.opt == 'adagrad':
+        optimizer = optim.Adagrad(filter_fn, lr=args.lr, weight_decay=weight_decay)
+    if args.opt_scheduler == 'none':
+        return None, optimizer
+    elif args.opt_scheduler == 'step':
+        scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.opt_decay_step, gamma=args.opt_decay_rate)
+    elif args.opt_scheduler == 'cos':
+        scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.opt_restart)
+    return scheduler, optimizer
+
+
+def custom_set_out_dir(cfg, cfg_fname, name_tag):
+    """Set custom main output directory path to cfg.
+    Include the config filename and name_tag in the new :obj:`cfg.out_dir`.
+
+    Args:
+        cfg (CfgNode): Configuration node
+        cfg_fname (string): Filename for the yaml format configuration file
+        name_tag (string): Additional name tag to identify this execution of the
+            configuration file, specified in :obj:`cfg.name_tag`
+    """
+    run_name = os.path.splitext(os.path.basename(cfg_fname))[0]
+    run_name += f"-{name_tag}" if name_tag else ""
+    cfg.out_dir = os.path.join(cfg.out_dir, run_name)
+
+
+
+def custom_set_run_dir(cfg, run_id):
+    """Custom output directory naming for each experiment run.
+
+    Args:
+        cfg (CfgNode): Configuration node
+        run_id (int): Main for-loop iter id (the random seed or dataset split)
+    """
+    cfg.run_dir = os.path.join(cfg.out_dir, str(run_id))
+    # Make output directory
+    if cfg.train.auto_resume:
+        os.makedirs(cfg.run_dir, exist_ok=True)
+    else:
+        makedirs_rm_exist(cfg.run_dir)
+
+
+
+def set_printing(cfg):
+    """
+    Set up printing options
+
+    """
+    logging.root.handlers = []
+    logging_cfg = {'level': logging.INFO, 'format': '%(message)s'}
+    os.makedirs(cfg.run_dir, exist_ok=True)
+    h_file = logging.FileHandler(f'{cfg.run_dir}/logging.log')
+    h_stdout = logging.StreamHandler(sys.stdout)
+    if cfg.print == 'file':
+        logging_cfg['handlers'] = [h_file]
+    elif cfg.print == 'stdout':
+        logging_cfg['handlers'] = [h_stdout]
+    elif cfg.print == 'both':
+        logging_cfg['handlers'] = [h_file, h_stdout]
+    else:
+        raise ValueError('Print option not supported')
+    logging.basicConfig(**logging_cfg)
+
+
+def create_optimizer(model, optimizer_config):
+    # sourcery skip: list-comprehension
+    r"""
+    Create optimizer for the model
+
+    Args:
+        params: PyTorch model parameters
+
+    Returns: PyTorch optimizer
+
+    """
+    params = []
+
+    params.extend(
+        param for _, param in model.named_parameters() if param.requires_grad
+    )
+    optimizer = optimizer_config.optimizer
+    if optimizer.type == 'adam':
+        optimizer = optim.Adam(params, lr=optimizer.base_lr)
+    elif optimizer.type == 'sgd':
+        optimizer = optim.SGD(params, lr=optimizer.base_lr)
+    else:
+        raise ValueError(f'Optimizer {optimizer_config.optimizer} not supported')
+
+    return optimizer
+
+
+def create_scheduler(optimizer, scheduler_config):
+    r"""
+    Create learning rate scheduler for the optimizer
+
+    Args:
+        optimizer: PyTorch optimizer
+
+    Returns: PyTorch scheduler
+
+    """
+
+    # Try to load customized scheduler
+    if scheduler_config.scheduler == 'none':
+        scheduler = optim.lr_scheduler.StepLR(
+            optimizer, step_size=scheduler_config.max_epoch + 1)
+    elif scheduler_config.scheduler == 'step':
+        scheduler = optim.lr_scheduler.MultiStepLR(
+            optimizer, milestones=scheduler_config.steps,
+            gamma=scheduler_config.lr_decay)
+    elif scheduler_config.scheduler == 'cos':
+        scheduler = \
+            optim.lr_scheduler.CosineAnnealingLR(
+                optimizer,
+                T_max=scheduler_config.max_epoch)
+    else:
+        raise ValueError(f'Scheduler {scheduler_config.scheduler} not supported')
+    return scheduler
+
+
+def init_model_from_pretrained(model, pretrained_dir, freeze_pretrained=False):
+    """ Copy model parameters from pretrained model except the prediction head.
+
+    Args:
+        model: Initialized model with random weights.
+        pretrained_dir: Root directory of saved pretrained model.
+        freeze_pretrained: If True, do not finetune the loaded pretrained
+            parameters, train the prediction head only. If False, train all.
+
+    Returns:
+        Updated pytorch model object.
+    """
+    ckpt_file = get_final_pretrained_ckpt(osp.join(pretrained_dir, '0', 'ckpt'))
+    logging.info(f"[*] Loading from pretrained model: {ckpt_file}")
+
+    ckpt = torch.load(ckpt_file)
+    pretrained_dict = ckpt['model_state']
+    model_dict = model.state_dict()
+
+    # Filter out prediction head parameter keys.
+    pretrained_dict = {k: v for k, v in pretrained_dict.items()
+                       if not k.startswith('post_mp')}
+    # Overwrite entries in the existing state dict.
+    model_dict.update(pretrained_dict)
+    # Load the new state dict.
+    model.load_state_dict(model_dict)
+
+    if freeze_pretrained:
+        for key, param in model.named_parameters():
+            if not key.startswith('post_mp'):
+                param.requires_grad = False
+    return model
+
+def create_logger(args):
+    return {
+    'Hits@1': Logger(args.repeat),
+    'Hits@3': Logger(args.repeat),
+    'Hits@10': Logger(args.repeat),
+    'Hits@20': Logger(args.repeat),
+    'Hits@50': Logger(args.repeat),
+    'Hits@100': Logger(args.repeat),
+    'MRR': Logger(args.repeat),
+    'mrr_hit1': Logger(args.repeat),
+    'mrr_hit3': Logger(args.repeat), 
+    'mrr_hit10': Logger(args.repeat),
+    'mrr_hit20': Logger(args.repeat),
+    'mrr_hit50': Logger(args.repeat),
+    'mrr_hit100': Logger(args.repeat),
+    'AUC': Logger(args.repeat),
+    'AP': Logger(args.repeat),
+    'acc': Logger(args.repeat)
+}

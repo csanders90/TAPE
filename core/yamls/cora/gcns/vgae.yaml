@@ -4,8 +4,11 @@ out_dir: results
 metric_best: acc
 cfg_dest: vgae.yaml
 print: file
-seed: 0
-run_multiple_splits: None
+
+run:
+  seed: 0
+  num_threads: 11
+  multiple_splits: None
 
 wandb:
   use: True
@@ -17,11 +20,11 @@ train:
   batch_size: 32   
   eval_period: 1
   epochs: 2000
+  device: 0
   auto_resume: False
-  lr: 0.01
-
+  
 model:
-  type: vgae
+  type: VGAE
   out_channels: 16
   hidden_channels: 8  # Assume that the dimension of the hidden layer feature is 8
     
@@ -36,3 +39,7 @@ data:
   split_labels: True
   num_features:  1433
 
+optimizer:
+  type: adam
+  base_lr: 0.01
+  weight_decay: 0.0005

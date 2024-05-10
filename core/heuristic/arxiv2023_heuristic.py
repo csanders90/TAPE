@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from data_utils.dataset import CustomPygDataset, CustomLinkDataset
 from heuristic.lsf import CN, AA, RA, InverseRA
 from heuristic.gsf import Ben_PPR, shortest_path, katz_apro, katz_close , SymPPR
-from data_utils.load_pubmed import get_raw_text_pubmed, get_pubmed_casestudy, parse_pubmed
+from data_utils.load_data_lp import get_raw_text_pubmed, get_pubmed_lp
 import matplotlib.pyplot as plt
 from lpda.adjacency import construct_sparse_adj
 import scipy.sparse as ssp
@@ -24,45 +24,10 @@ from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
 from heuristic.eval import evaluate_auc, evaluate_hits, evaluate_mrr, get_metric_score, get_prediction
 from utils import get_git_repo_root_path, append_acc_to_excel, append_mrr_to_excel
 from textfeat.mlp_dot_product import pairwise_prediction
-
-
-def get_raw_text_arxiv_2023(undirected = True,
-                            include_negatives = True,
-                            val_pct = 0.15,
-                            test_pct = 0.05,
-                            split_labels=False):
-
-    
-    data = torch.load(FILE_PATH + 'dataset/arxiv_2023/graph.pt')
-    
-    # data.edge_index = data.adj_t.to_symmetric()
-    text = None
-
-    df = pd.read_csv(FILE_PATH + 'dataset/arxiv_2023_orig/paper_info.csv')
-    text = []
-    for ti, ab in zip(df['title'], df['abstract']):
-        text.append(f'Title: {ti}\nAbstract: {ab}')
-        # text.append((ti, ab))
-        
-    dataset = CustomLinkDataset('./dataset', 'arxiv_2023', transform=T.NormalizeFeatures())
-    dataset._data = data
-    
-    undirected = data.is_undirected()
-    
-    transform = RandomLinkSplit(is_undirected=undirected, 
-                                num_val=val_pct,
-                                num_test=test_pct,
-                                add_negative_train_samples=include_negatives, 
-                                split_labels=split_labels)
-    
-    train_data, val_data, test_data = transform(dataset._data)
-    splits = {'train': train_data, 'valid': val_data, 'test': test_data}
-    
-
-    return dataset, text, splits
+from data_utils.load_data_lp import get_raw_text_arxiv_2023_lp
 
 def eval_arxiv_23_acc() -> Dict:
-    dataset, text, splits = get_raw_text_arxiv_2023(undirected = True,
+    dataset, _, splits = get_raw_text_arxiv_2023_lp(undirected = True,
                                                 include_negatives = True,
                                                 val_pct = 0.15,
                                                 test_pct = 0.05,
@@ -172,28 +137,28 @@ def eval_cora_mrr() -> None:
     
     result_dict = {}
     # , 'InverseRA'
-    # for use_heuristic in ['CN', 'AA', 'RA']:
-    #     pos_test_pred, _ = eval(use_heuristic)(full_A, pos_test_index)
-    #     neg_test_pred, _ = eval(use_heuristic)(full_A, neg_test_index)
+    for use_heuristic in ['CN', 'AA', 'RA']:
+        pos_test_pred, _ = eval(use_heuristic)(full_A, pos_test_index)
+        neg_test_pred, _ = eval(use_heuristic)(full_A, neg_test_index)
         
-    #     result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
-    #     result_dict.update({f'{use_heuristic}': result})
+        result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
+        result_dict.update({f'{use_heuristic}': result})
         
-    # # , 'SymPPR'
-    # for use_heuristic in ['Ben_PPR']:
-    #     pos_test_pred, _ = eval(use_heuristic)(full_A, pos_test_index)
-    #     neg_test_pred, _ = eval(use_heuristic)(full_A, neg_test_index)
-    #     result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
-    #     result_dict.update({f'{use_heuristic}': result})
+    # , 'SymPPR'
+    for use_heuristic in ['Ben_PPR']:
+        pos_test_pred, _ = eval(use_heuristic)(full_A, pos_test_index)
+        neg_test_pred, _ = eval(use_heuristic)(full_A, neg_test_index)
+        result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
+        result_dict.update({f'{use_heuristic}': result})
     
-    # #  'katz_close'
-    # for use_heuristic in ['shortest_path', 'katz_apro']:
-    #     pos_test_pred = eval(use_heuristic)(full_A, pos_test_index)
-    #     neg_test_pred = eval(use_heuristic)(full_A, neg_test_index)
-    #     result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
+    #  'katz_close'
+    for use_heuristic in ['shortest_path', 'katz_apro']:
+        pos_test_pred = eval(use_heuristic)(full_A, pos_test_index)
+        neg_test_pred = eval(use_heuristic)(full_A, neg_test_index)
+        result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
 
-    #     # calc mrr and hits@k
-    #     result_dict.update({f'{use_heuristic}': result})
+        # calc mrr and hits@k
+        result_dict.update({f'{use_heuristic}': result})
 
     for use_heuristic in ['pairwise_pred']:
         for dist in ['dot']:

@@ -24,9 +24,9 @@ from torch_geometric.utils import to_networkx, to_undirected
 
 from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
 
-from utils import *
-from core.heuristic.semantic_similarity import *
-from evaluator import evaluate_hits, evaluate_mrr, evaluate_auc
+from utils import get_root_dir
+
+from core.heuristic.eval import evaluate_hits, evaluate_mrr, evaluate_auc
 from gsf import *
 from lsf import *
 
@@ -43,28 +43,29 @@ def read_data(data_name, dir_path, filename):
     for split in ['train', 'test', 'valid']:
 
        
-        path = dir_path + '/{}/{}_pos.txt'.format(data_name, split)
+        path = f'{dir_path}/{data_name}/{split}_pos.txt'
 
-     
+
         for line in open(path, 'r'):
             sub, obj = line.strip().split('\t')
             sub, obj = int(sub), int(obj)
-            
+
             node_set.add(sub)
             node_set.add(obj)
-            
+
             if sub == obj:
                 continue
 
-            if split == 'train': 
+            if split == 'test':
+                test_pos.append((sub, obj))
+            elif split == 'train':
                 train_pos.append((sub, obj))
-                
 
-            if split == 'valid': valid_pos.append((sub, obj))  
-            if split == 'test': test_pos.append((sub, obj))
-    
+
+            elif split == 'valid':
+                valid_pos.append((sub, obj))
     num_nodes = len(node_set)
-    print('the number of nodes in ' + data_name + ' is: ', num_nodes)
+    print(f'the number of nodes in {data_name} is: ', num_nodes)
 
     train_edge = torch.transpose(torch.tensor(train_pos), 1, 0)
     edge_index = torch.cat((train_edge,  train_edge[[1,0]]), dim=1)
@@ -84,7 +85,7 @@ def read_data(data_name, dir_path, filename):
 
     valid_pos =  torch.transpose(torch.tensor(valid_pos), 1, 0)
     test_pos =  torch.transpose(torch.tensor(test_pos), 1, 0)
-    
+
     valid_neg =  torch.tensor(valid_neg)
     test_neg =  torch.tensor(test_neg)
 
@@ -93,7 +94,7 @@ def read_data(data_name, dir_path, filename):
 
     test_neg = torch.permute(test_neg, (2, 0, 1))
     test_neg = test_neg.view(2,-1)
-    
+
 
     return  A, train_pos_tensor, valid_pos, test_pos, valid_neg, test_neg, train_pos
 

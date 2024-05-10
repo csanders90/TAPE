@@ -1,5 +1,6 @@
 # This script evaluate the performance of node feature proximity 
-
+import os, sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import torch
 import numpy as np
 import argparse
@@ -8,9 +9,8 @@ from collections import Counter
 import matplotlib.pyplot  as plt 
 import sys
 import numpy as np
-from sklearn.metrics import roc_auc_score
-from sklearn.metrics import average_precision_score
-sys.path.insert(0, "/pfs/work7/workspace/scratch/cc7738-nlp_graph/HeaRT_Mao/benchmarking") 
+
+
 import scipy.sparse as ssp
 import torch
 from torch.nn import BCEWithLogitsLoss
@@ -23,9 +23,7 @@ from torch_geometric.data import Data, Dataset, InMemoryDataset, DataLoader
 from torch_geometric.utils import to_networkx, to_undirected
 
 from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
-
-from utils import *
-from core.heuristic.semantic_similarity import *
+from utils import get_root_dir
 from eval import evaluate_hits, evaluate_mrr, evaluate_auc
 import pandas as pd 
 from math import inf

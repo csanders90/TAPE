@@ -1,16 +1,14 @@
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from GSAINT.GSAINT_utils import *
-from GSAINT.GSAINT_model import GraphSAINTNodeSampler, GraphSAINTEdgeSampler, GraphSAINTRandomWalkSampler
+from graphgps.train.opt_train import *
+from graphgps.network.gsaint import *
+from graphgps.network.custom_gnn import *
 import time
 from itertools import product
 
-def get_loader(data, batch_size, walk_length, num_steps, sample_coverage):
-    return GraphSAINTRandomWalkSampler(data, batch_size=batch_size, walk_length=walk_length, num_steps=num_steps, sample_coverage=sample_coverage)
-
 def run_experiment(cfg, model, optimizer, splits, sampler, batch_size, walk_length, num_steps, sample_coverage):
-    trainer = Trainer(FILE_PATH, 
+    trainer = Trainer_Saint(FILE_PATH, 
                       cfg, 
                       model, 
                       optimizer, 
