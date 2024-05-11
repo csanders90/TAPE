@@ -82,12 +82,13 @@ def run_experiment():  # sourcery skip: avoid-builtin-shadow
     loggers = create_logger(1)
 
     seed_everything(cfg.seed)
-    auto_select_device()
+    cfg = config_device(cfg)
 
     # LLM: finetuning
     if cfg.train.finetune: 
         model = init_model_from_pretrained(model, cfg.train.finetune,
                                             cfg.train.freeze_pretrained)
+    
     trainer = Trainer(FILE_PATH,
                 cfg,
                 model, 
@@ -99,6 +100,7 @@ def run_experiment():  # sourcery skip: avoid-builtin-shadow
 
 
     best_auc, best_hits, best_hit100 = 0, 0, 0
+    
     results_rank = {}
     for epoch in range(1, cfg.train.epochs + 1):
         loss = trainer.train_func[cfg.model.type]()
@@ -107,11 +109,8 @@ def run_experiment():  # sourcery skip: avoid-builtin-shadow
             results_rank = trainer.merge_result_rank()
             print(results_rank)
             
-            for key, result in results_rank.items():
-                # result - (train, valid, test)
-                
+            for key, result in results_rank.items():   
                 trainer.loggers[key].add_result(0, result)
-                # print(self.loggers[key].results)
                 
             print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][0]:.4f}, AP: {results_rank["AP"][0]:.4f}, MRR: {results_rank["MRR"][0]:.4f}, Hit@10 {results_rank["Hits@10"][0]:.4f}')
             print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][1]:.4f}, AP: {results_rank["AP"][1]:.4f}, MRR: {results_rank["MRR"][1]:.4f}, Hit@10 {results_rank["Hits@10"][1]:.4f}')               

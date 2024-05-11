@@ -29,7 +29,7 @@ class Trainer():
                  repeat: int,
                  loggers: Logger):
         
-        self.device = config_device(cfg)
+        self.device = cfg.device
         self.model = model.to(self.device)
         self.model_name = cfg.model.type 
         self.data_name = cfg.data.name
@@ -152,9 +152,9 @@ class Trainer():
                     self.loggers[key].add_result(self.run, result)
                     # print(self.loggers[key].results)
                     
-                print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][0]:.4f}, AP: {results_rank["AP"][0]:.4f}, MRR: {results_rank["MRR"][0]:.4f}, Hit@10 {results_rank["Hits@10"][0]:.4f}')
-                print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][1]:.4f}, AP: {results_rank["AP"][1]:.4f}, MRR: {results_rank["MRR"][1]:.4f}, Hit@10 {results_rank["Hits@10"][1]:.4f}')               
-                print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][2]:.4f}, AP: {results_rank["AP"][2]:.4f}, MRR: {results_rank["MRR"][2]:.4f}, Hit@10 {results_rank["Hits@10"][2]:.4f}')               
+                print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][0]:.4f}, AP: {results_rank["AP"][0]:.4f}, MRR: {results_rank["MRR"][0]:.4f}, Hit@100 {results_rank["Hits@100"][0]:.4f}')
+                print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][1]:.4f}, AP: {results_rank["AP"][1]:.4f}, MRR: {results_rank["MRR"][1]:.4f}, Hit@100 {results_rank["Hits@100"][1]:.4f}')               
+                print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][2]:.4f}, AP: {results_rank["AP"][2]:.4f}, MRR: {results_rank["MRR"][2]:.4f}, Hit@100 {results_rank["Hits@100"][2]:.4f}')               
 
                 if results_rank["AUC"][1] > best_auc:
                     best_auc = results_rank["AUC"][1]

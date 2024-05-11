@@ -51,11 +51,11 @@ if __name__ == "__main__":
         cfg.seed = seed
         cfg.run_id = run_id
         seed_everything(cfg.seed)
-        auto_select_device()
-
+        cfg = config_device(cfg)
+        
         splits, text = load_data_lp[cfg.data.name](cfg.data)
         cfg.model.in_channels = splits['train'].x.shape[1]
-        model = create_model(cfg)
+        model = create_model(cfg).to(cfg.device)
 
         logging.info(model)
         logging.info(cfg)
@@ -69,6 +69,7 @@ if __name__ == "__main__":
             model = init_model_from_pretrained(model, cfg.train.finetune,
                                                cfg.train.freeze_pretrained)
 
+        print(f"training start on device {cfg.device}")
         trainer = Trainer(FILE_PATH,
                     cfg,
                     model, 

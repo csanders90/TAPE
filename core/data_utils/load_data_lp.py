@@ -57,17 +57,17 @@ def load_taglp_cora(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
     text = load_text_cora(data_citeid)
     undirected = data.is_directed()
 
-    cfg.device = config_device(cfg)
+    cfg = config_device(cfg)
         
     splits = get_edge_split(data, 
                        undirected,
                        cfg.device,
-                       cfg.val_pct, 
-                       cfg.test_pct,
-                       cfg.include_negatives,
-                       cfg.split_labels
+                       cfg.data.val_pct, 
+                       cfg.data.test_pct,
+                       cfg.data.include_negatives,
+                       cfg.data.split_labels
                        )   
-    return splits, text
+    return splits, text, data
 
 
 def load_taglp_ogbn_arxiv(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
@@ -88,7 +88,7 @@ def load_taglp_ogbn_arxiv(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
                        cfg.include_negatives,
                        cfg.split_labels
                        )   
-    return splits, text
+    return splits, text, data
 
 
 def get_edge_split(data: Data,
@@ -129,7 +129,7 @@ def load_taglp_product(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
                        cfg.include_negatives,
                        cfg.split_labels
                        )   
-    return splits, text
+    return splits, text, data
 
 def load_taglp_pubmed(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
     # add one default argument
@@ -138,8 +138,8 @@ def load_taglp_pubmed(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
     text = load_text_pubmed()
     undirected = data.is_directed()
     
-    if not hasattr(cfg, 'device'):
-        config_device(cfg)
+    # if not hasattr(cfg, 'device'):
+    #     config_device(cfg)
         
     splits = get_edge_split(data, 
                        undirected,
@@ -149,7 +149,7 @@ def load_taglp_pubmed(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
                        cfg.include_negatives,
                        cfg.split_labels
                        )   
-    return splits, text
+    return splits, text, data
 
 # TEST CODE
 if __name__ == '__main__':

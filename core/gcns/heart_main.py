@@ -15,7 +15,7 @@ from torch_geometric import seed_everything
 from torch_geometric.nn import GCNConv, SAGEConv, GINConv, GATConv
 from ogb.linkproppred import Evaluator
 from graphgps.network.heart_gnn import (GCN, GAT, SAGE, mlp_score)
-from data_utils.load import data_loader
+from data_utils.load import load_data_lp
 from utils import Logger, save_emb, get_root_dir, get_logger, config_device, set_cfg, \
 parse_args, get_git_repo_root_path
 from trainer_heart import train, test, test_edge
@@ -53,10 +53,9 @@ def parse_args() -> argparse.Namespace:
 def data_preprocess(cfg):
 
     device = cfg.train.device
-    dataset, data_cited, splits = data_loader[cfg.data.name](cfg)
-    data = dataset._data
+    splits, text, data = load_data_lp[cfg.data.name](cfg)
 
-    edge_index = data.edge_index
+    edge_index = data.edge_index.to(cfg.device)
     emb = None # here is your embedding
     node_num = data.num_nodes
 
@@ -79,10 +78,11 @@ def data_preprocess(cfg):
         val_edge_index = splits['valid'].edge_index.t()
         val_edge_index = to_undirected(val_edge_index)
 
-        full_edge_index = torch.cat([edge_index, val_edge_index], dim=-1)
+        full_edge_index = torch.cat([edge_index, val_edge_index], dim=-1).to(cfg.device)
 
-        edge_weight = torch.ones(full_edge_index.shape[1])
+        edge_weight = torch.ones(full_edge_index.shape[1]).to(cfg.device)
         train_edge_weight = torch.ones(splits['train'].edge_index.shape[1])
+
         A = SparseTensor.from_edge_index(full_edge_index, edge_weight.view(-1), [data.num_nodes, data.num_nodes])
 
         data.full_adj_t = A
@@ -95,7 +95,7 @@ def data_preprocess(cfg):
 
     if emb != None:
         torch.nn.init.xavier_uniform_(emb.weight)
-    return dataset, splits, emb, cfg, train_edge_weight
+    return data, splits, emb, cfg, train_edge_weight
 
 
 if __name__ == "__main__":
@@ -105,29 +105,28 @@ if __name__ == "__main__":
     args = parse_args()
     # Load args file
     
-    cfg = set_cfg(FILE_PATH, args)
+    cfg = set_cfg(FILE_PATH, args.cfg_file)
     cfg.merge_from_list(args.opts)
 
     # Set Pytorch environment
     torch.set_num_threads(cfg.num_threads)
 
-    device = config_device(cfg)
+    cfg = config_device(cfg)
 
-    cfg.train.device = device
-    print(f"device {device}")
+    print(f"device {cfg.device}")
     
-    dataset, splits, emb, cfg, train_edge_weight = data_preprocess(cfg)
+    data, splits, emb, cfg, train_edge_weight = data_preprocess(cfg)
 
     pprint(cfg)
     model = eval(cfg.model.type)(cfg.model.input_channels, cfg.model.hidden_channels,
                                  cfg.model.hidden_channels, cfg.model.num_layers, 
-                                 cfg.model.dropout).to(device)
+                                 cfg.model.dropout).to(cfg.device)
     
     score_func = eval(cfg.score_model.name)(cfg.score_model.hidden_channels, 
                                             cfg.score_model.hidden_channels,
                                             1, 
                                             cfg.score_model.num_layers_predictor, 
-                                            cfg.score_model.dropout).to(device)
+                                            cfg.score_model.dropout).to(cfg.device)
 
     # train_pos = data['train_pos'].to(x.device)
 
@@ -238,16 +237,16 @@ if __name__ == "__main__":
             loss = train(model, 
                          score_func, 
                          pos_train_edge, 
-                         dataset._data, 
+                         data, 
                          emb, 
                          optimizer, 
                          cfg.train.batch_size, 
                          train_edge_weight, 
-                         device)
+                         cfg.device)
 
             # for attention score   
             # print(model.convs[0].att_src[0][0][:10])
-            
+            print(f"epoch {epoch}: loss {loss}")
             if epoch % 100 == 0:
                 results_rank, score_emb = test(model, 
                                                score_func,
@@ -259,7 +258,7 @@ if __name__ == "__main__":
                                                cfg.train.batch_size, 
                                                cfg.data.name, 
                                                cfg.train.use_valedges_as_input, 
-                                               device)
+                                               cfg.device)
 
 
                 for key, _ in loggers.items():
@@ -310,28 +309,33 @@ if __name__ == "__main__":
         for key in loggers.keys():
             if len(loggers[key].results[0]) > 0:
                 print(key)
-                loggers[key].print_statistics( run)
+                loggers[key].calc_run_stats(run)
                 print('\n')
         
-      
+    print('All runs:')
     
-    result_all_run = {}
-    for key in loggers.keys():
-        if len(loggers[key].results[0]) > 0:
-            print(key)
-            best_metric,  best_valid_mean, mean_list, var_list = loggers[key].print_statistics()
-            if key == eval_metric:
-                best_metric_valid_str = best_metric
-                # best_valid_mean_metric = best_valid_mean
-            if key == 'AUC':
-                best_auc_valid_str = best_metric
-                # best_auc_metric = best_valid_mean
-            result_all_run[key] = [mean_list, var_list]
+    result_dict = {}
+    for key in loggers:
+        print(key)
+        _, _, _, valid_test, _, _ = loggers[key].calc_all_stats()
+        result_dict.update({key: valid_test})
+    print(result_dict)
+    
+    # result_all_run = {}
+    # for key in loggers.keys():
+    #     if len(loggers[key].results[0]) > 0:
+    #         print(key)
+    #         best_metric,  best_valid_mean, mean_list, var_list = loggers[key].print_statistics()
+    #         if key == eval_metric:
+    #             best_metric_valid_str = best_metric
+    #             # best_valid_mean_metric = best_valid_mean
+    #         if key == 'AUC':
+    #             best_auc_valid_str = best_metric
+    #             # best_auc_metric = best_valid_mean
+    #         result_all_run[key] = [mean_list, var_list]
             
-
-        
-    if cfg.train.runs == 1:
-        print(str(best_valid_current) + ' ' + str(best_test) + ' ' + str(best_valid_auc) + ' ' + str(best_test_auc))
+    # if cfg.train.runs == 1:
+    #     print(str(best_valid_current) + ' ' + str(best_test) + ' ' + str(best_valid_auc) + ' ' + str(best_test_auc))
     
-    else:
-        print(str(best_metric_valid_str) +' ' +str(best_auc_valid_str))
+    # else:
+    #     print(str(best_metric_valid_str) +' ' +str(best_auc_valid_str))
