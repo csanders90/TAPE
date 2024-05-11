@@ -7,6 +7,7 @@ from itertools import product
 from graphgps.network.gsaint import GraphSAINTNodeSampler, GraphSAINTEdgeSampler, GraphSAINTRandomWalkSampler
 from graphgps.train.opt_train import Trainer, Trainer_Saint
 from torch_geometric.graphgym.cmd_args import parse_args
+from data_utils.load import load_data_lp
 from torch_geometric import seed_everything
 from torch_geometric.data.makedirs import makedirs
 from torch_geometric.graphgym.utils.device import auto_select_device
@@ -23,7 +24,7 @@ if __name__ == "__main__":
     FILE_PATH = f'{get_git_repo_root_path()}/'
 
     args = parse_args()
-    cfg = set_cfg(FILE_PATH, args)
+    cfg = set_cfg(FILE_PATH, args.cfg_file)
     cfg.merge_from_list(args.opts)
 
     torch.set_num_threads(cfg.num_threads)
@@ -36,7 +37,7 @@ if __name__ == "__main__":
     best_acc = 0
     best_params = {}
 
-    loggers = create_logger(args)
+    loggers = create_logger(args.repeat)
     
     for batch_size, walk_length, num_steps, sample_coverage in product(batch_sizes, walk_lengths, num_steps, sample_coverages):
         for run_id, seed, split_index in zip(*run_loop_settings(cfg, args)): # In run_loop_settings we should send 2 parameeters
