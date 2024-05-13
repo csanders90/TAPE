@@ -118,7 +118,7 @@ def get_loader_NS(data, batch_size, num_steps, sample_coverage):
     return GraphSAINTNodeSampler(data, batch_size=batch_size, num_steps=num_steps, sample_coverage=sample_coverage)
 
 # Define the filepath for the output file
-output_file = 'sampler_performance_logs_pubmed.txt'
+output_file = 'sampler_performance_logs_arxiv_2023.txt'
 
 # Function to append a message to the log file
 def append_to_log(message, filepath):
@@ -134,11 +134,11 @@ if __name__ == "__main__":
 
     torch.set_num_threads(cfg.num_threads)
     # Best params: {'batch_size': 64, 'walk_length': 10, 'num_steps': 30, 'sample_coverage': 100, 'accuracy': 0.82129}
-    batch_sizes = [8, 16, 32, 128, 512]
+    batch_sizes = [8, 16, 32, 128, 256, 512, 1024]
     walk_lengths = [10]#[10, 15, 20]
     num_steps = [30]#[10, 20, 30]
     sample_coverages = [100]#[50, 100, 150]
-    samplers = [get_loader_ES, get_loader_NS, get_loader_RW]
+    samplers = [get_loader_NS, get_loader_RW, get_loader_ES]
     
     best_acc = 0
     best_params = {}
@@ -166,17 +166,17 @@ if __name__ == "__main__":
             # if lst_args[0] == 'gsaint':
                 # +- the same volume of subgraphs with 128 RW and 1024 ES
             
-            if sampler.__name__ == 'get_loader_RW':
-                Sampler = sampler(splits['train'], 
-                            batch_size=batch_size,  # batch_size < 32 lead to very sparce graph
-                            walk_length=walk_length, 
-                            num_steps=num_steps, 
-                            sample_coverage=sample_coverage)
-            else:
-                Sampler = sampler(splits['train'], 
-                            batch_size=batch_size,
-                            num_steps=num_steps, 
-                            sample_coverage=sample_coverage)
+            # if sampler.__name__ == 'get_loader_RW':
+            #     Sampler = sampler(splits['train'], 
+            #                 batch_size=batch_size,  # batch_size < 32 lead to very sparce graph
+            #                 walk_length=walk_length, 
+            #                 num_steps=num_steps, 
+            #                 sample_coverage=sample_coverage)
+            # else:
+            #     Sampler = sampler(splits['train'], 
+            #                 batch_size=batch_size,
+            #                 num_steps=num_steps, 
+            #                 sample_coverage=sample_coverage)
             # sampler = get_loader_ES(splits['test'], 
             #                         batch_size=batch_size, # batch_size < 256 lead to very sparce graph
             #                         num_steps=num_steps,
@@ -189,65 +189,65 @@ if __name__ == "__main__":
             # else:
             #     sampler = None 
             
-            G, node_color = to_network_full_graph(splits['train'])
-            plot_graph(G, node_color, batch_size, 'cora')
+            # G, node_color = to_network_full_graph(splits['train'])
+            # plot_graph(G, node_color, batch_size, 'cora')
             # for idx in range(len(Sampler)-29):
             #     G, node_color = to_network(Sampler[idx][0], splits['test'])
             #     plot_graph(G, node_color, batch_size, sampler.__name__)
 
-        #     model = create_model(cfg)
-        #     logging.info(model)
-        #     logging.info(cfg)
-        #     cfg.params = params_count(model)
-        #     logging.info(f'Num parameters: {cfg.params}')
+            model = create_model(cfg)
+            logging.info(model)
+            logging.info(cfg)
+            cfg.params = params_count(model)
+            logging.info(f'Num parameters: {cfg.params}')
 
-        #     optimizer = create_optimizer(model, cfg)
+            optimizer = create_optimizer(model, cfg)
             
-        #     optimizer = torch.optim.Adam(model.parameters(), lr=cfg.optimizer.base_lr)
+            optimizer = torch.optim.Adam(model.parameters(), lr=cfg.optimizer.base_lr)
 
-        #     # Execute experiment
-        #     start = time.time()
-        #     trainer = Trainer_Saint(FILE_PATH, 
-        #                 cfg, 
-        #                 model, 
-        #                 optimizer, 
-        #                 splits, 
-        #                 run_id, 
-        #                 args.repeat,
-        #                 loggers,
-        #                 sampler, 
-        #                 batch_size, 
-        #                 walk_length, 
-        #                 num_steps, 
-        #                 sample_coverage)
+            # Execute experiment
+            start = time.time()
+            trainer = Trainer_Saint(FILE_PATH, 
+                        cfg, 
+                        model, 
+                        optimizer, 
+                        splits, 
+                        run_id, 
+                        args.repeat,
+                        loggers,
+                        sampler, 
+                        batch_size, 
+                        walk_length, 
+                        num_steps, 
+                        sample_coverage)
             
-        #     end = time.time()
+            end = time.time()
             
-        #     sampler_info = f"Sampler name: {sampler.__name__}, batch_size: {batch_size}, Time preprocessing: {end-start}"
-        #     print(sampler_info)
-        #     append_to_log(sampler_info, output_file)  # Log to file
+            sampler_info = f"Sampler name: {sampler.__name__}, batch_size: {batch_size}, Time preprocessing: {end-start}"
+            print(sampler_info)
+            append_to_log(sampler_info, output_file)  # Log to file
 
-        #     start = time.time()
-        #     trainer.train()
-        #     end = time.time()
+            start = time.time()
+            trainer.train()
+            end = time.time()
             
-        #     training_info = f'Training time: {end-start}'
-        #     print(training_info)
-        #     append_to_log(training_info, output_file)  # Log to file
+            training_info = f'Training time: {end-start}'
+            print(training_info)
+            append_to_log(training_info, output_file)  # Log to file
                 
-        # # statistic for all runs
-        # print('All runs:')
+        # statistic for all runs
+        print('All runs:')
         
-        # result_dict = {}
-        # for key in loggers:
-        #     print(key)
-        #     _, _, _, valid_test, _, _ = trainer.loggers[key].calc_all_stats()
-        #     result_dict.update({key: valid_test})
-        # # Log results
-        # result_info = str({'Hits@100': result_dict['Hits@100'], 'AUC': result_dict['AUC'], 'ACC': result_dict['acc']})
-        # print(result_info)
-        # append_to_log(result_info, output_file)  # Log results to file
+        result_dict = {}
+        for key in loggers:
+            print(key)
+            _, _, _, valid_test, _, _ = trainer.loggers[key].calc_all_stats()
+            result_dict.update({key: valid_test})
+        # Log results
+        result_info = str({'Hits@100': result_dict['Hits@100'], 'AUC': result_dict['AUC'], 'ACC': result_dict['acc']})
+        print(result_info)
+        append_to_log(result_info, output_file)  # Log results to file
         
-        # # Add a blank line to separate different experiments
-        # append_to_log("", output_file)  # Add a blank line for separation
-        # trainer.save_result(result_dict)
+        # Add a blank line to separate different experiments
+        append_to_log("", output_file)  # Add a blank line for separation
+        trainer.save_result(result_dict)
