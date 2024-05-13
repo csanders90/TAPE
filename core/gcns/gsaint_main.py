@@ -17,9 +17,14 @@ from utils import set_cfg, parse_args, get_git_repo_root_path, Logger, custom_se
     , custom_set_run_dir, set_printing, run_loop_settings, create_optimizer, config_device, \
         init_model_from_pretrained, create_logger
 
-def get_loader(data, batch_size, walk_length, num_steps, sample_coverage):
+def get_loader_RW(data, batch_size, walk_length, num_steps, sample_coverage):
     return GraphSAINTRandomWalkSampler(data, batch_size=batch_size, walk_length=walk_length, num_steps=num_steps, sample_coverage=sample_coverage)
 
+def get_loader_ES(data, batch_size, num_steps, sample_coverage):
+    return GraphSAINTEdgeSampler(data, batch_size=batch_size, num_steps=num_steps, sample_coverage=sample_coverage)
+
+def get_loader_NS(data, batch_size, num_steps, sample_coverage):
+    return GraphSAINTNodeSampler(data, batch_size=batch_size, num_steps=num_steps, sample_coverage=sample_coverage)
 if __name__ == "__main__":
     FILE_PATH = f'{get_git_repo_root_path()}/'
 
@@ -38,7 +43,6 @@ if __name__ == "__main__":
     best_params = {}
 
     loggers = create_logger(args.repeat)
-    
     for batch_size, walk_length, num_steps, sample_coverage in product(batch_sizes, walk_lengths, num_steps, sample_coverages):
         for run_id, seed, split_index in zip(*run_loop_settings(cfg, args)): # In run_loop_settings we should send 2 parameeters
 
@@ -53,7 +57,7 @@ if __name__ == "__main__":
 
             lst_args = cfg.model.type.split('_')
             if lst_args[0] == 'gsaint':
-                sampler = get_loader
+                sampler = get_loader_RW
                 cfg.model.type = lst_args[1].upper() # Convert to upper case
             else:
                 sampler = None 
@@ -82,14 +86,13 @@ if __name__ == "__main__":
             
             print('Training time: ', end - start)
                 
-        best_auc, best_hits = trainer.train()
+        # statistic for all runs
+        print('All runs:')
         
+        result_dict = {}
         for key in loggers:
             print(key)
-            trainer.loggers[key].print_statistics(run_id)
-            
-        print(trainer.results_rank)
+            _, _, _, valid_test, _, _ = trainer.loggers[key].calc_all_stats()
+            result_dict.update({key: valid_test})
 
-    _, best_auc_metric, result_all_run = trainer.result_statistic()
-    
-    print(f"best_auc_metric: {best_auc_metric}, result_all_run: {result_all_run}")
+        trainer.save_result(result_dict)
