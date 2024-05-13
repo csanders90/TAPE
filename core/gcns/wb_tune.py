@@ -68,7 +68,9 @@ def run_experiment():  # sourcery skip: avoid-builtin-shadow
     wandb_config = wandb.config
     
     wandb.log(dict(wandb_config))   
-    
+    for key, value in wandb_config.items():
+        print(f"{key}: {value}")
+        
     # merge model param
     cfg = merge_cfg_from_sweep(cfg_config, cfg_sweep)
     
@@ -113,9 +115,9 @@ def run_experiment():  # sourcery skip: avoid-builtin-shadow
             for key, result in results_rank.items():   
                 trainer.loggers[key].add_result(0, result)
                 
-            print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][0]:.4f}, AP: {results_rank["AP"][0]:.4f}, MRR: {results_rank["MRR"][0]:.4f}, Hit@10 {results_rank["Hits@100"][0]:.4f}')
-            print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][1]:.4f}, AP: {results_rank["AP"][1]:.4f}, MRR: {results_rank["MRR"][1]:.4f}, Hit@10 {results_rank["Hits@100"][1]:.4f}')               
-            print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][2]:.4f}, AP: {results_rank["AP"][2]:.4f}, MRR: {results_rank["MRR"][2]:.4f}, Hit@10 {results_rank["Hits@100"][2]:.4f}')               
+            # print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][0]:.4f}, AP: {results_rank["AP"][0]:.4f}, MRR: {results_rank["MRR"][0]:.4f}, Hit@10 {results_rank["Hits@100"][0]:.4f}')
+            # print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][1]:.4f}, AP: {results_rank["AP"][1]:.4f}, MRR: {results_rank["MRR"][1]:.4f}, Hit@10 {results_rank["Hits@100"][1]:.4f}')               
+            # print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][2]:.4f}, AP: {results_rank["AP"][2]:.4f}, MRR: {results_rank["MRR"][2]:.4f}, Hit@10 {results_rank["Hits@100"][2]:.4f}')               
 
             if results_rank["AUC"][1] > best_auc:
                 best_auc = results_rank["AUC"][1]

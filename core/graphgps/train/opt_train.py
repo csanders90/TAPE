@@ -232,7 +232,6 @@ class Trainer():
                 
                 for key, result in results_rank.items():
                     # result - (train, valid, test)
-                    
                     self.loggers[key].add_result(self.run, result)
                     # print(self.loggers[key].results)
                     
@@ -246,20 +245,20 @@ class Trainer():
                     best_hits = results_rank['Hits@100'][1]
                     
                     
-            for key, result in self.results_rank.items():
-                self.loggers[key].add_result(self.run, result)
-                if epoch % 500 == 0:
-                    for key, result in self.results_rank.items():
-                        print(key)
-                        train_hits, valid_hits, test_hits = result
-                        print(
-                            f'Run: {self.run + 1:02d}, '
-                              f'Epoch: {epoch:02d}, '
-                              f'Loss: {loss:.4f}, '
-                              f'Train: {100 * train_hits:.2f}%, '
-                              f'Valid: {100 * valid_hits:.2f}%, '
-                              f'Test: {100 * test_hits:.2f}%')
-                    print('---')
+                for key, result in self.results_rank.items():
+                    self.loggers[key].add_result(self.run, result)
+                    if epoch % 500 == 0:
+                        for key, result in self.results_rank.items():
+                            print(key)
+                            train_hits, valid_hits, test_hits = result
+                            print(
+                                f'Run: {self.run + 1:02d}, '
+                                f'Epoch: {epoch:02d}, '
+                                f'Loss: {loss:.4f}, '
+                                f'Train: {100 * train_hits:.2f}%, '
+                                f'Valid: {100 * valid_hits:.2f}%, '
+                                f'Test: {100 * test_hits:.2f}%')
+                        print('---')
         return best_auc, best_hits
 
 
