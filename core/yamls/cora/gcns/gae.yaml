@@ -20,8 +20,8 @@ train:
   mode: custom
   batch_size: 1024 
   eval_period: 1
-  epochs: 200
-  device: 0
+  epochs: 2000
+  device: 1
   auto_resume: False
   final_eval: False
   finetune: False
@@ -41,7 +41,7 @@ data:
   test_pct: 0.05
   split_labels: True
   num_features:  1433
-  device: 0
+  device: 1
   split_index: [0.8, 0.15, 0.05]
 
 optimizer:

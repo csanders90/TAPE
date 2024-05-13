@@ -212,8 +212,6 @@ def config_device(cfg):
     if cfg.device != 'cpu':
         torch.cuda.set_device(cfg.device)
     
-    cfg.train.device = cfg.device
-    cfg.data.device = cfg.device
     return cfg
     
 

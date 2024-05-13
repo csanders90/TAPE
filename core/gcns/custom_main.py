@@ -25,11 +25,11 @@ from utils import set_cfg, parse_args, get_git_repo_root_path, Logger, custom_se
     , custom_set_run_dir, set_printing, run_loop_settings, create_optimizer, config_device, \
         init_model_from_pretrained, create_logger
 
+FILE_PATH = f'{get_git_repo_root_path()}/'
 
-if __name__ == "__main__":
 
-    FILE_PATH = f'{get_git_repo_root_path()}/'
-
+def project_main():
+    
     args = parse_args()
     # Load args file
     
@@ -53,7 +53,8 @@ if __name__ == "__main__":
         seed_everything(cfg.seed)
         cfg = config_device(cfg)
         
-        splits, text = load_data_lp[cfg.data.name](cfg.data)
+        splits, text, data = load_data_lp[cfg.data.name](cfg.data)
+        
         cfg.model.in_channels = splits['train'].x.shape[1]
         model = create_model(cfg).to(cfg.device)
 
@@ -73,6 +74,8 @@ if __name__ == "__main__":
         trainer = Trainer(FILE_PATH,
                     cfg,
                     model, 
+                    None, 
+                    data,
                     optimizer,
                     splits,
                     run_id, 
@@ -91,3 +94,7 @@ if __name__ == "__main__":
         result_dict.update({key: valid_test})
 
     trainer.save_result(result_dict)
+
+
+if __name__ == "__main__":
+    project_main()

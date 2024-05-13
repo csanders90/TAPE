@@ -70,7 +70,6 @@ def data_preprocess(cfg):
         train_edge_weight = torch.ones(splits['train'].edge_index.shape[1])
         train_edge_weight = train_edge_weight.to(torch.float)
 
-
     data = T.ToSparseTensor()(data)
 
     if cfg.train.use_valedges_as_input:
@@ -91,7 +90,6 @@ def data_preprocess(cfg):
         print(data.adj_t)
     else:
         data.full_adj_t = data.adj_t
-
 
     if emb != None:
         torch.nn.init.xavier_uniform_(emb.weight)
@@ -281,6 +279,7 @@ if __name__ == "__main__":
                 best_test = round(r[r[:, 1].argmax(), 2].item(), 4)
 
                 print(eval_metric)
+                
                 logging.info(f'best valid: {100*best_valid_current:.2f}%, '
                                 f'best test: {100*best_test:.2f}%')
                 

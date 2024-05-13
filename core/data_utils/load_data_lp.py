@@ -62,10 +62,10 @@ def load_taglp_cora(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
     splits = get_edge_split(data, 
                        undirected,
                        cfg.device,
-                       cfg.data.val_pct, 
-                       cfg.data.test_pct,
-                       cfg.data.include_negatives,
-                       cfg.data.split_labels
+                       cfg.val_pct, 
+                       cfg.test_pct,
+                       cfg.include_negatives,
+                       cfg.split_labels
                        )   
     return splits, text, data
 

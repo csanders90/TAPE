@@ -1,7 +1,6 @@
 import os
 import sys
 from os.path import abspath, dirname, join
-
 sys.path.insert(0, abspath(join(dirname(dirname(__file__)))))
 
 import torch
@@ -12,17 +11,24 @@ from sklearn.metrics import roc_auc_score, average_precision_score, roc_curve, a
 from yacs.config import CfgNode as CN
 
 from torch_geometric.data import Data
+from torch.utils.data import DataLoader
+from torch_sparse import SparseTensor
+from torch_geometric.utils import negative_sampling
+
 from embedding.tune_utils import param_tune_acc_mrr
 from heuristic.eval import get_metric_score
 from utils import config_device
 from typing import Dict, Tuple
 from utils import Logger
 
+
 class Trainer():
     def __init__(self, 
                  FILE_PATH: str, 
                  cfg: CN, 
                  model: torch.nn.Module, 
+                 emb: torch.nn.Module,
+                 data: Data,
                  optimizer: torch.optim.Optimizer, 
                  splits: Dict[str, Data], 
                  run: int, 
@@ -31,13 +37,19 @@ class Trainer():
         
         self.device = cfg.device
         self.model = model.to(self.device)
+        self.emb = emb
+        
+        # params
         self.model_name = cfg.model.type 
         self.data_name = cfg.data.name
         self.FILE_PATH = FILE_PATH 
         self.epochs = cfg.train.epochs
+        self.batch_size = cfg.train.batch_size
+        
         self.test_data = splits['test'].to(self.device)
         self.train_data = splits['train'].to(self.device)
         self.valid_data = splits['valid'].to(self.device)
+        self.data = data
         self.optimizer = optimizer
         self.loggers = loggers
         
@@ -53,6 +65,76 @@ class Trainer():
         self.repeat = repeat
         self.results_rank = {}
 
+    def _train_heart(self, 
+                     pos_train_weight,
+                     device):
+
+        self.model.train()
+
+        train_pos = self.train_data
+        total_loss = total_examples = 0
+
+        if self.emb is None: 
+            x = self.data.x
+            emb_update = 0
+        else: 
+            x = self.emb.weight
+            emb_update = 1
+
+        train_pos = train_pos.t()
+        for perm in DataLoader(range(train_pos.size(0)), self.batch_size,
+                            shuffle=True):
+            self.optimizer.zero_grad()
+            num_nodes = x.size(0)
+
+            ######################### remove loss edges from the aggregation
+            mask = torch.ones(train_pos.size(0), dtype=torch.bool).to(train_pos.device)
+            mask[perm] = 0
+            train_edge_mask = train_pos[mask].transpose(1,0)
+            train_edge_mask = torch.cat((train_edge_mask, train_edge_mask[[1,0]]),dim=1)
+
+            # visualize
+            if pos_train_weight != None:
+                pos_train_weight = pos_train_weight.to(mask.device)
+                edge_weight_mask = pos_train_weight[mask]
+                edge_weight_mask = torch.cat((edge_weight_mask, edge_weight_mask), dim=0).to(torch.float)
+            else:
+                edge_weight_mask = torch.ones(train_edge_mask.size(1)).to(torch.float).to(train_pos.device)
+
+            # masked adjacency matrix 
+            adj = SparseTensor.from_edge_index(train_edge_mask, edge_weight_mask, [num_nodes, num_nodes]).to(train_pos.device)
+
+            ##################
+            # print(adj)
+            x = x.to(device)
+            adj = adj.to(device)
+            h = self.model.encoder(x, adj)
+
+            edge = train_pos[perm].t()
+            pos_out = self.model.decoder(h[edge[0]], h[edge[1]])
+            pos_loss = -torch.log(pos_out + 1e-15).mean()
+
+            row, col, _ = adj.coo()
+            edge_index = torch.stack([col, row], dim=0)
+            edge = negative_sampling(edge_index, num_nodes=x.size(0),
+                                    num_neg_samples=perm.size(0), method='dense')
+
+            neg_out = self.model.decoder(h[edge[0]], h[edge[1]])
+            neg_loss = -torch.log(1 - neg_out + 1e-15).mean()
+
+            loss = pos_loss + neg_loss
+            loss.backward()
+
+            if emb_update == 1: torch.nn.utils.clip_grad_norm_(x, 1.0)
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+
+            self.optimizer.step()
+
+            num_examples = perm.size(0)
+            total_loss += loss.item() * num_examples
+            total_examples += num_examples
+
+            return total_loss / total_examples
 
 
     def _train_gae(self):
@@ -63,7 +145,7 @@ class Trainer():
         loss.backward()
         self.optimizer.step()
         return loss.item()
-
+    
 
     def _train_vgae(self):
         self.model.train()
@@ -96,6 +178,7 @@ class Trainer():
         y, pred = y.detach().cpu().numpy(), pred.detach().cpu().numpy()
         fpr, tpr, thresholds = roc_curve(y, pred, pos_label=1)
         return roc_auc_score(y, pred), average_precision_score(y, pred), auc(fpr, tpr)
+
 
     @torch.no_grad()
     def _evaluate(self, data: Data):
@@ -136,6 +219,7 @@ class Trainer():
             key: (result_train[key], result_valid[key], result_test[key])
             for key in result_test.keys()
         }
+    
     
     def train(self):
         best_auc, best_hits, best_hit100 = 0, 0, 0

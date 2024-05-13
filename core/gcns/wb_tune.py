@@ -48,8 +48,8 @@ def merge_cfg_from_sweep(cfg, wandb_config):
 
 def wandb_record_files(path):
     record_or_not = False
-    record_lst = [args.sweep_file, 
-                  args.cfg_file, 
+    record_lst = [cfg_sweep,
+                  cfg_config,
                   'core/gcns/wb_tune.py'
                   ]
     
@@ -68,16 +68,16 @@ def run_experiment():  # sourcery skip: avoid-builtin-shadow
     wandb_config = wandb.config
     
     wandb.log(dict(wandb_config))   
-
+    
     # merge model param
     cfg = merge_cfg_from_sweep(cfg_config, cfg_sweep)
-    splits, _ = load_data_lp[cfg.data.name](cfg.data)
     
     torch.set_num_threads(cfg.run.num_threads)
-    splits, _ = load_data_lp[cfg.data.name](cfg.data)
+    splits, _, data = load_data_lp[cfg.data.name](cfg.data)
     cfg.model.in_channels = splits['train'].x.shape[1]
     model = create_model(cfg)
-
+    
+    wandb.watch(model, log="all",log_freq=10)
     optimizer = create_optimizer(model, cfg)
     loggers = create_logger(1)
 
@@ -92,12 +92,13 @@ def run_experiment():  # sourcery skip: avoid-builtin-shadow
     trainer = Trainer(FILE_PATH,
                 cfg,
                 model, 
+                None, 
+                data,
                 optimizer,
                 splits,
                 0, 
-                1,
+                args.repeat,
                 loggers)
-
 
     best_auc, best_hits, best_hit100 = 0, 0, 0
     
@@ -107,20 +108,19 @@ def run_experiment():  # sourcery skip: avoid-builtin-shadow
         
         if epoch % 100 == 0:
             results_rank = trainer.merge_result_rank()
-            print(results_rank)
+            # print(results_rank)
             
             for key, result in results_rank.items():   
                 trainer.loggers[key].add_result(0, result)
                 
-            print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][0]:.4f}, AP: {results_rank["AP"][0]:.4f}, MRR: {results_rank["MRR"][0]:.4f}, Hit@10 {results_rank["Hits@10"][0]:.4f}')
-            print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][1]:.4f}, AP: {results_rank["AP"][1]:.4f}, MRR: {results_rank["MRR"][1]:.4f}, Hit@10 {results_rank["Hits@10"][1]:.4f}')               
-            print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][2]:.4f}, AP: {results_rank["AP"][2]:.4f}, MRR: {results_rank["MRR"][2]:.4f}, Hit@10 {results_rank["Hits@10"][2]:.4f}')               
+            print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][0]:.4f}, AP: {results_rank["AP"][0]:.4f}, MRR: {results_rank["MRR"][0]:.4f}, Hit@10 {results_rank["Hits@100"][0]:.4f}')
+            print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][1]:.4f}, AP: {results_rank["AP"][1]:.4f}, MRR: {results_rank["MRR"][1]:.4f}, Hit@10 {results_rank["Hits@100"][1]:.4f}')               
+            print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][2]:.4f}, AP: {results_rank["AP"][2]:.4f}, MRR: {results_rank["MRR"][2]:.4f}, Hit@10 {results_rank["Hits@100"][2]:.4f}')               
 
             if results_rank["AUC"][1] > best_auc:
                 best_auc = results_rank["AUC"][1]
             elif results_rank['Hits@100'][1] > best_hit100:
                 best_hits = results_rank['Hits@100'][1]
-                
                 
         for key, result in results_rank.items():
             trainer.loggers[key].add_result(0, result)
@@ -145,8 +145,9 @@ def run_experiment():  # sourcery skip: avoid-builtin-shadow
         
     trainer.save_result(result_dict)
     wandb.log({'Hits@100': set_float(result_dict['Hits@100'])})
-    run.log_code("../", include_fn=wandb_record_files)
-
+    
+    wandb.log({'best hits100': best_hits})
+    wandb.log({'best auc': best_auc})
     return  set_float(result_dict['Hits@100'])
 
 import torch
@@ -155,9 +156,11 @@ args = parse_args()
 
 print(args)
 
+# cfg_sweep= 'core/yamls/cora/gcns/gae_sp1.yaml'
+# cfg_config = 'core/yamls/cora/gcns/gae.yaml'
 
-cfg_sweep= 'core/yamls/cora/gcns/gae_sp1.yaml'
-cfg_config = 'core/yamls/cora/gcns/gae.yaml'
+cfg_sweep= 'core/yamls/pubmed/gcns/gae_sp1.yaml'
+cfg_config = 'core/yamls/pubmed/gcns/gae.yaml'
 
 cfg_sweep = set_cfg(FILE_PATH, cfg_sweep)
 cfg_config = set_cfg(FILE_PATH, cfg_config)
@@ -166,3 +169,6 @@ cfg_config = set_cfg(FILE_PATH, cfg_config)
 sweep_id = wandb.sweep(sweep=cfg_sweep, project=f"{cfg_config.model.type}-sweep-{cfg_config.data.name}")
 
 wandb.agent(sweep_id, run_experiment, count=60)
+
+
+# TODO multirun weight baises trainer 

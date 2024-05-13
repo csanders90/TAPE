@@ -29,3 +29,4 @@ module load compiler/gnu/12
 
 # python wb_tune.py --cfg core/yamls/cora/gat.yaml --sweep core/yamls/cora/gat_sp1.yaml
 python wb_tune.py --cfg core/yamls/cora/gae.yaml --sweep core/yamls/cora/gae_sp1.yaml
+python wb_tune.py --cfg core/yamls/pubmed/gcns/gae.yaml' --sweep 'core/yamls/pubmed/gcns/gae_sp1.yaml'
