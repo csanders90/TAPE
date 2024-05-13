@@ -566,11 +566,6 @@ def set_cfg(file_path, cfg_file):
     with open(file_path + cfg_file, "r") as f:
         return CN.load_cfg(f)
 
-# A new method for saving the path to "sweep_file"
-def set_cfg_sweep(file_path, args):
-    with open(file_path + args.sweep_file, "r") as f:
-        return CN.load_cfg(f)
-
 def run_loop_settings(cfg: CN,
                       args: argparse.Namespace) -> Tuple[List[int], List[int], List[int]]:
     """Create main loop execution settings based on the current cfg.

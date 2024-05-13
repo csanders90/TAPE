@@ -104,12 +104,19 @@ class GraphSAINTSampler(torch.utils.data.DataLoader):
         data.edge_index = torch.stack([row, col], dim=0)
 
         for key, item in self.data:
+            print(item.shape[0], self.N)
             if item.size(0) == self.N:
                 data[key] = item[node_idx]
             elif item.size(0) == self.E:
                 data[key] = item[edge_idx]
             else:
                 data[key] = item
+            # if item.shape[0] == self.N:
+            #     data[key] = item[node_idx]
+            # elif item.shape[0] == self.E:
+            #     data[key] = item[edge_idx]
+            # else:
+            #     data[key] = item
 
         if self.sample_coverage > 0:
             data.node_norm = self.node_norm[node_idx]

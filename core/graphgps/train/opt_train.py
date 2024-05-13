@@ -235,9 +235,14 @@ class Trainer_Saint(Trainer):
         
         # Added GSAINT normalization
         if gsaint is not None:
-            self.test_data = gsaint(splits['test'], batch_size, walk_length, num_steps, sample_coverage)
-            self.train_data = gsaint(splits['train'], batch_size, walk_length, num_steps, sample_coverage)
-            self.valid_data = gsaint(splits['valid'], batch_size, walk_length, num_steps, sample_coverage)
+            if gsaint.__name__ == 'get_loader_RW':
+                self.test_data = gsaint(splits['test'],   batch_size, walk_length, num_steps, sample_coverage)
+                self.train_data = gsaint(splits['train'], batch_size, walk_length, num_steps, sample_coverage)
+                self.valid_data = gsaint(splits['valid'], batch_size, walk_length, num_steps, sample_coverage)
+            else:
+                self.test_data = gsaint(splits['test'],   batch_size, num_steps, sample_coverage)
+                self.train_data = gsaint(splits['train'], batch_size, num_steps, sample_coverage)
+                self.valid_data = gsaint(splits['valid'], batch_size, num_steps, sample_coverage)
         else:
             self.test_data = splits['test']
             self.train_data = splits['train']
