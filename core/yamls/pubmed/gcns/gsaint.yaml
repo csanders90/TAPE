@@ -35,7 +35,7 @@ num_threads: 11
 data:
   name: pubmed
   undirected: True
-  device: cpu
+  device: 0 
   include_negatives: True
   val_pct: 0.15
   test_pct: 0.05

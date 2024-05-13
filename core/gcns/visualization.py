@@ -118,7 +118,7 @@ def get_loader_NS(data, batch_size, num_steps, sample_coverage):
     return GraphSAINTNodeSampler(data, batch_size=batch_size, num_steps=num_steps, sample_coverage=sample_coverage)
 
 # Define the filepath for the output file
-output_file = 'sampler_performance_logs_arxiv_2023.txt'
+output_file = 'sampler_performance_logs_pubmed.txt'
 
 # Function to append a message to the log file
 def append_to_log(message, filepath):
@@ -126,6 +126,7 @@ def append_to_log(message, filepath):
         file.write(message + '\n')
 
 if __name__ == "__main__":
+    print(torch.cuda.is_available())
     FILE_PATH = f'{get_git_repo_root_path()}/'
 
     args = parse_args()
@@ -134,11 +135,11 @@ if __name__ == "__main__":
 
     torch.set_num_threads(cfg.num_threads)
     # Best params: {'batch_size': 64, 'walk_length': 10, 'num_steps': 30, 'sample_coverage': 100, 'accuracy': 0.82129}
-    batch_sizes = [8, 16, 32, 128, 256, 512, 1024]
+    batch_sizes = [16, 32, 128, 256, 512, 1024]
     walk_lengths = [10]#[10, 15, 20]
     num_steps = [30]#[10, 20, 30]
     sample_coverages = [100]#[50, 100, 150]
-    samplers = [get_loader_NS, get_loader_RW, get_loader_ES]
+    samplers = [get_loader_NS, get_loader_RW]#, get_loader_ES]
     
     best_acc = 0
     best_params = {}
