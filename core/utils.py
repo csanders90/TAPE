@@ -190,28 +190,23 @@ def append_mrr_to_excel(uuid_val, metrics_mrr, root, name, method):
 
 
 def config_device(cfg):
-
-    if hasattr(cfg, 'device'):
-        cfg.device = cfg.device
-    elif hasattr(cfg, 'data') and hasattr(cfg.data, 'device'):
-        cfg.device = cfg.data.device
-    elif hasattr(cfg, 'train') and hasattr(cfg.data, 'device'):
-        cfg.device = cfg.train.device
-    else:
-        cfg.device = 'cpu'
         
     num_cuda_devices = 0
-    
     if torch.cuda.is_available():
         # Get the number of available CUDA devices
         num_cuda_devices = torch.cuda.device_count()
 
     if num_cuda_devices <= 0:
         cfg.device = 'cpu'
-    # Set the first CUDA device as the active device
-    if cfg.device != 'cpu':
-        torch.cuda.set_device(cfg.device)
-    
+    elif hasattr(cfg, 'device'):
+        cfg.device = cfg.device
+    elif hasattr(cfg, 'data') and hasattr(cfg.data, 'device'):
+        cfg.device = cfg.data.device
+    elif hasattr(cfg, 'train') and hasattr(cfg.data, 'device'):
+        cfg.device = cfg.train.device
+    else:
+        cfg.device = 'cuda:0'
+
     return cfg
     
 
@@ -550,7 +545,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='GraphGym')
 
     parser.add_argument('--cfg', dest='cfg_file', type=str, required=False,
-                        default='core/yamls/pubmed/gcns/gae.yaml',
+                        default='core/yamls/cora/gcns/gae.yaml',
                         help='The configuration file path.')
     parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
                         default='core/yamls/cora/gcns/gae_sp1.yaml',

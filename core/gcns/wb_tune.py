@@ -90,7 +90,6 @@ def run_experiment():  # sourcery skip: avoid-builtin-shadow
     if cfg.train.finetune: 
         model = init_model_from_pretrained(model, cfg.train.finetune,
                                             cfg.train.freeze_pretrained)
-    
     trainer = Trainer(FILE_PATH,
                 cfg,
                 model, 
@@ -100,10 +99,10 @@ def run_experiment():  # sourcery skip: avoid-builtin-shadow
                 splits,
                 0, 
                 args.repeat,
-                loggers)
+                loggers, 
+                cfg.device)
 
     best_auc, best_hits, best_hit100 = 0, 0, 0
-    
     results_rank = {}
     for epoch in range(1, cfg.train.epochs + 1):
         loss = trainer.train_func[cfg.model.type]()
@@ -112,9 +111,6 @@ def run_experiment():  # sourcery skip: avoid-builtin-shadow
             results_rank = trainer.merge_result_rank()
             # print(results_rank)
             
-            for key, result in results_rank.items():   
-                trainer.loggers[key].add_result(0, result)
-                
             # print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][0]:.4f}, AP: {results_rank["AP"][0]:.4f}, MRR: {results_rank["MRR"][0]:.4f}, Hit@10 {results_rank["Hits@100"][0]:.4f}')
             # print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][1]:.4f}, AP: {results_rank["AP"][1]:.4f}, MRR: {results_rank["MRR"][1]:.4f}, Hit@10 {results_rank["Hits@100"][1]:.4f}')               
             # print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][2]:.4f}, AP: {results_rank["AP"][2]:.4f}, MRR: {results_rank["MRR"][2]:.4f}, Hit@10 {results_rank["Hits@100"][2]:.4f}')               
@@ -158,11 +154,11 @@ args = parse_args()
 
 print(args)
 
-# cfg_sweep= 'core/yamls/cora/gcns/gae_sp1.yaml'
-# cfg_config = 'core/yamls/cora/gcns/gae.yaml'
+cfg_sweep= 'core/yamls/cora/gcns/gae_sp1.yaml'
+cfg_config = 'core/yamls/cora/gcns/gae.yaml'
 
-cfg_sweep= 'core/yamls/pubmed/gcns/gae_sp1.yaml'
-cfg_config = 'core/yamls/pubmed/gcns/gae.yaml'
+# cfg_sweep= 'core/yamls/pubmed/gcns/gae_sp1.yaml'
+# cfg_config = 'core/yamls/pubmed/gcns/gae.yaml'
 
 cfg_sweep = set_cfg(FILE_PATH, cfg_sweep)
 cfg_config = set_cfg(FILE_PATH, cfg_config)

@@ -29,7 +29,7 @@ train:
 model:
   type: GAE
   out_channels: 32
-  in_channels: None
+  in_channels: 1433
 
 num_threads: 11
 

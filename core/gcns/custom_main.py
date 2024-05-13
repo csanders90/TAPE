@@ -56,7 +56,7 @@ def project_main():
         splits, text, data = load_data_lp[cfg.data.name](cfg.data)
         
         cfg.model.in_channels = splits['train'].x.shape[1]
-        model = create_model(cfg).to(cfg.device)
+        model = create_model(cfg)
 
         logging.info(model)
         logging.info(cfg)
@@ -70,7 +70,6 @@ def project_main():
             model = init_model_from_pretrained(model, cfg.train.finetune,
                                                cfg.train.freeze_pretrained)
 
-        print(f"training start on device {cfg.device}")
         trainer = Trainer(FILE_PATH,
                     cfg,
                     model, 
@@ -80,7 +79,8 @@ def project_main():
                     splits,
                     run_id, 
                     args.repeat,
-                    loggers)
+                    loggers, 
+                    cfg.device)
 
         trainer.train()
 

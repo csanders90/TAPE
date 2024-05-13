@@ -1,9 +1,8 @@
-accelerator: auto
 cfg_dest: gae.yaml
 data:
-  device: 0
+  device: 1
   include_negatives: true
-  name: pubmed
+  name: cora
   num_features: 1433
   split_index:
   - 0.8
@@ -16,7 +15,7 @@ data:
 metric_best: acc
 model:
   in_channels: 1433
-  out_channels: 256
+  out_channels: 32
   type: GAE
 num_threads: 11
 optimizer:
@@ -32,8 +31,8 @@ run:
 seed: 0
 train:
   auto_resume: false
-  batch_size: 2048
-  device: 0
+  batch_size: 1024
+  device: 1
   epochs: 2000
   eval_period: 1
   final_eval: false

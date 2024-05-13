@@ -49,8 +49,6 @@ data:
   test_pct: 0.05
   split_labels: True
   num_features:  1433
-  device: 0
-  split_index: [0.8, 0.15, 0.05]
 
 save:
   output_dir: './'
