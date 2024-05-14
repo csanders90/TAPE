@@ -56,7 +56,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
                         default='core/yamls/cora/gcns/gae_sp1.yaml',
                         help='The configuration file path.')
-    parser.add_argument('--data', dest='data', type=str, required=False, default='cora',
+    parser.add_argument('--data', dest='data', type=str, required=False, default='ogbn-arxiv',
                         help='name of data for hyper tune.')   
     parser.add_argument('--repeat', type=int, default=4,
                         help='The number of repeated jobs.')
@@ -188,8 +188,8 @@ print(args)
 # cfg_sweep= 'core/yamls/ogbn-arxiv/gcns/gae_sp1.yaml'
 # cfg_config = 'core/yamls/ogbn-arxiv/gcns/gae.yaml'
 
-args.cfg_sweep= 'core/yamls/ogbn-arxiv/gcns/gae_sp1.yaml'
-args.cfg_config = 'core/yamls/ogbn-arxiv/gcns/gae.yaml'
+args.cfg_sweep= 'core/yamls/cora/gcns/gae_sp1.yaml'
+args.cfg_config = 'core/yamls/cora/gcns/gae.yaml'
 
 print(args)
 cfg_sweep = set_cfg(FILE_PATH, args.sweep_file)

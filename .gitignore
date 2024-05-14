@@ -83,4 +83,4 @@ scripts/log/
 generated_dataset/
 dataset.tar.gz
 ../results
-/results
+
