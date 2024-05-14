@@ -142,10 +142,11 @@ def run_experiment():  # sourcery skip: avoid-builtin-shadow
                 trainer.loggers[key].add_result(0, result)
                 if epoch % 500 == 0:
                     for key, result in results_rank.items():
-                        if key in ['Hits@100', 'AUC', 'MRR']:
+                        if key in ['Hits@20', 'AUC', 'MRR']:
                             train_hits, valid_hits, test_hits = result
                             print(
                                 f'Run: {0 + 1:02d}, '
+                                    f'Key: {key}, '
                                     f'Epoch: {epoch:02d}, '
                                     f'Loss: {loss:.4f}, '
                                     f'Train: {100 * train_hits:.2f}%, '
@@ -160,7 +161,7 @@ def run_experiment():  # sourcery skip: avoid-builtin-shadow
     
     
     trainer.save_result(result_dict)
-    wandb.log({'Hits@100': set_float(result_dict['Hits@100'])})
+    wandb.log({'Hits@20': set_float(result_dict['Hits@100'])})
     
     wandb.log({'best hits100': best_hits})
     wandb.log({'best auc': best_auc})
@@ -185,8 +186,8 @@ print(args)
 # cfg_sweep= 'core/yamls/ogbn-arxiv/gcns/gae_sp1.yaml'
 # cfg_config = 'core/yamls/ogbn-arxiv/gcns/gae.yaml'
 
-# cfg_sweep= 'core/yamls/ogbn-products/gcns/gae_sp1.yaml'
-# cfg_config = 'core/yamls/ogbn-products/gcns/gae.yaml
+args.cfg_sweep= 'core/yamls/ogbn-arxiv/gcns/gae_sp1.yaml'
+args.cfg_config = 'core/yamls/ogbn-arxiv/gcns/gae.yaml'
 
 print(args)
 cfg_sweep = set_cfg(FILE_PATH, args.sweep_file)
@@ -195,7 +196,7 @@ cfg_config = set_cfg(FILE_PATH, args.cfg_file)
 cfg_config.data.device = args.device
 sweep_id = wandb.sweep(sweep=cfg_sweep, project=f"{cfg_config.model.type}-sweep-{cfg_config.data.name}")
 
-wandb.agent(sweep_id, run_experiment, count=60)
-
+wandb.agent(sweep_id, run_experiment, count=30)
+# CUDA_VISIBLE_DEVICES=0 wandb agent sweep_ID
 
 # TODO multirun weight baises trainer 

@@ -34,7 +34,7 @@ model:
 num_threads: 11
 
 data:
-  name: cora
+  name: ogbn-products
   undirected: True
   include_negatives: True
   val_pct: 0.15

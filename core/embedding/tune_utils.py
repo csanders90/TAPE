@@ -126,23 +126,13 @@ def param_tune_acc_mrr(uuid_val, metrics, root, name, method):
         Data.to_csv(root, index=False)
     
     # debug
-    for index, row in Data_float.iterrows():
-        for column_name, value in row.items():
-            print(type(value))
-    for index, row in new_df_float.iterrows():
-        for column_name, value in row.items():
-            print(type(value))
-            
     new_Data = pd.concat([Data, new_df])
     new_Data_float = pd.concat([Data_float, new_df_float])
-
-    for index, row in new_Data_float.iterrows():
-        for column_name, value in row.items():
-            print(type(value))
             
     # best value
+    new_Data_float[new_Data_float.columns[1:]] = new_Data_float[new_Data_float.columns[1:]].astype(float)
     highest_values = new_Data_float.apply(lambda column: max(column, default=None))
-
+            
     # concat and save
     Best_list = ['Best'] + highest_values[1:].tolist()
     Best_df = pd.DataFrame([Best_list], columns=Data.columns)
@@ -151,6 +141,15 @@ def param_tune_acc_mrr(uuid_val, metrics, root, name, method):
     upt_Data.to_csv(root, index=False)
 
     return upt_Data
+
+
+def max_except_metric(column):
+    if column.name == 'Metric':  
+        return None# Check if the column is not named 'Metric'
+    elif pd.api.types.is_numeric_dtype(column):  # Check if the column is numeric
+            return column.max()
+    else: 
+        return None  # For non-numeric columns or 'Metric' column, return None
 
 
 def dict2df(metrics: Dict[str, float], head: str) -> pd.DataFrame:
@@ -168,6 +167,12 @@ def dict2df(metrics: Dict[str, float], head: str) -> pd.DataFrame:
     
     return new_df, csv_columns
 
+def is_float(s):
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
 
 def df_str2float(df: pd.DataFrame) -> pd.DataFrame:
     df_float = copy.deepcopy(df)
@@ -175,6 +180,8 @@ def df_str2float(df: pd.DataFrame) -> pd.DataFrame:
         for column_name, value in row.items():
             if len(value.split('±')) == 1:
                 continue
+            elif is_float(value):
+                value = float(value)
             else:
                 df_float.at[index, column_name] = set_float(value)
     return df, df_float
