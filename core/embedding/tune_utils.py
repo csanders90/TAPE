@@ -126,19 +126,19 @@ def param_tune_acc_mrr(uuid_val, metrics, root, name, method):
         Data.to_csv(root, index=False)
     
     # debug
-    # for index, row in Data_float.iterrows():
-    #     for column_name, value in row.items():
-    #         print(type(value))
-    # for index, row in new_df_float.iterrows():
-    #     for column_name, value in row.items():
-    #         print(type(value))
+    for index, row in Data_float.iterrows():
+        for column_name, value in row.items():
+            print(type(value))
+    for index, row in new_df_float.iterrows():
+        for column_name, value in row.items():
+            print(type(value))
             
     new_Data = pd.concat([Data, new_df])
     new_Data_float = pd.concat([Data_float, new_df_float])
 
-    # for index, row in new_Data_float.iterrows():
-    #     for column_name, value in row.items():
-    #         print(type(value))
+    for index, row in new_Data_float.iterrows():
+        for column_name, value in row.items():
+            print(type(value))
             
     # best value
     highest_values = new_Data_float.apply(lambda column: max(column, default=None))

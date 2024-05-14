@@ -290,8 +290,7 @@ class Trainer():
         
         root = os.path.join(self.FILE_PATH, cfg.out_dir)
         acc_file = os.path.join(root, f'{self.data_name}_wb_acc_mrr.csv')
-        print(results_dict)
-        print(acc_file)
+        print(f"save to {acc_file}")
         os.makedirs(root, exist_ok=True)
         id = wandb.util.generate_id()
         param_tune_acc_mrr(id, results_dict, acc_file, self.data_name, self.model_name)

@@ -19,7 +19,7 @@ from torch_geometric.datasets import Planetoid
 from graphgps.train.opt_train import Trainer
 from graphgps.network.custom_gnn import create_model
 from data_utils.load import load_data_nc, load_data_lp
-from utils import parse_args, create_optimizer, config_device, \
+from utils import create_optimizer, config_device, \
         init_model_from_pretrained, create_logger, set_cfg
 
 import wandb 
@@ -40,11 +40,33 @@ def merge_cfg_from_sweep(cfg, wandb_config):
         if hasattr(cfg.train, ind):
             cfg.train.ind = k
             
-    pprint.pprint(cfg)
-    pprint.pprint(wandb.config)
+    pprint.pprint(cfg.model)
+    pprint.pprint(cfg.train)
     return cfg
 
 
+
+def parse_args() -> argparse.Namespace:
+    r"""Parses the command line arguments."""
+    parser = argparse.ArgumentParser(description='GraphGym')
+
+    parser.add_argument('--cfg', dest='cfg_file', type=str, required=False,
+                        default='core/yamls/cora/gcns/gae.yaml',
+                        help='The configuration file path.')
+    parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
+                        default='core/yamls/cora/gcns/gae_sp1.yaml',
+                        help='The configuration file path.')
+    
+    parser.add_argument('--repeat', type=int, default=4,
+                        help='The number of repeated jobs.')
+    parser.add_argument('--mark_done', action='store_true',
+                        help='Mark yaml as done after a job has finished.')
+    parser.add_argument('--device',  type=int, default=2,
+                        help='device index.')
+    parser.add_argument('opts', default=None, nargs=argparse.REMAINDER,
+                        help='See graphgym/config.py for remaining options.')
+
+    return parser.parse_args()
 
 def wandb_record_files(path):
     record_or_not = False
@@ -63,13 +85,13 @@ def run_experiment():  # sourcery skip: avoid-builtin-shadow
     
     id = wandb.util.generate_id()
     
-    run = wandb.init(id=id, config=cfg_sweep, settings=wandb.Settings(_service_wait=300), save_code=True)
+    wandb.init(id=id, config=cfg_sweep, settings=wandb.Settings(_service_wait=300), save_code=True)
 
     wandb_config = wandb.config
     
     wandb.log(dict(wandb_config))   
-    for key, value in wandb_config.items():
-        print(f"{key}: {value}")
+    for k, val in wandb_config.items():
+        print(k, val)
         
     # merge model param
     cfg = merge_cfg_from_sweep(cfg_config, cfg_sweep)
@@ -111,36 +133,32 @@ def run_experiment():  # sourcery skip: avoid-builtin-shadow
             results_rank = trainer.merge_result_rank()
             # print(results_rank)
             
-            # print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][0]:.4f}, AP: {results_rank["AP"][0]:.4f}, MRR: {results_rank["MRR"][0]:.4f}, Hit@10 {results_rank["Hits@100"][0]:.4f}')
-            # print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][1]:.4f}, AP: {results_rank["AP"][1]:.4f}, MRR: {results_rank["MRR"][1]:.4f}, Hit@10 {results_rank["Hits@100"][1]:.4f}')               
-            # print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][2]:.4f}, AP: {results_rank["AP"][2]:.4f}, MRR: {results_rank["MRR"][2]:.4f}, Hit@10 {results_rank["Hits@100"][2]:.4f}')               
-
             if results_rank["AUC"][1] > best_auc:
                 best_auc = results_rank["AUC"][1]
             elif results_rank['Hits@100'][1] > best_hit100:
                 best_hits = results_rank['Hits@100'][1]
                 
-        for key, result in results_rank.items():
-            trainer.loggers[key].add_result(0, result)
-            if epoch % 500 == 0:
-                for key, result in results_rank.items():
-                    print(key)
-                    train_hits, valid_hits, test_hits = result
-                    print(
-                        f'Run: {0 + 1:02d}, '
-                            f'Epoch: {epoch:02d}, '
-                            f'Loss: {loss:.4f}, '
-                            f'Train: {100 * train_hits:.2f}%, '
-                            f'Valid: {100 * valid_hits:.2f}%, '
-                            f'Test: {100 * test_hits:.2f}%')
-                print('---')
-                
+            for key, result in results_rank.items():
+                trainer.loggers[key].add_result(0, result)
+                if epoch % 500 == 0:
+                    for key, result in results_rank.items():
+                        if key in ['Hits@100', 'AUC', 'MRR']:
+                            train_hits, valid_hits, test_hits = result
+                            print(
+                                f'Run: {0 + 1:02d}, '
+                                    f'Epoch: {epoch:02d}, '
+                                    f'Loss: {loss:.4f}, '
+                                    f'Train: {100 * train_hits:.2f}%, '
+                                    f'Valid: {100 * valid_hits:.2f}%, '
+                                    f'Test: {100 * test_hits:.2f}%')
+                    print('---')
+                    
     result_dict = {}
     for key in loggers:
-        print(key)
         _, _, _, valid_test, _, _ = trainer.loggers[key].calc_all_stats()
         result_dict.update({key: valid_test})
-        
+    
+    
     trainer.save_result(result_dict)
     wandb.log({'Hits@100': set_float(result_dict['Hits@100'])})
     
@@ -154,16 +172,27 @@ args = parse_args()
 
 print(args)
 
-cfg_sweep= 'core/yamls/cora/gcns/gae_sp1.yaml'
-cfg_config = 'core/yamls/cora/gcns/gae.yaml'
+# cfg_sweep= 'core/yamls/cora/gcns/gae_sp1.yaml'
+# cfg_config = 'core/yamls/cora/gcns/gae.yaml'
 
 # cfg_sweep= 'core/yamls/pubmed/gcns/gae_sp1.yaml'
 # cfg_config = 'core/yamls/pubmed/gcns/gae.yaml'
 
-cfg_sweep = set_cfg(FILE_PATH, cfg_sweep)
-cfg_config = set_cfg(FILE_PATH, cfg_config)
+# cfg_sweep= 'core/yamls/arxiv_2023/gcns/gae_sp1.yaml'
+# cfg_config = 'core/yamls/arxiv_2023/gcns/gae.yaml'
 
 
+# cfg_sweep= 'core/yamls/ogbn-arxiv/gcns/gae_sp1.yaml'
+# cfg_config = 'core/yamls/ogbn-arxiv/gcns/gae.yaml'
+
+# cfg_sweep= 'core/yamls/ogbn-products/gcns/gae_sp1.yaml'
+# cfg_config = 'core/yamls/ogbn-products/gcns/gae.yaml
+
+print(args)
+cfg_sweep = set_cfg(FILE_PATH, args.sweep_file)
+cfg_config = set_cfg(FILE_PATH, args.cfg_file)
+
+cfg_config.data.device = args.device
 sweep_id = wandb.sweep(sweep=cfg_sweep, project=f"{cfg_config.model.type}-sweep-{cfg_config.data.name}")
 
 wandb.agent(sweep_id, run_experiment, count=60)
