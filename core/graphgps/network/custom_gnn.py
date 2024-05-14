@@ -156,8 +156,9 @@ class GCNEncoder(torch.nn.Module):
         """
         in_channels = cfg.model.in_channels
         out_channels = cfg.model.out_channels
-        self.conv1 = GCNConv(in_channels, 2 * out_channels)
-        self.conv2 = GCNConv(2 * out_channels, out_channels)
+        hidden_channels = cfg.model.hidden_channels
+        self.conv1 = GCNConv(in_channels, hidden_channels)
+        self.conv2 = GCNConv(hidden_channels, out_channels)
 
     def forward(self, x, edge_index):
         x = self.conv1(x, edge_index).relu()

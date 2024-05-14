@@ -56,7 +56,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
                         default='core/yamls/cora/gcns/gae_sp1.yaml',
                         help='The configuration file path.')
-    
+    parser.add_argument('--data', dest='data', type=str, required=False, default='cora',
+                        help='name of data for hyper tune.')   
     parser.add_argument('--repeat', type=int, default=4,
                         help='The number of repeated jobs.')
     parser.add_argument('--mark_done', action='store_true',
@@ -82,7 +83,7 @@ def wandb_record_files(path):
     return record_or_not
 
 def run_experiment():  # sourcery skip: avoid-builtin-shadow
-    
+
     id = wandb.util.generate_id()
     
     wandb.init(id=id, config=cfg_sweep, settings=wandb.Settings(_service_wait=300), save_code=True)
@@ -140,6 +141,7 @@ def run_experiment():  # sourcery skip: avoid-builtin-shadow
                 
             for key, result in results_rank.items():
                 trainer.loggers[key].add_result(0, result)
+                
                 if epoch % 500 == 0:
                     for key, result in results_rank.items():
                         if key in ['Hits@20', 'AUC', 'MRR']:
@@ -193,7 +195,10 @@ print(args)
 cfg_sweep = set_cfg(FILE_PATH, args.sweep_file)
 cfg_config = set_cfg(FILE_PATH, args.cfg_file)
 
+cfg_config.data.name = args.data
 cfg_config.data.device = args.device
+
+pprint.pprint(cfg_config)
 sweep_id = wandb.sweep(sweep=cfg_sweep, project=f"{cfg_config.model.type}-sweep-{cfg_config.data.name}")
 
 wandb.agent(sweep_id, run_experiment, count=30)

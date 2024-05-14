@@ -45,8 +45,14 @@ CUDA_VISIBLE_DEVICES=2 python wb_tune.py --cfg core/yamls/arxiv_2023/gcns/gae.ya
 CUDA_VISIBLE_DEVICES=2 python wb_tune.py --cfg core/yamls/ogbn-arxiv/gcns/gae.yaml --sweep core/yamls/ogbn-arxiv/gcns/gae_sp1.yaml
 CUDA_VISIBLE_DEVICES=3 python wb_tune.py --cfg core/yamls/ogbn-products/gcns/gae.yaml --sweep  core/yamls/ogbn-products/gcns/gae_sp1.yaml 
 
-python wb_tune.py --cfg core/yamls/cora/gcns/gae.yaml --sweep core/yamls/cora/gcns/gae_sp1.yaml --device 0 > cora-output.txt
-python wb_tune.py --cfg core/yamls/ogbn-arxiv/gcns/gae.yaml --sweep core/yamls/ogbn-arxiv/gcns/gae_sp1.yaml --device 2 > ogbn-arxiv-output.txt 
+
+python wb_tune.py --cfg core/yamls/cora/gcns/gae.yaml --sweep core/yamls/cora/gcns/gae_sp1.yaml --data 'cora'> cora-output.txt
+python wb_tune.py --cfg core/yamls/cora/gcns/gae.yaml --sweep core/yamls/cora/gcns/gae_sp1.yaml --data 'pubmed'> pubmed-output.txt
+# python wb_tune.py --cfg core/yamls/ogbn-arxiv/gcns/gae.yaml --sweep core/yamls/ogbn-arxiv/gcns/gae_sp1.yaml --data 'ogbn-arxiv' > ogbn-arxiv-output.txt 
 # problem 
-python wb_tune.py --cfg core/yamls/ogbn-products/gcns/gae.yaml --sweep  core/yamls/ogbn-products/gcns/gae_sp1.yaml --device 2 > ogbn-product-output2.txt 
-python wb_tune.py --cfg core/yamls/pubmed/gcns/gae.yaml --sweep core/yamls/pubmed/gcns/gae_sp1.yaml --device 3 > pubmed-output2.txt 
+python wb_tune.py --cfg core/yamls/cora/gcns/gae.yaml --sweep core/yamls/cora/gcns/gae_sp1.yaml --data 'ogbn-arxiv' > ogbn-arxiv2-output.txt
+python wb_tune.py --cfg core/yamls/cora/gcns/gae.yaml --sweep core/yamls/cora/gcns/gae_sp1.yaml --data 'ogbn-products' > ogbn-products-output.txt
+python wb_tune.py --cfg core/yamls/cora/gcns/gae.yaml --sweep core/yamls/cora/gcns/gae_sp1.yaml --data 'arxiv_2023' > arxiv_2023-output.txt
+
+# python wb_tune.py --cfg core/yamls/ogbn-products/gcns/gae.yaml --sweep  core/yamls/ogbn-products/gcns/gae_sp1.yaml --device 2 > ogbn-product-output2.txt 
+# python wb_tune.py --cfg core/yamls/pubmed/gcns/gae.yaml --sweep core/yamls/pubmed/gcns/gae_sp1.yaml --device 3 > pubmed-output2.txt 

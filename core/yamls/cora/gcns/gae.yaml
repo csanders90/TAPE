@@ -30,6 +30,7 @@ model:
   type: GAE
   out_channels: 32
   in_channels: 1433
+  hidden_channels: 32
 
 num_threads: 11
 
