@@ -2,7 +2,7 @@
 #SBATCH --time=24:00:00
 #SBATCH --nodes=2
 #SBATCH --ntasks=20
-#SBATCH --partition=cpuonly
+#SBATCH --partition=dev_accelerate
 #SBATCH --job-name=gnn_wb
 #SBATCH --mem-per-cpu=1600mb
 
@@ -40,11 +40,11 @@ module load compiler/gnu/12
 
 cd /hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/gcns
 
-python wb_tune.py --cfg core/yamls/cora/gcns/gae.yaml --sweep core/yamls/cora/gcns/gae_sp1.yaml --data cora > cora-output.txt
+# python wb_tune.py --cfg core/yamls/cora/gcns/gae.yaml --sweep core/yamls/cora/gcns/gae_sp1.yaml --data cora > cora-output.txt
 python wb_tune.py  --cfg core/yamls/cora/gcns/gae.yaml --sweep core/yamls/cora/gcns/gae_sp1.yaml --data ogbn-arxiv > ogbn-arxiv-output.txt 
 # problem 
-python wb_tune.py --cfg core/yamls/ogbn-products/gcns/gae.yaml --sweep  core/yamls/ogbn-products/gcns/gae_sp1.yaml --device 2 > ogbn-product-output2.txt 
-python wb_tune.py --cfg core/yamls/pubmed/gcns/gae.yaml --sweep core/yamls/pubmed/gcns/gae_sp1.yaml --device 3 > pubmed-output2.txt 
+# python wb_tune.py --cfg core/yamls/ogbn-products/gcns/gae.yaml --sweep  core/yamls/ogbn-products/gcns/gae_sp1.yaml --device 2 > ogbn-product-output2.txt 
+#python wb_tune.py --cfg core/yamls/pubmed/gcns/gae.yaml --sweep core/yamls/pubmed/gcns/gae_sp1.yaml --device 3 > pubmed-output2.txt 
 
 #!/bin/bash
 
