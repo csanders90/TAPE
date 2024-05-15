@@ -44,7 +44,7 @@ def project_main():
     cfg.merge_from_list(args.opts)
     custom_set_out_dir(cfg, args.cfg_file, cfg.wandb.name_tag)
     dump_cfg(cfg)
-    pprint.pprint(cfg)
+
 
     # Set Pytorch environment
     torch.set_num_threads(cfg.run.num_threads)
@@ -72,7 +72,9 @@ def project_main():
             cfg.model.hidden_channels = hidden
 
             start_time = time.time()
-                
+            
+            pprint.pprint(cfg.model)
+            pprint.pprint(cfg.optimizer)
             model = create_model(cfg)
 
             logging.info(model)

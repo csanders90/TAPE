@@ -12,7 +12,6 @@ import subprocess
 import pandas as pd
 import argparse
 import torch.optim as optim
-from IPython import embed
 from torch_scatter import scatter
 from yacs.config import CfgNode as CN
 from graphgps.finetuning import get_final_pretrained_ckpt
