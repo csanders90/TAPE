@@ -147,35 +147,27 @@ class Trainer():
                 print(results_rank)
                 
                 for key, result in results_rank.items():
-                    # result - (train, valid, test)
-                    
+                    print(key, result)
                     self.loggers[key].add_result(self.run, result)
-                    # print(self.loggers[key].results)
-                    
-                print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][0]:.4f}, AP: {results_rank["AP"][0]:.4f}, MRR: {results_rank["MRR"][0]:.4f}, Hit@10 {results_rank["Hits@10"][0]:.4f}')
-                print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][1]:.4f}, AP: {results_rank["AP"][1]:.4f}, MRR: {results_rank["MRR"][1]:.4f}, Hit@10 {results_rank["Hits@10"][1]:.4f}')               
-                print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][2]:.4f}, AP: {results_rank["AP"][2]:.4f}, MRR: {results_rank["MRR"][2]:.4f}, Hit@10 {results_rank["Hits@10"][2]:.4f}')               
+                    print(self.run)
+                    print(result)
+                    # for key, result in results_rank.items():
+                    #     print(key)
+                    #     train_hits, valid_hits, test_hits = result
 
-                if results_rank["AUC"][1] > best_auc:
-                    best_auc = results_rank["AUC"][1]
-                elif results_rank['Hits@100'][1] > best_hit100:
-                    best_hits = results_rank['Hits@100'][1]
-                    
-                    
-            for key, result in self.results_rank.items():
-                self.loggers[key].add_result(self.run, result)
-                if epoch % 500 == 0:
-                    for key, result in self.results_rank.items():
-                        print(key)
-                        train_hits, valid_hits, test_hits = result
-                        print(
-                            f'Run: {self.run + 1:02d}, '
-                              f'Epoch: {epoch:02d}, '
-                              f'Loss: {loss:.4f}, '
-                              f'Train: {100 * train_hits:.2f}%, '
-                              f'Valid: {100 * valid_hits:.2f}%, '
-                              f'Test: {100 * test_hits:.2f}%')
-                    print('---')
+                    #     print(
+                    #         f'Run: {self.run + 1:02d}, '
+                    #           f'Epoch: {epoch:02d}, '
+                    #           f'Loss: {loss:.4f}, '
+                    #           f'Train: {100 * train_hits:.2f}%, '
+                    #           f'Valid: {100 * valid_hits:.2f}%, '
+                    #           f'Test: {100 * test_hits:.2f}%')
+                    # print('---')
+        
+        # for key in self.loggers:
+        #     print(key)
+        #     self.loggers[key].print_statistics(self.run)
+            
         return best_auc, best_hits
 
 
@@ -243,9 +235,14 @@ class Trainer_Saint(Trainer):
         
         # Added GSAINT normalization
         if gsaint is not None:
-            self.test_data = gsaint(splits['test'], batch_size, walk_length, num_steps, sample_coverage)
-            self.train_data = gsaint(splits['train'], batch_size, walk_length, num_steps, sample_coverage)
-            self.valid_data = gsaint(splits['valid'], batch_size, walk_length, num_steps, sample_coverage)
+            if gsaint.__name__ == 'get_loader_RW':
+                self.test_data = gsaint(splits['test'],   batch_size, walk_length, num_steps, sample_coverage)
+                self.train_data = gsaint(splits['train'], batch_size, walk_length, num_steps, sample_coverage)
+                self.valid_data = gsaint(splits['valid'], batch_size, walk_length, num_steps, sample_coverage)
+            else:
+                self.test_data = gsaint(splits['test'],   batch_size, num_steps, sample_coverage)
+                self.train_data = gsaint(splits['train'], batch_size, num_steps, sample_coverage)
+                self.valid_data = gsaint(splits['valid'], batch_size, num_steps, sample_coverage)
         else:
             self.test_data = splits['test']
             self.train_data = splits['train']

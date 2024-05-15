@@ -268,5 +268,8 @@ def create_model(cfg):
     elif cfg.model.type == 'VGAE':
         model = VGAE(encoder= VariationalGCNEncoder(cfg),
                      decoder=InnerProductDecoder())
+    else:
+        # Without this else I got: UnboundLocalError: local variable 'model' referenced before assignment
+        raise ValueError('Current model does not exist')
 
     return model 

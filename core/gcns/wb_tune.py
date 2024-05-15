@@ -1,4 +1,3 @@
-
 # modified from https://github.com/AndrewSpano/Stanford-CS224W-ML-with-Graphs/blob/main/CS224W_Colab_3.ipynb
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -16,12 +15,13 @@ from torch_geometric.graphgym.config import (dump_cfg,
                                              makedirs_rm_exist)
 import torch_geometric.transforms as T
 from torch_geometric.datasets import Planetoid
-from graphgps.train.opt_train import Trainer
+from graphgps.train.opt_train import Trainer, Trainer_Saint
 from graphgps.network.custom_gnn import create_model
 from data_utils.load import load_data_nc, load_data_lp
 from utils import parse_args, create_optimizer, config_device, \
         init_model_from_pretrained, create_logger, set_cfg
 
+from gcns.gsaint_main import get_loader
 import wandb 
 from sklearn.metrics import *
 from embedding.tune_utils import (
@@ -72,6 +72,14 @@ def run_experiment():  # sourcery skip: avoid-builtin-shadow
     # merge model param
     cfg = merge_cfg_from_sweep(cfg_config, cfg_sweep)
     splits, _ = load_data_lp[cfg.data.name](cfg.data)
+
+    lst_args = cfg.model.type.split('_')
+    trainer_type = None
+    sampler = None 
+    if lst_args[0] == 'gsaint':
+        trainer_type = lst_args[0].upper()
+        sampler = get_loader
+        cfg.model.type = lst_args[1].upper()
     
     torch.set_num_threads(cfg.run.num_threads)
     splits, _ = load_data_lp[cfg.data.name](cfg.data)
@@ -79,7 +87,7 @@ def run_experiment():  # sourcery skip: avoid-builtin-shadow
     model = create_model(cfg)
 
     optimizer = create_optimizer(model, cfg)
-    loggers = create_logger(1)
+    loggers = create_logger(args.repeat)
 
     seed_everything(cfg.seed)
     auto_select_device()
@@ -88,7 +96,23 @@ def run_experiment():  # sourcery skip: avoid-builtin-shadow
     if cfg.train.finetune: 
         model = init_model_from_pretrained(model, cfg.train.finetune,
                                             cfg.train.freeze_pretrained)
-    trainer = Trainer(FILE_PATH,
+    
+    if trainer_type == 'GSAINT':
+        trainer = Trainer_Saint(FILE_PATH, 
+                    cfg, 
+                    model, 
+                    optimizer, 
+                    splits, 
+                    0, 
+                    args.repeat,
+                    loggers,
+                    sampler, 
+                    wandb_config.batch_size, 
+                    wandb_config.walk_length, 
+                    wandb_config.num_steps, 
+                    wandb_config.sample_coverage)
+    else:
+        trainer = Trainer(FILE_PATH,
                 cfg,
                 model, 
                 optimizer,
@@ -98,57 +122,34 @@ def run_experiment():  # sourcery skip: avoid-builtin-shadow
                 loggers)
 
 
-    best_auc, best_hits, best_hit100 = 0, 0, 0
-    results_rank = {}
     for epoch in range(1, cfg.train.epochs + 1):
-        loss = trainer.train_func[cfg.model.type]()
+        loss = trainer.train_func[trainer.model_name]()
+        wandb.log({'loss': loss})
         
         if epoch % 100 == 0:
             results_rank = trainer.merge_result_rank()
-            print(results_rank)
             
             for key, result in results_rank.items():
                 # result - (train, valid, test)
-                
-                trainer.loggers[key].add_result(0, result)
+                loggers[key].add_result(0, result)
                 # print(self.loggers[key].results)
+                print(loggers[key].results)
                 
-            print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][0]:.4f}, AP: {results_rank["AP"][0]:.4f}, MRR: {results_rank["MRR"][0]:.4f}, Hit@10 {results_rank["Hits@10"][0]:.4f}')
-            print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][1]:.4f}, AP: {results_rank["AP"][1]:.4f}, MRR: {results_rank["MRR"][1]:.4f}, Hit@10 {results_rank["Hits@10"][1]:.4f}')               
-            print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][2]:.4f}, AP: {results_rank["AP"][2]:.4f}, MRR: {results_rank["MRR"][2]:.4f}, Hit@10 {results_rank["Hits@10"][2]:.4f}')               
-
-            if results_rank["AUC"][1] > best_auc:
-                best_auc = results_rank["AUC"][1]
-            elif results_rank['Hits@100'][1] > best_hit100:
-                best_hits = results_rank['Hits@100'][1]
-                
-                
-        for key, result in results_rank.items():
-            trainer.loggers[key].add_result(0, result)
-            if epoch % 500 == 0:
-                for key, result in results_rank.items():
-                    print(key)
-                    train_hits, valid_hits, test_hits = result
-                    print(
-                        f'Run: {0 + 1:02d}, '
-                            f'Epoch: {epoch:02d}, '
-                            f'Loss: {loss:.4f}, '
-                            f'Train: {100 * train_hits:.2f}%, '
-                            f'Valid: {100 * valid_hits:.2f}%, '
-                            f'Test: {100 * test_hits:.2f}%')
-                print('---')
-                
+    print('All runs:')
+    
     result_dict = {}
     for key in loggers:
         print(key)
-        _, _, _, valid_test, _, _ = trainer.loggers[key].calc_all_stats()
+        _, _, _, valid_test, _, _ = trainer.loggers[key].calc_all_stats(0)
         result_dict.update({key: valid_test})
-        
+
     trainer.save_result(result_dict)
-    wandb.log({'Hits@100': set_float(result_dict['Hits@100'])})
+    print(result_dict['Hits@100'])
+    wandb.log({'Hits@100': set_float(result_dict['Hits@100']),
+               'AUC'     : set_float(result_dict['AUC']),
+               'ACC'     : set_float(result_dict['acc'])})
     run.log_code("../", include_fn=wandb_record_files)
 
-    return  set_float(result_dict['Hits@100'])
 
 import torch
 
@@ -157,11 +158,11 @@ args = parse_args()
 print(args)
 
 
-cfg_sweep= 'core/yamls/cora/gcns/gae_sp1.yaml'
-cfg_config = 'core/yamls/cora/gcns/gae.yaml'
+# cfg_sweep= 'core/yamls/cora/gcns/gsait_sweep.yaml'
+# cfg_config = 'core/yamls/cora/gcns/gsaint.yaml'
 
-cfg_sweep = set_cfg(FILE_PATH, cfg_sweep)
-cfg_config = set_cfg(FILE_PATH, cfg_config)
+cfg_sweep = set_cfg(FILE_PATH, args.sweep_file)
+cfg_config = set_cfg(FILE_PATH, args.cfg_file)
 
 
 sweep_id = wandb.sweep(sweep=cfg_sweep, project=f"{cfg_config.model.type}-sweep-{cfg_config.data.name}")
