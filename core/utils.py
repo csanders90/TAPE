@@ -556,7 +556,7 @@ def parse_args() -> argparse.Namespace:
                         default='core/yamls/cora/gcns/gae_sp1.yaml',
                         help='The configuration file path.')
     
-    parser.add_argument('--repeat', type=int, default=3,
+    parser.add_argument('--repeat', type=int, default=2,
                         help='The number of repeated jobs.')
     parser.add_argument('--mark_done', action='store_true',
                         help='Mark yaml as done after a job has finished.')
