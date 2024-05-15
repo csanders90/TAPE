@@ -106,12 +106,63 @@ def train_and_evaluate_logistic_regression(id, X_train, y_train, X_test, y_test,
     print(results_acc, '\n', results_mrr)
     return acc
 
+#param_tune_acc_mrr
+
 def param_tune_acc_mrr(uuid_val, metrics, root, name, method):
+    # if not exists save the first row
+    
+    # input processing 
+    first_value_type = type(next(iter(metrics.values())))
+    if all(isinstance(value, first_value_type) for value in metrics.values()):
+        if first_value_type == str:
+                _, metrics = convert_to_float(metrics)
+
+        
+    csv_columns = ['Metric'] + list(k for k in metrics) 
+    # load old csv
+    try:
+        Data = pd.read_csv(root)[:-1]
+    except:
+        Data = pd.DataFrame(None, columns=csv_columns)
+        Data.to_csv(root, index=False)
+    
+    if type(Data.values[0][1]) == str:
+        _, Data_float = df_str2float(Data)
+    # set float form for Data
+    
+    # create new line 
+    acc_lst = []
+    
+    for k, v in metrics.items():
+        acc_lst.append(process_value(v))
+        
+    # merge with old lines, 
+    v_lst = [f'{name}_{uuid_val}_{method}'] + acc_lst
+    new_df = pd.DataFrame([v_lst], columns=csv_columns)
+    new_Data = pd.concat([Data, new_df])
+    
+    # best value
+    highest_values = new_Data.apply(lambda column: max(column, default=None))
+    # concat and save
+    Best_list = ['Best'] + highest_values[1:].tolist()
+    Best_df = pd.DataFrame([Best_list], columns=Data.columns)
+    upt_Data = pd.concat([new_Data, Best_df])
+    upt_Data.to_csv(root,index=False)
+    return upt_Data
+
+
+def mvari_str2csv(uuid_val, metrics, root, name, method):
     # if not exists save the first row
     # one for new string line 
     # another for new highest value line
-    
-    metrics, float_metrics = convert_to_float(metrics)
+
+    first_value_type = type(next(iter(metrics.values())))
+    if all(isinstance(value, first_value_type) for value in metrics.values()):
+        if first_value_type == str:
+            metrics, float_metrics = convert_to_float(metrics)
+        else:
+            float_metrics = metrics
+        
     head = f'{name}_{uuid_val}_{method}'
 
     new_df, csv_columns = dict2df(metrics, head)

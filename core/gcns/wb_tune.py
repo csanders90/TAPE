@@ -45,30 +45,6 @@ def merge_cfg_from_sweep(cfg, wandb_config):
     return cfg
 
 
-
-def parse_args() -> argparse.Namespace:
-    r"""Parses the command line arguments."""
-    parser = argparse.ArgumentParser(description='GraphGym')
-
-    parser.add_argument('--cfg', dest='cfg_file', type=str, required=False,
-                        default='core/yamls/cora/gcns/gae.yaml',
-                        help='The configuration file path.')
-    parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
-                        default='core/yamls/cora/gcns/gae_sp1.yaml',
-                        help='The configuration file path.')
-    parser.add_argument('--data', dest='data', type=str, required=False, default='ogbn-arxiv',
-                        help='name of data for hyper tune.')   
-    parser.add_argument('--repeat', type=int, default=4,
-                        help='The number of repeated jobs.')
-    parser.add_argument('--mark_done', action='store_true',
-                        help='Mark yaml as done after a job has finished.')
-    parser.add_argument('--device',  type=int, default=2,
-                        help='device index.')
-    parser.add_argument('opts', default=None, nargs=argparse.REMAINDER,
-                        help='See graphgym/config.py for remaining options.')
-
-    return parser.parse_args()
-
 def wandb_record_files(path):
     record_or_not = False
     record_lst = [cfg_sweep,
@@ -168,11 +144,7 @@ def run_experiment():  # sourcery skip: avoid-builtin-shadow
     wandb.log({'best auc': best_auc})
     return  
 
-import torch
 
-args = parse_args()
-
-print(args)
 
 # cfg_sweep= 'core/yamls/cora/gcns/gae_sp1.yaml'
 # cfg_config = 'core/yamls/cora/gcns/gae.yaml'
@@ -187,15 +159,41 @@ print(args)
 # cfg_sweep= 'core/yamls/ogbn-arxiv/gcns/gae_sp1.yaml'
 # cfg_config = 'core/yamls/ogbn-arxiv/gcns/gae.yaml'
 
-args.cfg_sweep= 'core/yamls/cora/gcns/gae_sp1.yaml'
-args.cfg_config = 'core/yamls/cora/gcns/gae.yaml'
+def parse_args() -> argparse.Namespace:
+    r"""Parses the command line arguments."""
+    parser = argparse.ArgumentParser(description='GraphGym')
+
+    parser.add_argument('--cfg', dest='cfg_file', type=str, required=False,
+                        default= 'core/yamls/pubmed/gcns/gat.yaml',
+                        help='The configuration file path.')
+    parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
+                        default='core/yamls/pubmed/gcns/gat_sp1.yaml',
+                        help='The configuration file path.')
+    parser.add_argument('--data', dest='data', type=str, required=False, default='ogbn-arxiv',
+                        help='name of data for hyper tune.')   
+    parser.add_argument('--repeat', type=int, default=4,
+                        help='The number of repeated jobs.')
+    parser.add_argument('--mark_done', action='store_true',
+                        help='Mark yaml as done after a job has finished.')
+    parser.add_argument('--device',  type=int, default=2,
+                        help='device index.')
+    parser.add_argument('opts', default=None, nargs=argparse.REMAINDER,
+                        help='See graphgym/config.py for remaining options.')
+
+    return parser.parse_args()
+
+import torch
+
+args = parse_args()
 
 print(args)
+
 cfg_sweep = set_cfg(FILE_PATH, args.sweep_file)
 cfg_config = set_cfg(FILE_PATH, args.cfg_file)
 
 cfg_config.data.name = args.data
 cfg_config.data.device = args.device
+cfg_config.model.type = 'GAT'
 
 pprint.pprint(cfg_config)
 sweep_id = wandb.sweep(sweep=cfg_sweep, project=f"{cfg_config.model.type}-sweep-{cfg_config.data.name}")

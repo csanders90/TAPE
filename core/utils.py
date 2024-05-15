@@ -133,7 +133,6 @@ def append_acc_to_excel(uuid_val, metrics_acc, root, name, method):
     # if not exists save the first row
 
     csv_columns = ['Metric'] + list(metrics_acc) 
-
     # load old csv
     try:
         Data = pd.read_csv(root)[:-1]
@@ -321,7 +320,7 @@ class Logger(object):
             print(f'   Final Test: {best_test_valid:.2f} at Epoch {100*best_valid_epoch}')
         
         # best train, best valid, train with the best valid epoch, test with the best valid epoch
-        return result[:, 0].max().item(), result[:, 1].max().item(), best_train_valid.item(), best_test_valid.item()
+        return round(result[:, 0].max().item(), 2), round(result[:, 1].max().item(), 2), round(best_train_valid.item(), 2), round(best_test_valid.item(), 2)
     
     
     def calc_all_stats(self, print_mode: bool=True) -> Tuple[str, str, str, List[float], List[float]]:
@@ -367,6 +366,7 @@ class Logger(object):
 
     def save2dict(self):
         "save the result into csv based on calc_all_stats"
+        
         
         
 
@@ -550,13 +550,13 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='GraphGym')
 
     parser.add_argument('--cfg', dest='cfg_file', type=str, required=False,
-                        default='core/yamls/cora/gcns/gae.yaml',
+                        default='core/yamls/cora/gcns/vgae.yaml',
                         help='The configuration file path.')
     parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
                         default='core/yamls/cora/gcns/gae_sp1.yaml',
                         help='The configuration file path.')
     
-    parser.add_argument('--repeat', type=int, default=4,
+    parser.add_argument('--repeat', type=int, default=3,
                         help='The number of repeated jobs.')
     parser.add_argument('--mark_done', action='store_true',
                         help='Mark yaml as done after a job has finished.')
@@ -739,6 +739,7 @@ def create_scheduler(optimizer, scheduler_config):
 
 
 def init_model_from_pretrained(model, pretrained_dir, freeze_pretrained=False):
+    raise NotImplementedError #assign to constantin
     """ Copy model parameters from pretrained model except the prediction head.
 
     Args:

@@ -4,6 +4,7 @@ out_dir: results
 metric_best: acc
 cfg_dest: gat.yaml
 print: file
+seed: 0
 
 run:
   seed: 0
@@ -14,7 +15,6 @@ run:
 wandb:
   use: True
   project: gtblueprint
-  name_tag: gat-cora-origin
 
 
 num_threads: 11
@@ -23,7 +23,7 @@ train:
   mode: custom
   batch_size: 2048
   eval_period: 1
-  epochs: 2000
+  epochs: 200
   device: 1
   auto_resume: False
   final_eval: False
@@ -34,8 +34,8 @@ model:
   type: GAT
   in_channels: None
   out_channels: 32
-  heads: 4
-  hidden_channels: 32
+  heads: 1
+  hidden_channels: 8  
   negative_slope: 0.2
   dropout: 0
   num_layers: 2
@@ -52,3 +52,7 @@ data:
   num_features:  1433
 
 
+optimizer:
+  type: adam
+  base_lr: 0.01
+  weight_decay: 0.0005

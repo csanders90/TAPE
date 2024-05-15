@@ -211,23 +211,22 @@ class VariationalGCNEncoder(torch.nn.Module):
             
         in_channels = cfg.data.num_features
         out_channels = cfg.model.out_channels
-        
-        self.conv1 = GCNConv(in_channels, 2 * out_channels)  # 2*out_channels because we want to output both mu and logstd
-        self.conv_mu = GCNConv(2 * out_channels, out_channels)  # We use 2*out_channels for the input because we want to concatenate mu and logstd
-        self.conv_logstd = GCNConv(2 * out_channels, out_channels)  # We use 2*out_channels for the input because we want to concatenate mu and logstd
+        hidden_channels =cfg.model.hidden_channels
+        self.conv1 = GCNConv(in_channels, hidden_channels)  # 2*out_channels because we want to output both mu and logstd
+        self.conv_mu = GCNConv(hidden_channels, out_channels)  # We use 2*out_channels for the input because we want to concatenate mu and logstd
+        self.conv_logstd = GCNConv(hidden_channels, out_channels)  # We use 2*out_channels for the input because we want to concatenate mu and logstd
 
     def forward(self, x, edge_index):
         x = self.conv1(x, edge_index).relu()
         return self.conv_mu(x, edge_index), self.conv_logstd(x, edge_index)
-    
-class VGAE(GAE):
-    """inhert GAE class, since we need to use encode, decode and loss
-    """
 
-    def __init__(self, encoder, decoder=None):
-        super().__init__(encoder, decoder)
+class VGAE(GAE): 
+    """变分自编码器。继承自GAE这个类，可以使用GAE里面定义的函数。
+    """
+    
+    def __init__(self, encoder):
+        super().__init__(encoder)
         self.encoder = encoder
-        self.decoder = InnerProductDecoder()
 
     def reparametrize(self, mu, logstd):
         if self.training:
@@ -235,22 +234,21 @@ class VGAE(GAE):
         else:
             return mu
 
-    def encode(self, *args, **kwargs):
-        """encoder"""
-        self.__mu__, self.__logstd__ = self.encoder(*args, **kwargs) # mu stad stands for distribution for mean and std
-        self.__logstd__ = self.__logstd__.clamp(max=MAX_LOGSTD) # upper bound of logstd
-        return self.reparametrize(self.__mu__, self.__logstd__)
+    def forward(self, *args, **kwargs):
+        """编码功能"""
+        self.__mu__, self.__logstd__ = self.encoder(*args, **kwargs) # 编码后的mu和std表示一个分布
+        self.__logstd__ = self.__logstd__.clamp(max=MAX_LOGSTD) # 这里把std最大值限制一下
+        z = self.reparametrize(self.__mu__, self.__logstd__) # 进行reparametrization，这样才能够训练模型
+        return z
 
     def kl_loss(self, mu=None, logstd=None):
-        """We add a prior of (0, I) Gaussian variables to the distribution of the hidden variables,
-        i.e., we want the distribution of the hidden variables to obey a (0, I) Gaussian distribution
-        The difference between these two distributions is measured by the KL loss."""
+        """我们给隐变量的分布加上（0，I）高斯变量的先验，即希望隐变量分布服从（0，I）的高斯分布
+        这两个分布的差别用KL损失来衡量。"""
         mu = self.__mu__ if mu is None else mu
         logstd = self.__logstd__ if logstd is None else logstd.clamp(
             max=MAX_LOGSTD)
         return -0.5 * torch.mean(
-            torch.sum(1 + 2 * logstd - mu**2 - logstd.exp()**2, dim=1)) # KL loss between gaussian distribution and hidden variables
-
+            torch.sum(1 + 2 * logstd - mu**2 - logstd.exp()**2, dim=1)) # 两个高斯分布之间的KL损失
 
 
 def create_model(cfg):
@@ -260,14 +258,10 @@ def create_model(cfg):
     elif cfg.model.type == 'GraphSage':
         model = LinkPredModel(encoder=GraphSage(cfg),
                               decoder=InnerProductDecoder())
-    elif cfg.model.type == 'GCNEncode':
-        model = LinkPredModel(encoder=GCNEncoder(cfg),
-                              decoder=InnerProductDecoder())
     
     if cfg.model.type == 'GAE':
         model = GAE(encoder = GCNEncoder(cfg) )
     elif cfg.model.type == 'VGAE':
-        model = VGAE(encoder= VariationalGCNEncoder(cfg),
-                     decoder=InnerProductDecoder())
+        model = VGAE(encoder= VariationalGCNEncoder(cfg))
 
     return model 

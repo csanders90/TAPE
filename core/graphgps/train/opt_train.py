@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader
 from torch_sparse import SparseTensor
 from torch_geometric.utils import negative_sampling
 
-from embedding.tune_utils import param_tune_acc_mrr
+from embedding.tune_utils import param_tune_acc_mrr, mvari_str2csv
 from heuristic.eval import get_metric_score
 from utils import config_device
 from typing import Dict, Tuple
@@ -57,8 +57,7 @@ class Trainer():
         model_types = ['VGAE', 'GAE', 'GAT', 'GraphSage', 'GNNStack']
         self.train_func = {model_type: self._train_gae if model_type in ['GAE', 'GAT', 'GraphSage', 'GNNStack'] else self._train_vgae for model_type in model_types}
         self.test_func = {model_type: self._test for model_type in model_types}
-        self.evaluate_func = {model_type: self._evaluate for model_type in model_types}
-
+        self.evaluate_func = {model_type: self._evaluate if model_type in ['GAE', 'GAT', 'GraphSage', 'GNNStack'] else self._evaluate_vgae for model_type in model_types}
         self.evaluator_hit = Evaluator(name='ogbl-collab')
         self.evaluator_mrr = Evaluator(name='ogbl-citation2')
         
@@ -151,7 +150,8 @@ class Trainer():
     def _train_vgae(self):
         self.model.train()
         self.optimizer.zero_grad()
-        z = self.model.encoder(self.train_data.x, self.train_data.edge_index)
+        # encoder is VAE, forward is embedding
+        z = self.model(self.train_data.x, self.train_data.edge_index)
         loss = self.model.recon_loss(z, self.train_data.pos_edge_label_index)
         loss = loss + (1 / self.train_data.num_nodes) * self.model.kl_loss()
         loss.backward()
@@ -210,6 +210,34 @@ class Trainer():
     
         return result_mrr
     
+    @torch.no_grad()
+    def _evaluate_vgae(self, data: Data):
+       
+        self.model.eval()
+        pos_edge_index = data.pos_edge_label_index
+        neg_edge_index = data.neg_edge_label_index
+
+        z = self.model(data.x, data.edge_index)
+        pos_pred = self.model.decoder(z, pos_edge_index)
+        neg_pred = self.model.decoder(z, neg_edge_index)
+        y_pred = torch.cat([pos_pred, neg_pred], dim=0)
+        
+        hard_thres = (y_pred.max() + y_pred.min())/2
+
+        pos_y = z.new_ones(pos_edge_index.size(1))
+        neg_y = z.new_zeros(neg_edge_index.size(1)) 
+        y = torch.cat([pos_y, neg_y], dim=0)
+        
+        y_pred[y_pred >= hard_thres] = 1
+        y_pred[y_pred < hard_thres] = 0
+
+        acc = torch.sum(y == y_pred)/len(y)
+        
+        pos_pred, neg_pred = pos_pred.cpu(), neg_pred.cpu()
+        result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_pred, neg_pred)
+        result_mrr.update({'acc': round(acc.tolist(), 5)})
+    
+        return result_mrr
     
     def merge_result_rank(self):
         result_test = self.evaluate_func[self.model_name](self.test_data)
@@ -222,28 +250,28 @@ class Trainer():
         }
     
     
-    def train(self):
+    def train(self):  # sourcery skip: simplify-dictionary-update
         best_auc, best_hits, best_hit100 = 0, 0, 0
         for epoch in range(1, self.epochs + 1):
             loss = self.train_func[self.model_name]()
             
             if epoch % 100 == 0:
-                results_rank = self.merge_result_rank()
-                print(results_rank)
+                self.results_rank = self.merge_result_rank()
+                print(self.results_rank)
                 
-                for key, result in results_rank.items():
-                    # result - (train, valid, test)
-                    self.loggers[key].add_result(self.run, result)
+                # for key, result in results_rank.items():
+                #     # result - (train, valid, test)
+                #     self.loggers[key].add_result(self.run, result)
                     # print(self.loggers[key].results)
                     
-                print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][0]:.4f}, AP: {results_rank["AP"][0]:.4f}, MRR: {results_rank["MRR"][0]:.4f}, Hit@10 {results_rank["Hits@10"][0]:.4f}')
-                print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][1]:.4f}, AP: {results_rank["AP"][1]:.4f}, MRR: {results_rank["MRR"][1]:.4f}, Hit@10 {results_rank["Hits@10"][1]:.4f}')               
-                print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {results_rank["AUC"][2]:.4f}, AP: {results_rank["AP"][2]:.4f}, MRR: {results_rank["MRR"][2]:.4f}, Hit@10 {results_rank["Hits@10"][2]:.4f}')               
+                print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {self.results_rank["AUC"][0]:.4f}, AP: {self.results_rank["AP"][0]:.4f}, MRR: {self.results_rank["MRR"][0]:.4f}, Hit@10 {self.results_rank["Hits@10"][0]:.4f}')
+                print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {self.results_rank["AUC"][1]:.4f}, AP: {self.results_rank["AP"][1]:.4f}, MRR: {self.results_rank["MRR"][1]:.4f}, Hit@10 {self.results_rank["Hits@10"][1]:.4f}')               
+                print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {self.results_rank["AUC"][2]:.4f}, AP: {self.results_rank["AP"][2]:.4f}, MRR: {self.results_rank["MRR"][2]:.4f}, Hit@10 {self.results_rank["Hits@10"][2]:.4f}')               
 
-                if results_rank["AUC"][1] > best_auc:
-                    best_auc = results_rank["AUC"][1]
-                elif results_rank['Hits@100'][1] > best_hit100:
-                    best_hits = results_rank['Hits@100'][1]
+                if self.results_rank["AUC"][1] > best_auc:
+                    best_auc = self.results_rank["AUC"][1]
+                elif self.results_rank['Hits@100'][1] > best_hit100:
+                    best_hits = self.results_rank['Hits@100'][1]
                     
                     
                 for key, result in self.results_rank.items():
@@ -254,12 +282,15 @@ class Trainer():
                             train_hits, valid_hits, test_hits = result
                             print(
                                 f'Run: {self.run + 1:02d}, '
+                                f'Key: {key}, '
                                 f'Epoch: {epoch:02d}, '
                                 f'Loss: {loss:.4f}, '
                                 f'Train: {100 * train_hits:.2f}%, '
                                 f'Valid: {100 * valid_hits:.2f}%, '
                                 f'Test: {100 * test_hits:.2f}%')
                         print('---')
+                        
+
         return best_auc, best_hits
 
 
@@ -293,7 +324,13 @@ class Trainer():
         print(f"save to {acc_file}")
         os.makedirs(root, exist_ok=True)
         id = wandb.util.generate_id()
-        param_tune_acc_mrr(id, results_dict, acc_file, self.data_name, self.model_name)
+        
+        first_value_type = type(next(iter(results_dict.values())))
+        if all(isinstance(value, first_value_type) for value in results_dict.values()):
+            if first_value_type == float:
+                mvari_str2csv(id, results_dict, acc_file, self.data_name, self.model_name)
+            elif first_value_type == str:
+                mvari_str2csv(id, results_dict, acc_file, self.data_name, self.model_name)
 
 
 class Trainer_Saint(Trainer):
