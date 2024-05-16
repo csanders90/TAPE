@@ -34,5 +34,6 @@ items=(ogbn-arxiv ogbn-product pubmed ogbn-products)
 # Run the loop in parallel
 for item in "${items[@]}"; do
     echo "Processing $item"
+
     python custom_tune.py --data "$item" > "$item-VAE-custom_tune_output.txt" &
 done 
