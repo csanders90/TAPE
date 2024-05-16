@@ -154,6 +154,7 @@ class Trainer():
         self.model.train()
         self.optimizer.zero_grad()
         # encoder is VAE, forward is embedding
+        # Missed encoder!!!
         z = self.model(self.train_data.x, self.train_data.edge_index)
         loss = self.model.recon_loss(z, self.train_data.pos_edge_label_index)
         loss = loss + (1 / self.train_data.num_nodes) * self.model.kl_loss()
@@ -337,37 +338,43 @@ class Trainer():
         
 class Trainer_Saint(Trainer):
     def __init__(self, 
-                 FILE_PATH,
-                 cfg,
-                 model, 
-                 optimizer,
-                 splits,
-                 run, 
-                 repeat, 
-                 loggers,
+                 FILE_PATH: str, 
+                 cfg: CN, 
+                 model: torch.nn.Module, 
+                 emb: torch.nn.Module,
+                 data: Data,
+                 optimizer: torch.optim.Optimizer, 
+                 splits: Dict[str, Data], 
+                 run: int, 
+                 repeat: int,
+                 loggers: Logger, 
+                 print_logger: None,  # Ensure this is correctly defined and passed
+                 device: torch.device,
                  gsaint=None,
-                 batch_size=None, 
+                 batch_size_sampler=None, 
                  walk_length=None, 
                  num_steps=None, 
                  sample_coverage=None):
-        super().__init__(FILE_PATH, cfg, model, optimizer, splits, run, repeat, loggers)
-
+        # Correctly pass all parameters expected by the superclass constructor
+        super().__init__(FILE_PATH, cfg, model, emb, data, optimizer, splits, run, repeat, loggers, print_logger, device)
         
-        self.device = config_device(cfg)
-            
+        # Initialize additional attributes specific to Trainer_Saint
+        self.device = device  # This might be redundant if set in the superclass
+        self.print_logger = print_logger                
         self.model = model.to(self.device)
-        
+        self.emb = emb
+        self.data = data
         self.model_name = cfg.model.type 
         self.data_name = cfg.data.name
 
         self.FILE_PATH = FILE_PATH 
         self.epochs = cfg.train.epochs
         
-        # Added GSAINT normalization
+        # GSAINT normalization
         if gsaint is not None:
-            self.test_data = gsaint(splits['test'], batch_size, walk_length, num_steps, sample_coverage)
-            self.train_data = gsaint(splits['train'], batch_size, walk_length, num_steps, sample_coverage)
-            self.valid_data = gsaint(splits['valid'], batch_size, walk_length, num_steps, sample_coverage)
+            self.test_data = gsaint(splits['test'], batch_size_sampler, walk_length, num_steps, sample_coverage)
+            self.train_data = gsaint(splits['train'], batch_size_sampler, walk_length, num_steps, sample_coverage)
+            self.valid_data = gsaint(splits['valid'], batch_size_sampler, walk_length, num_steps, sample_coverage)
         else:
             self.test_data = splits['test']
             self.train_data = splits['train']

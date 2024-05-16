@@ -17,7 +17,7 @@ from utils import set_cfg, parse_args, get_git_repo_root_path, Logger, custom_se
     , custom_set_run_dir, set_printing, run_loop_settings, create_optimizer, config_device, \
         init_model_from_pretrained, create_logger
 
-def get_loader(data, batch_size, walk_length, num_steps, sample_coverage):
+def get_loader_RW(data, batch_size, walk_length, num_steps, sample_coverage):
     return GraphSAINTRandomWalkSampler(data, batch_size=batch_size, walk_length=walk_length, num_steps=num_steps, sample_coverage=sample_coverage)
 
 if __name__ == "__main__":
