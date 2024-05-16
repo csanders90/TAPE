@@ -47,9 +47,9 @@ def project_main():
 
     for run_id, seed, split_index in zip(*run_loop_settings(cfg, args)):
         # Set configurations for each run
-        custom_set_run_dir(cfg, run_id)
+        custom_set_run_dir(cfg, cfg.wandb.name_tag)
 
-        set_printing(cfg)
+        print_logger = set_printing(cfg)
         cfg.seed = seed
         cfg.run_id = run_id
         seed_everything(cfg.seed)
@@ -82,6 +82,7 @@ def project_main():
                     run_id, 
                     args.repeat,
                     loggers, 
+                    print_logger,
                     cfg.device)
 
         trainer.train()

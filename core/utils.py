@@ -11,6 +11,7 @@ import git
 import subprocess
 import pandas as pd
 import argparse
+import wandb
 import torch.optim as optim
 from torch_scatter import scatter
 from yacs.config import CfgNode as CN
@@ -365,17 +366,28 @@ class Logger(object):
         
 
 def get_logger(name, log_dir, config_dir):
-	
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG)
-    logger.propagate = False
 
-    std_out_format = '%(asctime)s - [%(levelname)s] - %(message)s'
-    consoleHandler = logging.StreamHandler(sys.stdout)
-    consoleHandler.setFormatter(logging.Formatter(std_out_format))
-    logger.addHandler(consoleHandler)
+    """
+    Set up printing options
 
-    return logger
+    """
+    logging.root.handlers = []
+    logging_cfg = {'level': logging.INFO, 'format': '%(message)s'}
+    os.makedirs(cfg.run_dir, exist_ok=True)
+    h_file = logging.FileHandler(f'{cfg.run_dir}/logging.log')
+    h_stdout = logging.StreamHandler(sys.stdout)
+    if cfg.print == 'file':
+        logging_cfg['handlers'] = [h_file]
+    elif cfg.print == 'stdout':
+        logging_cfg['handlers'] = [h_stdout]
+    elif cfg.print == 'both':
+        logging_cfg['handlers'] = [h_file, h_stdout]
+    else:
+        raise ValueError('Print option not supported')
+
+    logging.basicConfig(**logging_cfg)
+    return logging_cfg
+
 
 
 def save_emb(score_emb, save_path):
@@ -646,7 +658,9 @@ def custom_set_run_dir(cfg, run_id):
         cfg (CfgNode): Configuration node
         run_id (int): Main for-loop iter id (the random seed or dataset split)
     """
-    cfg.run_dir = os.path.join(cfg.out_dir, str(run_id))
+    id = wandb.util.generate_id()
+    cfg.wandb.name_tag = f'{cfg.data.name}_run{id}_{cfg.model.type}' 
+    cfg.run_dir = os.path.join(cfg.out_dir, str(cfg.wandb.name_tag))
     # Make output directory
     if cfg.train.auto_resume:
         os.makedirs(cfg.run_dir, exist_ok=True)
@@ -660,20 +674,32 @@ def set_printing(cfg):
     Set up printing options
 
     """
-    logging.root.handlers = []
-    logging_cfg = {'level': logging.INFO, 'format': '%(message)s'}
-    os.makedirs(cfg.run_dir, exist_ok=True)
-    h_file = logging.FileHandler(f'{cfg.run_dir}/logging.log')
-    h_stdout = logging.StreamHandler(sys.stdout)
-    if cfg.print == 'file':
-        logging_cfg['handlers'] = [h_file]
-    elif cfg.print == 'stdout':
-        logging_cfg['handlers'] = [h_stdout]
-    elif cfg.print == 'both':
-        logging_cfg['handlers'] = [h_file, h_stdout]
-    else:
-        raise ValueError('Print option not supported')
-    logging.basicConfig(**logging_cfg)
+    import logging
+
+    # Step 1: Create a logger
+    logger = logging.getLogger(__name__)
+
+    # Step 2: Set the overall log level for the logger
+    logger.setLevel(logging.DEBUG)
+
+    # Step 3: Create handlers
+    file_handler = logging.FileHandler(f'{cfg.run_dir}/logging.log')
+    console_handler = logging.StreamHandler()
+
+    # Step 4: Set log levels for handlers
+    file_handler.setLevel(logging.DEBUG)
+    console_handler.setLevel(logging.DEBUG)
+
+    # Step 5: Create formatters and add them to handlers
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    file_handler.setFormatter(formatter)
+    console_handler.setFormatter(formatter)
+
+    # Step 6: Add handlers to the logger
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+    
+    return logger
 
 
 def create_optimizer(model, optimizer_config):

@@ -151,7 +151,7 @@ def param_tune_acc_mrr(uuid_val, metrics, root, name, method):
     return upt_Data
 
 
-def mvari_str2csv(uuid_val, metrics, root, name, method):
+def mvari_str2csv(name_tag, metrics, root):
     # if not exists save the first row
     # one for new string line 
     # another for new highest value line
@@ -162,11 +162,9 @@ def mvari_str2csv(uuid_val, metrics, root, name, method):
             metrics, float_metrics = convert_to_float(metrics)
         else:
             float_metrics = metrics
-        
-    head = f'{name}_{uuid_val}_{method}'
 
-    new_df, csv_columns = dict2df(metrics, head)
-    new_df_float, csv_columns = dict2df(float_metrics, head)
+    new_df, csv_columns = dict2df(metrics, name_tag)
+    new_df_float, csv_columns = dict2df(float_metrics, name_tag)
     
     try:
         Data = pd.read_csv(root)[:-1]

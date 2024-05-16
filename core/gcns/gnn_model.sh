@@ -1,16 +1,16 @@
 #!/bin/bash
-#SBATCH --time=24:00:00
-#SBATCH --nodes=2
+#SBATCH --time=8:00:00
+#SBATCH --nodes=1
 #SBATCH --ntasks=20
-#SBATCH --partition=dev_accelerate
+#SBATCH --partition=normal
 #SBATCH --job-name=gnn_wb
 #SBATCH --mem-per-cpu=1600mb
-
+#SBATCH --gres=gpu:full:4, 
 #SBATCH --output=log/TAG_Benchmark_%j.output
 #SBATCH --error=error/TAG_Benchmark_%j.error
 
 
-#SBATCH --chdir=/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE/scripts
+#SBATCH --chdir=/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE/batch
 
 # Notification settings:
 #SBATCH --mail-type=ALL
@@ -26,18 +26,13 @@ module load devel/cmake/3.18
 module load devel/cuda/11.8
 module load compiler/gnu/12
 
-
-
 cd /hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/gcns
-
-# not so efficient 
-python wb_tune.py  --cfg core/yamls/cora/gcns/gae.yaml --sweep core/yamls/cora/gcns/gae_sp1.yaml --data ogbn-arxiv > ogbn-arxiv-output.txt 
 
 # Define the list of items for the loop
 items=(ogbn-arxiv ogbn-product pubmed ogbn-products)
 
 # Run the loop in parallel
-for item in "${items[@]}"; do
+for item in ogbn-arxiv ogbn-products pubmed ogbn-products; do
     echo "Processing $item"
-    python custom_tune.py --data "$item"
-done | parallel -j 3
+    python custom_tune.py --data "$item" > "$item-VAE-custom_tune_output.txt" 
+done 

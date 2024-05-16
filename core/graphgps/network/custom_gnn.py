@@ -209,7 +209,7 @@ class VariationalGCNEncoder(torch.nn.Module):
     def __init__(self, cfg):
         super().__init__()
             
-        in_channels = cfg.data.num_features
+        in_channels = cfg.model.in_channels
         out_channels = cfg.model.out_channels
         hidden_channels =cfg.model.hidden_channels
         self.conv1 = GCNConv(in_channels, hidden_channels)  # 2*out_channels because we want to output both mu and logstd
@@ -219,6 +219,7 @@ class VariationalGCNEncoder(torch.nn.Module):
     def forward(self, x, edge_index):
         x = self.conv1(x, edge_index).relu()
         return self.conv_mu(x, edge_index), self.conv_logstd(x, edge_index)
+
 
 class VGAE(GAE): 
     """变分自编码器。继承自GAE这个类，可以使用GAE里面定义的函数。
