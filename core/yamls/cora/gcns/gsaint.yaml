@@ -28,7 +28,7 @@ train:
 
   
 model:
-  type: vgae # Here you can paste different name of model
+  type: VGAE # Here you can paste different name of model
   sampler: gsaint
   out_channels: 16
   heads: 4

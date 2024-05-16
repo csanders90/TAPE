@@ -17,14 +17,14 @@ from torch_geometric.graphgym.utils.agg_runs import agg_runs
 from torch_geometric.graphgym.utils.comp_budget import params_count
 from torch_geometric.graphgym.utils.device import auto_select_device
 from torch_geometric.graphgym.cmd_args import parse_args
-from torch_geometric.graphgym.config import (dump_cfg, dump_run_cfg,
-                                             makedirs_rm_exist)
+from torch_geometric.graphgym.config import dump_cfg, makedirs_rm_exist #, dump_run_cfg
 import torch_geometric.transforms as T
 from torch_geometric.datasets import Planetoid
 from distutils.util import strtobool
 import argparse
+from gcns.gsaint_main import get_loader_RW
 
-from graphgps.train.opt_train import Trainer
+from graphgps.train.opt_train import Trainer, Trainer_Saint
 from graphgps.network.custom_gnn import create_model
 from data_utils.load import load_data_lp
 from utils import set_cfg, parse_args, get_git_repo_root_path, Logger, custom_set_out_dir \
@@ -77,49 +77,89 @@ def project_main():
 
     loggers = create_logger(args.repeat)
 
-    for run_id, seed, split_index in zip(*run_loop_settings(cfg, args)):
+    # for run_id, seed, split_index in zip(*run_loop_settings(cfg, args)):
         # Set configurations for each run TODO clean code here 
-        id = wandb.util.generate_id()
-        cfg.wandb.name_tag = f'{cfg.data.name}_run{id}_{cfg.model.type}' 
-        custom_set_run_dir(cfg, cfg.wandb.name_tag)
+    id = wandb.util.generate_id()
+    cfg.wandb.name_tag = f'{cfg.data.name}_run{id}_{cfg.model.type}' 
+    custom_set_run_dir(cfg, cfg.wandb.name_tag)
 
-        cfg.seed = seed
-        cfg.run_id = run_id
-        seed_everything(cfg.seed)
-        
-        cfg = config_device(cfg)
-        cfg.data.name = args.data
+    cfg.seed = 0 #seed
+    cfg.run_id = 0 #run_id
+    seed_everything(cfg.seed)
+    
+    cfg = config_device(cfg)
+    cfg.data.name = args.data
 
-        splits, _, data = load_data_lp[cfg.data.name](cfg.data)
-        cfg.model.in_channels = splits['train'].x.shape[1]
+    splits, _, data = load_data_lp[cfg.data.name](cfg.data)
+    cfg.model.in_channels = splits['train'].x.shape[1]
 
-        dump_cfg(cfg)    
-        hyperparameter_search = {'out_channels': [16, 32, 48, 64, 80, 96, 112], 'hidden_channels': [16, 32, 48, 64, 80, 96, 112]}
-        for out,  hidden in tqdm(itertools.product(*hyperparameter_search.values())):
-            cfg.model.out_channels = out
-            cfg.model.hidden_channels = hidden
+    dump_cfg(cfg)    
+    # hyperparameter_search = {'out_channels': [16, 32, 48, 64, 80, 96, 112], 'hidden_channels': [16, 32, 48, 64, 80, 96, 112]}
+    hyperparameter_search = {
+        'out_channels'      : [32, 64],
+        'hidden_channels'   : [32],
+        'lr'                : [0.1, 0.01, 0.001, 0.0001],
+        'batch_size'        : [32, 1024, 2048, 4096],
+        'batch_size_sampler': [32, 64, 128, 256],
+        'walk_length'       : [10, 20, 50, 100, 150, 200],
+        'num_steps'         : [10, 20, 30],
+        'sample_coverage'   : [50, 100, 150, 200, 250]
+    }
 
-            print_logger = set_printing(cfg)
-            start_time = time.time()
-                
-            model = create_model(cfg)
+    if cfg.model.sampler == 'gsaint':
+        sampler = get_loader_RW
+    else:
+        sampler = None 
+    for out, hidden, lr, batch_size, batch_size_sampler, walk_length, num_steps, sample_coverage in tqdm(itertools.product(*hyperparameter_search.values())):
+        cfg.model.out_channels = out
+        cfg.model.hidden_channels = hidden
+
+        print_logger = set_printing(cfg)
+        start_time = time.time()
             
-            logging.info(model)
-            logging.info(cfg)
-            cfg.params = params_count(model)
-            logging.info(f'Num parameters: {cfg.params}')
-
-            optimizer = create_optimizer(model, cfg)
-
-            # LLM: finetuning
-            if cfg.train.finetune: 
-                model = init_model_from_pretrained(model, cfg.train.finetune,
-                                                cfg.train.freeze_pretrained)
-            hyper_id = wandb.util.generate_id()
-            cfg.wandb.name_tag = f'{cfg.data.name}_run{id}_{cfg.model.type}_hyper{hyper_id}' 
-            custom_set_run_dir(cfg, cfg.wandb.name_tag)
+        model = create_model(cfg)
         
-            dump_run_cfg(cfg)
+        logging.info(model)
+        logging.info(cfg)
+        cfg.params = params_count(model)
+        logging.info(f'Num parameters: {cfg.params}')
+
+        cfg.optimizer.base_lr = lr
+        cfg.train.batch_size = batch_size
+
+        optimizer = create_optimizer(model, cfg)
+
+        # LLM: finetuning
+        if cfg.train.finetune: 
+            model = init_model_from_pretrained(model, cfg.train.finetune,
+                                            cfg.train.freeze_pretrained)
+        hyper_id = wandb.util.generate_id()
+        cfg.wandb.name_tag = f'{cfg.data.name}_run{id}_{cfg.model.type}_hyper{hyper_id}' 
+        custom_set_run_dir(cfg, cfg.wandb.name_tag)
+    
+        # dump_run_cfg(cfg)
+
+        if cfg.model.sampler == 'gsaint':
+            trainer = Trainer_Saint(
+                FILE_PATH=FILE_PATH,
+                cfg=cfg, 
+                model=model,
+                emb=None,
+                data=data,
+                optimizer=optimizer,
+                splits=splits, 
+                run=0, 
+                repeat=args.repeat,
+                loggers=loggers,
+                print_logger=None,
+                device=cfg.device,
+                gsaint=get_loader_RW, 
+                batch_size_sampler=batch_size_sampler, 
+                walk_length=walk_length, 
+                num_steps=num_steps, 
+                sample_coverage=sample_coverage
+                )
+        else:
             trainer = Trainer(FILE_PATH,
                         cfg,
                         model, 
@@ -133,18 +173,18 @@ def project_main():
                         print_logger,
                         cfg.device)
 
-            trainer.train()
+        trainer.train()
 
-            run_result = {}
-            for key in trainer.loggers.keys():
-                # refer to calc_run_stats in Logger class
-                _, _, _, test_bvalid = trainer.loggers[key].calc_run_stats(run_id)
-                run_result.update({key: test_bvalid})
-            print_logger.info(run_result)
-            
-            trainer.save_result(run_result)
-            
-            print_logger.info(f"runing time {time.time() - start_time}")
+        run_result = {}
+        for key in trainer.loggers.keys():
+            # refer to calc_run_stats in Logger class
+            _, _, _, test_bvalid = trainer.loggers[key].calc_run_stats(run_id)
+            run_result.update({key: test_bvalid})
+        print_logger.info(run_result)
+        
+        trainer.save_result(run_result)
+        
+        print_logger.info(f"runing time {time.time() - start_time}")
         
     # statistic for all runs
 
