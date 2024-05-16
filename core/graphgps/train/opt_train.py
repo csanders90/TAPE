@@ -372,9 +372,10 @@ class Trainer_Saint(Trainer):
         
         # GSAINT normalization
         if gsaint is not None:
-            self.test_data = gsaint(splits['test'], batch_size_sampler, walk_length, num_steps, sample_coverage)
-            self.train_data = gsaint(splits['train'], batch_size_sampler, walk_length, num_steps, sample_coverage)
-            self.valid_data = gsaint(splits['valid'], batch_size_sampler, walk_length, num_steps, sample_coverage)
+            device_cpu = torch.device('cpu')
+            self.test_data = gsaint(splits['test'].to(device_cpu), batch_size_sampler, walk_length, num_steps, sample_coverage)
+            self.train_data = gsaint(splits['train'].to(device_cpu), batch_size_sampler, walk_length, num_steps, sample_coverage)
+            self.valid_data = gsaint(splits['valid'].to(device_cpu), batch_size_sampler, walk_length, num_steps, sample_coverage)
         else:
             self.test_data = splits['test']
             self.train_data = splits['train']
