@@ -2,7 +2,7 @@
 #SBATCH --time=8:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=20
-#SBATCH --partition=normal
+#SBATCH --partition=accelerated
 #SBATCH --job-name=gnn_wb
 #SBATCH --mem-per-cpu=1600mb
 #SBATCH --gres=gpu:full:4, 
@@ -18,13 +18,13 @@
 source /hkfs/home/project/hk-project-test-p0021478/cc7738/anaconda3/etc/profile.d/conda.sh
 
 conda activate base
-conda activate nui
-cd /hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/gcns
+conda activate EAsF
 # <<< conda initialize <<<
 module purge
 module load devel/cmake/3.18
 module load devel/cuda/11.8
 module load compiler/gnu/12
+
 
 cd /hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/gcns
 

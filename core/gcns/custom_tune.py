@@ -88,6 +88,8 @@ def project_main():
         seed_everything(cfg.seed)
         
         cfg = config_device(cfg)
+        cfg.data.name = args.data
+
         splits, _, data = load_data_lp[cfg.data.name](cfg.data)
         cfg.model.in_channels = splits['train'].x.shape[1]
 
@@ -145,15 +147,6 @@ def project_main():
             print_logger.info(f"runing time {time.time() - start_time}")
         
     # statistic for all runs
-    print('All runs:')
-
-    result_dict = {}
-    for key in loggers:
-        print(key)
-        _, _, _, valid_test, _, _ = trainer.loggers[key].calc_all_stats()
-        result_dict.update({key: valid_test})
-
-    trainer.save_result(result_dict)
 
 
 if __name__ == "__main__":
