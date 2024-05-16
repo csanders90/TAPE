@@ -22,7 +22,7 @@ from torch_geometric.graphgym.config import (dump_cfg,
 import torch_geometric.transforms as T
 from torch_geometric.datasets import Planetoid
 from distutils.util import strtobool
-
+import argparse
 
 from graphgps.train.opt_train import Trainer
 from graphgps.network.custom_gnn import create_model
@@ -34,6 +34,28 @@ import pprint
 
 FILE_PATH = f'{get_git_repo_root_path()}/'
 
+def parse_args() -> argparse.Namespace:
+    r"""Parses the command line arguments."""
+    parser = argparse.ArgumentParser(description='GraphGym')
+
+    parser.add_argument('--cfg', dest='cfg_file', type=str, required=False,
+                        default='core/yamls/cora/gcns/vgae.yaml',
+                        help='The configuration file path.')
+    parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
+                        default='core/yamls/cora/gcns/gae_sp1.yaml',
+                        help='The configuration file path.')
+    parser.add_argument('--data', dest='data', type=str, required=False,
+                        default='cora',
+                        help='data name')
+        
+    parser.add_argument('--repeat', type=int, default=2,
+                        help='The number of repeated jobs.')
+    parser.add_argument('--mark_done', action='store_true',
+                        help='Mark yaml as done after a job has finished.')
+    parser.add_argument('opts', default=None, nargs=argparse.REMAINDER,
+                        help='See graphgym/config.py for remaining options.')
+
+    return parser.parse_args()
 
 def project_main():
     
@@ -44,7 +66,7 @@ def project_main():
     cfg.merge_from_list(args.opts)
     custom_set_out_dir(cfg, args.cfg_file, cfg.wandb.name_tag)
     dump_cfg(cfg)
-
+    pprint.pprint(cfg)
 
     # Set Pytorch environment
     torch.set_num_threads(cfg.run.num_threads)
@@ -59,8 +81,10 @@ def project_main():
         cfg.seed = seed
         cfg.run_id = run_id
         seed_everything(cfg.seed)
+        
         cfg = config_device(cfg)
-
+        import pdb; pdb.set_trace()
+        cfg.data.name = args.data
         splits, _, data = load_data_lp[cfg.data.name](cfg.data)
 
         cfg.model.in_channels = splits['train'].x.shape[1]
@@ -72,9 +96,7 @@ def project_main():
             cfg.model.hidden_channels = hidden
 
             start_time = time.time()
-            
-            pprint.pprint(cfg.model)
-            pprint.pprint(cfg.optimizer)
+                
             model = create_model(cfg)
 
             logging.info(model)

@@ -30,15 +30,14 @@ module load compiler/gnu/12
 
 cd /hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/gcns
 
+# not so efficient 
 python wb_tune.py  --cfg core/yamls/cora/gcns/gae.yaml --sweep core/yamls/cora/gcns/gae_sp1.yaml --data ogbn-arxiv > ogbn-arxiv-output.txt 
 
-#!/bin/bash
-
 # Define the list of items for the loop
-items=(cora ogbn-arxiv ogbn-product pubmed ogbn-products)
+items=(ogbn-arxiv ogbn-product pubmed ogbn-products)
 
 # Run the loop in parallel
 for item in "${items[@]}"; do
     echo "Processing $item"
-    python wb_tune.py --cfg core/yamls/cora/gcns/gae.yaml --sweep  core/yamls/cora/gcns/gae_sp1.yaml --data "$item"
+    python custom_tune.py --data "$item"
 done | parallel -j 3

@@ -198,11 +198,6 @@ def config_device(cfg):
     # enviorment setting
     if num_cuda_devices <= 0:
         cfg.device = 'cpu'
-    elif os.environ["CUDA_VISIBLE_DEVICES"] is not None:
-        print(os.environ["CUDA_VISIBLE_DEVICES"][-1])
-        cfg.device = int(os.environ["CUDA_VISIBLE_DEVICES"][-1])
-    elif hasattr(cfg, 'device'):
-        cfg.device = cfg.device
     elif hasattr(cfg, 'data') and hasattr(cfg.data, 'device'):
         cfg.device = cfg.data.device
     elif hasattr(cfg, 'train') and hasattr(cfg.data, 'device'):

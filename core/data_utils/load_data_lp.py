@@ -57,7 +57,9 @@ def load_taglp_cora(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
     undirected = data.is_directed()
 
     cfg = config_device(cfg)
-        
+
+# The `get_edge_split` function is being called with several arguments to split the input graph data
+# into training, validation, and test sets. Here is a breakdown of the arguments being passed:
     splits = get_edge_split(data, 
                        undirected,
                        cfg.device,
