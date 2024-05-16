@@ -45,7 +45,7 @@ def parse_args() -> argparse.Namespace:
                         default='core/yamls/cora/gcns/gae_sp1.yaml',
                         help='The configuration file path.')
     parser.add_argument('--data', dest='data', type=str, required=False,
-                        default='cora',
+                        default='pubmed',
                         help='data name')
         
     parser.add_argument('--repeat', type=int, default=2,
@@ -84,7 +84,7 @@ def project_main():
         
         cfg = config_device(cfg)
 
-        cfg.data = args.data
+        cfg.data.name = args.data
 
         splits, _, data = load_data_lp[cfg.data.name](cfg.data)
 
@@ -138,15 +138,6 @@ def project_main():
             print(f"runing time {time.time() - start_time}")
         
     # statistic for all runs
-    print('All runs:')
-
-    result_dict = {}
-    for key in loggers:
-        print(key)
-        _, _, _, valid_test, _, _ = trainer.loggers[key].calc_all_stats()
-        result_dict.update({key: valid_test})
-
-    trainer.save_result(result_dict)
 
 
 if __name__ == "__main__":

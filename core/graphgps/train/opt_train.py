@@ -250,7 +250,7 @@ class Trainer():
         }
     
     
-    def train(self):  # sourcery skip: simplify-dictionary-update
+    def train(self):  
         best_auc, best_hits, best_hit100 = 0, 0, 0
         for epoch in range(1, self.epochs + 1):
             loss = self.train_func[self.model_name]()
@@ -332,7 +332,12 @@ class Trainer():
             elif first_value_type == str:
                 mvari_str2csv(id, results_dict, acc_file, self.data_name, self.model_name)
 
-
+    def save_tune(self, run_result):
+        for key in run_result.keys():
+            self.loggers[key].add_result(self.run, run_result[key])
+        self.loggers.save(self.run, self.FILE_PATH, self.data_name, self.model_name)
+        
+        
 class Trainer_Saint(Trainer):
     def __init__(self, 
                  FILE_PATH,

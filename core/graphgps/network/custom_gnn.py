@@ -209,7 +209,7 @@ class VariationalGCNEncoder(torch.nn.Module):
     def __init__(self, cfg):
         super().__init__()
             
-        in_channels = cfg.data.num_features
+        in_channels = cfg.model.in_channels
         out_channels = cfg.model.out_channels
         hidden_channels =cfg.model.hidden_channels
         self.conv1 = GCNConv(in_channels, hidden_channels)  # 2*out_channels because we want to output both mu and logstd
