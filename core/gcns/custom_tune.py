@@ -61,6 +61,7 @@ def project_main():
         seed_everything(cfg.seed)
         cfg = config_device(cfg)
 
+        cfg.data = args.data
         splits, _, data = load_data_lp[cfg.data.name](cfg.data)
 
         cfg.model.in_channels = splits['train'].x.shape[1]

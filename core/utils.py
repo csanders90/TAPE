@@ -12,7 +12,6 @@ import subprocess
 import pandas as pd
 import argparse
 import torch.optim as optim
-from IPython import embed
 from torch_scatter import scatter
 from yacs.config import CfgNode as CN
 from graphgps.finetuning import get_final_pretrained_ckpt
@@ -195,21 +194,16 @@ def config_device(cfg):
     if torch.cuda.is_available():
         # Get the number of available CUDA devices
         num_cuda_devices = torch.cuda.device_count()
-
+        print(f'Number of available CUDA devices: {num_cuda_devices}')
     # enviorment setting
     if num_cuda_devices <= 0:
         cfg.device = 'cpu'
-    elif os.environ["CUDA_VISIBLE_DEVICES"] is not None:
-        print(os.environ["CUDA_VISIBLE_DEVICES"][-1])
-        cfg.device = int(os.environ["CUDA_VISIBLE_DEVICES"][-1])
-    elif hasattr(cfg, 'device'):
-        cfg.device = cfg.device
     elif hasattr(cfg, 'data') and hasattr(cfg.data, 'device'):
         cfg.device = cfg.data.device
     elif hasattr(cfg, 'train') and hasattr(cfg.data, 'device'):
         cfg.device = cfg.train.device
     else:
-        cfg.device = 'cuda:0'
+        cfg.device = 0
 
     return cfg
     
@@ -555,7 +549,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
                         default='core/yamls/cora/gcns/gae_sp1.yaml',
                         help='The configuration file path.')
-    
+    parser.add_argument('--data', dest='data', type=str, required=False,
+                        default='cora',
+                        help='data name')
+        
     parser.add_argument('--repeat', type=int, default=2,
                         help='The number of repeated jobs.')
     parser.add_argument('--mark_done', action='store_true',

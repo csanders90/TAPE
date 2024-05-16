@@ -36,8 +36,6 @@ def load_taglp_arxiv2023(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
 
     data, text = load_tag_arxiv23()
     undirected = data.is_directed()
-    
-    cfg = config_device(cfg)
         
     splits = get_edge_split(data, 
                        undirected,
@@ -57,7 +55,7 @@ def load_taglp_cora(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
     undirected = data.is_directed()
 
     cfg = config_device(cfg)
-        
+    
     splits = get_edge_split(data, 
                        undirected,
                        cfg.device,
