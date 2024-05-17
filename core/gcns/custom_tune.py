@@ -2,35 +2,25 @@
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from sklearn.metrics import *
+
 import torch
 import logging
-import os.path as osp 
-import numpy as np
 import itertools
 from tqdm import tqdm
 import time
 from torch_geometric import seed_everything
-from torch_geometric.data.makedirs import makedirs
-from torch_geometric.graphgym.train import train
-from torch_geometric.graphgym.utils.agg_runs import agg_runs
 from torch_geometric.graphgym.utils.comp_budget import params_count
-from torch_geometric.graphgym.utils.device import auto_select_device
 from torch_geometric.graphgym.cmd_args import parse_args
-
-import torch_geometric.transforms as T
-from torch_geometric.datasets import Planetoid
-from distutils.util import strtobool
 import argparse
 
 from graphgps.train.opt_train import Trainer
 from graphgps.network.custom_gnn import create_model
-from graphgps.config import (dump_cfg, dump_run_cfg, makedirs_rm_exist)
+from graphgps.config import (dump_cfg, dump_run_cfg)
 
 from data_utils.load import load_data_lp
 from utils import set_cfg, parse_args, get_git_repo_root_path, Logger, custom_set_out_dir \
     , custom_set_run_dir, set_printing, run_loop_settings, create_optimizer, config_device, \
-        init_model_from_pretrained, create_logger, get_logger, StringTypeOrIntAction
+        init_model_from_pretrained, create_logger
 import pprint
 
 FILE_PATH = f'{get_git_repo_root_path()}/'
@@ -45,16 +35,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
                         default='core/yamls/cora/gcns/gae_sp1.yaml',
                         help='The configuration file path.')
-    parser.add_argument('--data', dest='data', type=str, required=False,
-                        default='pubmed',
+    parser.add_argument('--data', dest='data', type=str, required=True,
+                        default='cora',
                         help='data name')
     parser.add_argument('--batch_size', dest='bs', type=int, required=False,
-                        default=2048,
+                        default=2**15,
                         help='data name')
-    parser.add_argument('--device', dest='device', type=int, required=False, 
+    parser.add_argument('--device', dest='device', required=True, 
                         help='device id')
-    parser.add_argument('--epoch', dest='epoch', type=int, required=False,
-                        default=100,
+    parser.add_argument('--epochs', dest='epoch', type=int, required=False,
+                        default=9999,
                         help='data name')
     parser.add_argument('--repeat', type=int, default=1,
                         help='The number of repeated jobs.')
@@ -79,8 +69,7 @@ def project_main():
     cfg.data.device = args.device
     cfg.model.device = args.device
     cfg.device = args.device
-    cfg.train.batch_size = args.bs
-    cfg.train.epoch = args.epoch
+    cfg.train.epochs = args.epoch
     
     # save params
     custom_set_out_dir(cfg, args.cfg_file, cfg.wandb.name_tag)
@@ -109,14 +98,19 @@ def project_main():
         print_logger = set_printing(cfg)
         print_logger.info(f"The {cfg['data']['name']} graph {splits['train']['x'].shape} is loaded on {splits['train']['x'].device}, \n Train: {2*splits['train']['pos_edge_label'].shape[0]} samples,\n Valid: {2*splits['train']['pos_edge_label'].shape[0]} samples,\n Test: {2*splits['test']['pos_edge_label'].shape[0]} samples")
         dump_cfg(cfg)    
-        hyperparameter_search = {'lr': [0.0001, 0.001, 0.01, 0.04], 'batch_size': [1024, 2048, 4096, 8192, 16384]}
-        # hyperparameter_search = {'out_channels': [16, 32, 48, 64, 80, 96, 112], 'hidden_channels': [16, 32, 48, 64, 80, 96, 112]}
-        for out,  hidden in tqdm(itertools.product(*hyperparameter_search.values())):
-            # cfg.model.out_channels = out
-            # cfg.model.hidden_channels = hidden
-            cfg.train.batch_size = hidden
-            cfg.optimizer.lr = out
-            
+
+        hyperparameter_search = {'out_channels': [160, 176], 'hidden_channels': [160, 176], 
+                                 "batch_size": [2**13, 2**14], "lr": [0.01, 0.04]}
+        
+        print_logger.info(f"hypersearch space: {hyperparameter_search}")
+        for out,  hidden, bs, lr in tqdm(itertools.product(*hyperparameter_search.values())):
+            cfg.model.out_channels = out
+            cfg.model.hidden_channels = hidden
+            cfg.train.batch_size =  bs
+            cfg.optimizer.base_lr = lr
+            print_logger.info(f"out : {out}, hidden: {hidden}")
+            print_logger.info(f"bs : {cfg.train.batch_size}, lr: {cfg.optimizer.base_lr}")
+                        
             start_time = time.time()
                 
             model = create_model(cfg)
@@ -137,6 +131,7 @@ def project_main():
             custom_set_run_dir(cfg, cfg.wandb.name_tag)
         
             dump_run_cfg(cfg)
+            print_logger.info(f"config saved into {cfg.run_dir}")
             print_logger.info(f'Run {run_id} with seed {seed} and split {split_index} on device {cfg.device}')
             trainer = Trainer(FILE_PATH,
                         cfg,
@@ -158,9 +153,16 @@ def project_main():
                 # refer to calc_run_stats in Logger class
                 _, _, _, test_bvalid = trainer.loggers[key].calc_run_stats(run_id)
                 run_result.update({key: test_bvalid})
+            
+            cfg.model.out_channels = out
+            cfg.model.hidden_channels = hidden
+            cfg.train.batch_size =  bs
+            cfg.optimizer.base_lr = lr
+            
+            run_result.update({"out_channels": out, "hidden_channels": hidden, "batch_size": bs, "lr": lr})
             print_logger.info(run_result)
             
-            trainer.save_result(run_result)
+            trainer.save_tune(run_result)
             
             print_logger.info(f"runing time {time.time() - start_time}")
         

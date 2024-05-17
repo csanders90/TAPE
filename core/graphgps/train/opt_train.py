@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader
 from torch_sparse import SparseTensor
 from torch_geometric.utils import negative_sampling
 
-from embedding.tune_utils import param_tune_acc_mrr, mvari_str2csv
+from embedding.tune_utils import param_tune_acc_mrr, mvari_str2csv, save_parmet_tune
 from heuristic.eval import get_metric_score
 from utils import config_device
 from typing import Dict, Tuple
@@ -288,13 +288,8 @@ class Trainer():
                         for key, result in self.results_rank.items():
                             train_hits, valid_hits, test_hits = result
                             self.print_logger.info(
-                                f'Run: {self.run + 1:02d}, '
-                                f'Key: {key}, '
-                                f'Epoch: {epoch:02d}, '
-                                f'Loss: {loss:.4f}, '
-                                f'Train: {100 * train_hits:.2f}%, '
-                                f'Valid: {100 * valid_hits:.2f}%, '
-                                f'Test: {100 * test_hits:.2f}%')
+                                f'Run: {self.run + 1:02d}, Key: {key}, '
+                                f'Epoch: {epoch:02d}, Loss: {loss:.4f}, Train: {100 * train_hits:.2f}, Valid: {100 * valid_hits:.2f}, Test: {100 * test_hits:.2f}%')
                         self.print_logger.info('---')
                         
 
@@ -331,18 +326,30 @@ class Trainer():
         self.print_logger.info(f"save to {acc_file}")
         os.makedirs(root, exist_ok=True)
         
-        first_value_type = type(next(iter(results_dict.values())))
-        if all(isinstance(value, first_value_type) for value in results_dict.values()):
-            if first_value_type == float:
-                mvari_str2csv(self.name_tag, results_dict, acc_file)
-            elif first_value_type == str:
-                mvari_str2csv(self.name_tag, results_dict, acc_file)
+        # first_value_type = type(next(iter(results_dict.values())))
+        # if all(isinstance(value, first_value_type) for value in results_dict.values()):
+        #     if first_value_type == float:
+        #         mvari_str2csv(self.name_tag, results_dict, acc_file)
+        #     elif first_value_type == str:
+        #         
+        mvari_str2csv(self.name_tag, results_dict, acc_file)
 
-    def save_tune(self, run_result):
-        for key in run_result.keys():
-            self.loggers[key].add_result(self.run, run_result[key])
-        self.loggers.save(self.run, self.FILE_PATH, self.data_name, self.model_name)
+
+    def save_tune(self, results_dict: Dict[str, float]):  # sourcery skip: avoid-builtin-shadow
         
+        root = os.path.join(self.FILE_PATH, cfg.out_dir)
+        acc_file = os.path.join(root, f'{self.data_name}_tune_result.csv')
+        self.print_logger.info(f"save to {acc_file}")
+        os.makedirs(root, exist_ok=True)
+        
+        # first_value_type = type(next(iter(results_dict.values())))
+        # if all(isinstance(value, first_value_type) for value in results_dict.values()):
+        #     if first_value_type == float:
+        #         mvari_str2csv(self.name_tag, results_dict, acc_file)
+        #     elif first_value_type == str:
+        #         
+        save_parmet_tune(self.name_tag, results_dict, acc_file)    
+
         
 class Trainer_Saint(Trainer):
     def __init__(self, 

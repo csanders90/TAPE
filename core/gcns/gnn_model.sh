@@ -35,3 +35,8 @@ for item in ogbn-arxiv ogbn-products pubmed ogbn-products; do
     echo "Processing $item"
     python custom_tune.py --data "$item" > "$item-VAE-custom_tune_output.txt" 
 done 
+
+
+python custom_tune.py --data pubmed --device cuda:0  > pubmed-VAE-custom_tune_output.txt
+
+python custom_tune.py --data cora --device cuda:0 > cora-VAE-tune2_output.txt

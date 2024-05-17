@@ -151,44 +151,29 @@ def param_tune_acc_mrr(uuid_val, metrics, root, name, method):
     return upt_Data
 
 
-def mvari_str2csv(name_tag, metrics, root):
-    # if not exists save the first row
-    # one for new string line 
-    # another for new highest value line
-
-    first_value_type = type(next(iter(metrics.values())))
-    if all(isinstance(value, first_value_type) for value in metrics.values()):
-        if first_value_type == str:
-            metrics, float_metrics = convert_to_float(metrics)
-        else:
-            float_metrics = metrics
-
-    new_df, csv_columns = dict2df(metrics, name_tag)
-    new_df_float, csv_columns = dict2df(float_metrics, name_tag)
+def save_parmet_tune(name_tag, metrics, root):
     
+    csv_columns = ['Metric'] + list(metrics)
+
     try:
         Data = pd.read_csv(root)[:-1]
-        Data, Data_float = df_str2float(Data)
     except:
         Data = pd.DataFrame(None, columns=csv_columns)
-        Data, Data_float = df_str2float(Data)
         Data.to_csv(root, index=False)
-    
-    # debug
+
+    new_lst = [process_value(v) for k, v in metrics.items()]
+    v_lst = [f'{name_tag}'] + new_lst
+    new_df = pd.DataFrame([v_lst], columns=csv_columns)
     new_Data = pd.concat([Data, new_df])
-    new_Data_float = pd.concat([Data_float, new_df_float])
-            
+    
     # best value
-    new_Data_float[new_Data_float.columns[1:]] = new_Data_float[new_Data_float.columns[1:]].astype(float)
-    highest_values = new_Data_float.apply(lambda column: max(column, default=None))
-            
+    highest_values = new_Data.apply(lambda column: max(column, default=None))
     # concat and save
     Best_list = ['Best'] + highest_values[1:].tolist()
     Best_df = pd.DataFrame([Best_list], columns=Data.columns)
-    upt_Data = pd.concat([new_Data, Best_df])
-    
-    upt_Data.to_csv(root, index=False)
 
+    upt_Data = pd.concat([new_Data, Best_df])
+    upt_Data.to_csv(root,index=False)
     return upt_Data
 
 
@@ -241,3 +226,44 @@ def convert_to_float(metrics: Dict[str, str]) -> Dict[str, float]:
     for key, val in float_metrics.items():
         float_metrics[key] = set_float(val)
     return metrics, float_metrics
+
+
+def mvari_str2csv(name_tag, metrics, root):
+    # if not exists save the first row
+    # one for new string line 
+    # another for new highest value line
+
+    first_value_type = type(next(iter(metrics.values())))
+    if all(isinstance(value, first_value_type) for value in metrics.values()):
+        if first_value_type == str:
+            metrics, float_metrics = convert_to_float(metrics)
+        else:
+            float_metrics = metrics
+
+    new_df, csv_columns = dict2df(metrics, name_tag)
+    new_df_float, csv_columns = dict2df(float_metrics, name_tag)
+    
+    try:
+        Data = pd.read_csv(root)[:-1]
+        Data, Data_float = df_str2float(Data)
+    except:
+        Data = pd.DataFrame(None, columns=csv_columns)
+        Data, Data_float = df_str2float(Data)
+        Data.to_csv(root, index=False)
+    
+    # debug
+    new_Data = pd.concat([Data, new_df])
+    new_Data_float = pd.concat([Data_float, new_df_float])
+            
+    # best value
+    new_Data_float[new_Data_float.columns[1:]] = new_Data_float[new_Data_float.columns[1:]].astype(float)
+    highest_values = new_Data_float.apply(lambda column: max(column, default=None))
+            
+    # concat and save
+    Best_list = ['Best'] + highest_values[1:].tolist()
+    Best_df = pd.DataFrame([Best_list], columns=Data.columns)
+    upt_Data = pd.concat([new_Data, Best_df])
+    
+    upt_Data.to_csv(root, index=False)
+
+    return upt_Data
