@@ -5,6 +5,7 @@ metric_best: acc
 cfg_dest: gae.yaml
 print: file
 seed: 0
+accelerator: auto
 
 run:
   seed: 0

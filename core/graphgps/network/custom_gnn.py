@@ -9,12 +9,12 @@ import torch_scatter
 import torch_geometric
 
 import torch.nn.functional as F 
-from sklearn.metrics import *
 import wandb
 from torch import nn
 from torch_geometric.nn import GCNConv, MessagePassing
 from torch_geometric.utils import softmax
 from graphgps.loss.custom_loss import InnerProductDecoder
+from graphgps.network.heart_gnn import (GCN, GAT, SAGE, mlp_score)
 
 class GraphSage(MessagePassing):
     
@@ -22,7 +22,7 @@ class GraphSage(MessagePassing):
                  bias = False, **kwargs):  
         super(GraphSage, self).__init__(**kwargs)
 
-        self.in_channels = cfg.data.num_features
+        self.in_channels = cfg.model.in_channels
         self.out_channels = cfg.model.out_channels
         self.normalize = normalize
 
@@ -59,7 +59,7 @@ class GAT(MessagePassing):
     def __init__(self, cfg, **kwargs):
         super(GAT, self).__init__(node_dim=0, **kwargs)
 
-        self.in_channels = cfg.data.num_features
+        self.in_channels = cfg.model.in_channels
         self.out_channels = cfg.model.out_channels
         self.heads = cfg.model.heads
         self.negative_slope = cfg.model.negative_slope
@@ -250,7 +250,6 @@ class VGAE(GAE):
             max=MAX_LOGSTD)
         return -0.5 * torch.mean(
             torch.sum(1 + 2 * logstd - mu**2 - logstd.exp()**2, dim=1)) # 两个高斯分布之间的KL损失
-
 
 def create_model(cfg):
     if cfg.model.type == 'GAT':

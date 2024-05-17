@@ -30,7 +30,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='GraphGym')
 
     parser.add_argument('--cfg', dest='cfg_file', type=str, required=False,
-                        default='core/yamls/cora/gcns/vgae.yaml',
+                        default='core/yamls/cora/gcns/gae.yaml',
                         help='The configuration file path.')
     parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
                         default='core/yamls/cora/gcns/gae_sp1.yaml',
@@ -43,8 +43,8 @@ def parse_args() -> argparse.Namespace:
                         help='data name')
     parser.add_argument('--device', dest='device', required=True, 
                         help='device id')
-    parser.add_argument('--epochs', dest='epoch', type=int, required=False,
-                        default=9999,
+    parser.add_argument('--epochs', dest='epoch', type=int, required=True,
+                        default=300,
                         help='data name')
     parser.add_argument('--repeat', type=int, default=1,
                         help='The number of repeated jobs.')
@@ -100,8 +100,7 @@ def project_main():
         dump_cfg(cfg)    
 
         hyperparameter_search = {'out_channels': [160, 176], 'hidden_channels': [160, 176], 
-                                 "batch_size": [2**13, 2**14], "lr": [0.01, 0.04]}
-        
+                                 "batch_size": [2**13, 2**14], "lr": [0.01, 0.008, 0.007, 0.015]}
         print_logger.info(f"hypersearch space: {hyperparameter_search}")
         for out,  hidden, bs, lr in tqdm(itertools.product(*hyperparameter_search.values())):
             cfg.model.out_channels = out
@@ -133,6 +132,8 @@ def project_main():
             dump_run_cfg(cfg)
             print_logger.info(f"config saved into {cfg.run_dir}")
             print_logger.info(f'Run {run_id} with seed {seed} and split {split_index} on device {cfg.device}')
+            
+            
             trainer = Trainer(FILE_PATH,
                         cfg,
                         model, 
@@ -162,7 +163,8 @@ def project_main():
             run_result.update({"out_channels": out, "hidden_channels": hidden, "batch_size": bs, "lr": lr})
             print_logger.info(run_result)
             
-            trainer.save_tune(run_result)
+            to_file = f'{cfg.data.name}_{cfg.model.type}_tune_result.csv'
+            trainer.save_tune(run_result, to_file)
             
             print_logger.info(f"runing time {time.time() - start_time}")
         

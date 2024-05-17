@@ -31,7 +31,9 @@
 				"--data",
 				"cora",
 				"--device",
-				"cpu"
+				"cpu",
+				"--epochs",
+				"200"
 			],
 		}
 	]

@@ -335,10 +335,10 @@ class Trainer():
         mvari_str2csv(self.name_tag, results_dict, acc_file)
 
 
-    def save_tune(self, results_dict: Dict[str, float]):  # sourcery skip: avoid-builtin-shadow
+    def save_tune(self, results_dict: Dict[str, float], to_file):  # sourcery skip: avoid-builtin-shadow
         
         root = os.path.join(self.FILE_PATH, cfg.out_dir)
-        acc_file = os.path.join(root, f'{self.data_name}_tune_result.csv')
+        acc_file = os.path.join(root, to_file)
         self.print_logger.info(f"save to {acc_file}")
         os.makedirs(root, exist_ok=True)
         
