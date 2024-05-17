@@ -220,6 +220,7 @@ class VariationalGCNEncoder(torch.nn.Module):
         x = self.conv1(x, edge_index).relu()
         return self.conv_mu(x, edge_index), self.conv_logstd(x, edge_index)
 
+
 class VGAE(GAE): 
     """变分自编码器。继承自GAE这个类，可以使用GAE里面定义的函数。
     """
@@ -263,5 +264,5 @@ def create_model(cfg):
         model = GAE(encoder = GCNEncoder(cfg) )
     elif cfg.model.type == 'VGAE':
         model = VGAE(encoder= VariationalGCNEncoder(cfg))
-
+    model.to(cfg.device)
     return model 

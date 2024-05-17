@@ -11,6 +11,7 @@ import git
 import subprocess
 import pandas as pd
 import argparse
+import wandb
 import torch.optim as optim
 from torch_scatter import scatter
 from yacs.config import CfgNode as CN
@@ -25,7 +26,13 @@ from typing import Tuple, List, Dict
 
 set_float = lambda result: float(result.split(' ± ')[0])
 
-
+class StringTypeOrIntAction(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        if not isinstance(values, (str, int)):
+            parser.error("Argument must be either a string or an integer")
+        setattr(namespace, self.dest, values)
+        
+        
 def init_random_state(seed=0):
     # Libraries using GPU should be imported after specifying GPU-ID
     import torch
@@ -365,17 +372,28 @@ class Logger(object):
         
 
 def get_logger(name, log_dir, config_dir):
-	
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG)
-    logger.propagate = False
 
-    std_out_format = '%(asctime)s - [%(levelname)s] - %(message)s'
-    consoleHandler = logging.StreamHandler(sys.stdout)
-    consoleHandler.setFormatter(logging.Formatter(std_out_format))
-    logger.addHandler(consoleHandler)
+    """
+    Set up printing options
 
-    return logger
+    """
+    logging.root.handlers = []
+    logging_cfg = {'level': logging.INFO, 'format': '%(message)s'}
+    os.makedirs(cfg.run_dir, exist_ok=True)
+    h_file = logging.FileHandler(f'{cfg.run_dir}/logging.log')
+    h_stdout = logging.StreamHandler(sys.stdout)
+    if cfg.print == 'file':
+        logging_cfg['handlers'] = [h_file]
+    elif cfg.print == 'stdout':
+        logging_cfg['handlers'] = [h_stdout]
+    elif cfg.print == 'both':
+        logging_cfg['handlers'] = [h_file, h_stdout]
+    else:
+        raise ValueError('Print option not supported')
+
+    logging.basicConfig(**logging_cfg)
+    return logging_cfg
+
 
 
 def save_emb(score_emb, save_path):
@@ -649,7 +667,9 @@ def custom_set_run_dir(cfg, run_id):
         cfg (CfgNode): Configuration node
         run_id (int): Main for-loop iter id (the random seed or dataset split)
     """
-    cfg.run_dir = os.path.join(cfg.out_dir, str(run_id))
+    id = wandb.util.generate_id()
+    cfg.wandb.name_tag = f'{cfg.data.name}_run{id}_{cfg.model.type}' 
+    cfg.run_dir = os.path.join(cfg.out_dir, str(cfg.wandb.name_tag))
     # Make output directory
     if cfg.train.auto_resume:
         os.makedirs(cfg.run_dir, exist_ok=True)
@@ -663,20 +683,32 @@ def set_printing(cfg):
     Set up printing options
 
     """
-    logging.root.handlers = []
-    logging_cfg = {'level': logging.INFO, 'format': '%(message)s'}
-    os.makedirs(cfg.run_dir, exist_ok=True)
-    h_file = logging.FileHandler(f'{cfg.run_dir}/logging.log')
-    h_stdout = logging.StreamHandler(sys.stdout)
-    if cfg.print == 'file':
-        logging_cfg['handlers'] = [h_file]
-    elif cfg.print == 'stdout':
-        logging_cfg['handlers'] = [h_stdout]
-    elif cfg.print == 'both':
-        logging_cfg['handlers'] = [h_file, h_stdout]
-    else:
-        raise ValueError('Print option not supported')
-    logging.basicConfig(**logging_cfg)
+    import logging
+
+    # Step 1: Create a logger
+    logger = logging.getLogger(__name__)
+
+    # Step 2: Set the overall log level for the logger
+    logger.setLevel(logging.DEBUG)
+
+    # Step 3: Create handlers
+    file_handler = logging.FileHandler(f'{cfg.run_dir}/logging.log')
+    console_handler = logging.StreamHandler(sys.stdout)
+
+    # Step 4: Set log levels for handlers
+    file_handler.setLevel(logging.DEBUG)
+    console_handler.setLevel(logging.DEBUG)
+
+    # Step 5: Create formatters and add them to handlers
+    formatter = logging.Formatter('%(asctime)s - %(message)s')
+    file_handler.setFormatter(formatter)
+    console_handler.setFormatter(formatter)
+
+    # Step 6: Add handlers to the logger
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+    
+    return logger
 
 
 def create_optimizer(model, optimizer_config):
@@ -734,38 +766,18 @@ def create_scheduler(optimizer, scheduler_config):
         raise ValueError(f'Scheduler {scheduler_config.scheduler} not supported')
     return scheduler
 
-
-def init_model_from_pretrained(model, pretrained_dir, freeze_pretrained=False):
-    raise NotImplementedError #assign to constantin
-    """ Copy model parameters from pretrained model except the prediction head.
-
-    Args:
-        model: Initialized model with random weights.
-        pretrained_dir: Root directory of saved pretrained model.
-        freeze_pretrained: If True, do not finetune the loaded pretrained
-            parameters, train the prediction head only. If False, train all.
-
-    Returns:
-        Updated pytorch model object.
+import os.path as osp
+def init_model_from_pretrained(model, pretrained_dir, freeze_pretrained=False) -> torch.Tensor:
+    # raise NotImplementedError #assign to constantin
+    # TODO start with torch.Embedding as preliminary step
+    """ Load the generated embedding from LLM to update data.x
+    
+    Step1: load themd
+    Step2: postprocessing to torch.Tensor in shape (num_nodes, n_dim)
+    num_nodes = data.x.shape[0]
+    n_dim = free to choose
+    Step3: Normalization 
+    
+    Return 
     """
-    ckpt_file = get_final_pretrained_ckpt(osp.join(pretrained_dir, '0', 'ckpt'))
-    logging.info(f"[*] Loading from pretrained model: {ckpt_file}")
-
-    ckpt = torch.load(ckpt_file)
-    pretrained_dict = ckpt['model_state']
-    model_dict = model.state_dict()
-
-    # Filter out prediction head parameter keys.
-    pretrained_dict = {k: v for k, v in pretrained_dict.items()
-                       if not k.startswith('post_mp')}
-    # Overwrite entries in the existing state dict.
-    model_dict.update(pretrained_dict)
-    # Load the new state dict.
-    model.load_state_dict(model_dict)
-
-    if freeze_pretrained:
-        for key, param in model.named_parameters():
-            if not key.startswith('post_mp'):
-                param.requires_grad = False
-    return model
 

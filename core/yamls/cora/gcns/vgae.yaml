@@ -1,8 +1,8 @@
 # line.yaml
 out_dir: results
 metric_best: acc
-cfg_dest: gae.yaml
-print: file
+cfg_dest: vgae.yaml
+print: both
 
 run:
   seed: 0
@@ -16,9 +16,9 @@ wandb:
 
 train:
   mode: custom
-  batch_size: 32   
+  batch_size: 4096
   eval_period: 1
-  epochs: 9999
+  epochs: 200
   device: 0
   auto_resume: False
   final_eval: False

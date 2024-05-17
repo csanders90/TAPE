@@ -28,7 +28,7 @@ import pprint
 
 FILE_PATH = f'{get_git_repo_root_path()}/'
 
-
+# TODO add weight biases to report result
 def project_main():
     
     args = parse_args()
@@ -47,15 +47,16 @@ def project_main():
 
     for run_id, seed, split_index in zip(*run_loop_settings(cfg, args)):
         # Set configurations for each run
-        custom_set_run_dir(cfg, run_id)
+        custom_set_run_dir(cfg, cfg.wandb.name_tag)
 
-        set_printing(cfg)
+        print_logger = set_printing(cfg)
         cfg.seed = seed
         cfg.run_id = run_id
         seed_everything(cfg.seed)
         cfg = config_device(cfg)
 
-        splits, _, data = load_data_lp[cfg.data.name](cfg.data)
+        # load tag 
+        splits, text, data = load_data_lp[cfg.data.name](cfg.data)
 
         cfg.model.in_channels = splits['train'].x.shape[1]
         model = create_model(cfg)
@@ -82,6 +83,7 @@ def project_main():
                     run_id, 
                     args.repeat,
                     loggers, 
+                    print_logger,
                     cfg.device)
 
         trainer.train()

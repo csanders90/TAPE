@@ -22,6 +22,15 @@ from typing import Dict, Tuple
 from utils import Logger
 
 
+report_step = {
+    'cora': 100,
+    'pubmed': 2,
+    'arxiv_2023': 2,
+    'ogbn-arxiv': 50,
+    'ogbn-products': 1,
+}
+
+
 class Trainer():
     def __init__(self, 
                  FILE_PATH: str, 
@@ -34,6 +43,7 @@ class Trainer():
                  run: int, 
                  repeat: int,
                  loggers: Logger, 
+                 print_logger: None, 
                  device: int):
         
         self.device = device
@@ -44,6 +54,7 @@ class Trainer():
         self.model_name = cfg.model.type 
         self.data_name = cfg.data.name
         self.FILE_PATH = FILE_PATH 
+        self.name_tag = cfg.wandb.name_tag
         self.epochs = cfg.train.epochs
         self.batch_size = cfg.train.batch_size
         
@@ -53,7 +64,8 @@ class Trainer():
         self.data = data
         self.optimizer = optimizer
         self.loggers = loggers
-        
+        self.print_logger = print_logger
+        self.report_step = report_step[cfg.data.name]
         model_types = ['VGAE', 'GAE', 'GAT', 'GraphSage', 'GNNStack']
         self.train_func = {model_type: self._train_gae if model_type in ['GAE', 'GAT', 'GraphSage', 'GNNStack'] else self._train_vgae for model_type in model_types}
         self.test_func = {model_type: self._test for model_type in model_types}
@@ -252,35 +264,30 @@ class Trainer():
     
     def train(self):  
         best_auc, best_hits, best_hit100 = 0, 0, 0
+
         for epoch in range(1, self.epochs + 1):
             loss = self.train_func[self.model_name]()
             
-            if epoch % 100 == 0:
+            if epoch % self.report_step == 0:
                 self.results_rank = self.merge_result_rank()
-                print(self.results_rank)
+                # self.print_logger.info(self.results_rank)
                 
                 # for key, result in results_rank.items():
                 #     # result - (train, valid, test)
                 #     self.loggers[key].add_result(self.run, result)
                     # print(self.loggers[key].results)
                     
-                print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {self.results_rank["AUC"][0]:.4f}, AP: {self.results_rank["AP"][0]:.4f}, MRR: {self.results_rank["MRR"][0]:.4f}, Hit@10 {self.results_rank["Hits@10"][0]:.4f}')
-                print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {self.results_rank["AUC"][1]:.4f}, AP: {self.results_rank["AP"][1]:.4f}, MRR: {self.results_rank["MRR"][1]:.4f}, Hit@10 {self.results_rank["Hits@10"][1]:.4f}')               
-                print(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {self.results_rank["AUC"][2]:.4f}, AP: {self.results_rank["AP"][2]:.4f}, MRR: {self.results_rank["MRR"][2]:.4f}, Hit@10 {self.results_rank["Hits@10"][2]:.4f}')               
+                self.print_logger.info(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {self.results_rank["AUC"][0]:.4f}, AP: {self.results_rank["AP"][0]:.4f}, MRR: {self.results_rank["MRR"][0]:.4f}, Hit@10 {self.results_rank["Hits@10"][0]:.4f}')
+                self.print_logger.info(f'Epoch: {epoch:03d}, Loss_valid: {loss:.4f}, AUC: {self.results_rank["AUC"][1]:.4f}, AP: {self.results_rank["AP"][1]:.4f}, MRR: {self.results_rank["MRR"][1]:.4f}, Hit@10 {self.results_rank["Hits@10"][1]:.4f}')               
+                self.print_logger.info(f'Epoch: {epoch:03d}, Loss_test: {loss:.4f}, AUC: {self.results_rank["AUC"][2]:.4f}, AP: {self.results_rank["AP"][2]:.4f}, MRR: {self.results_rank["MRR"][2]:.4f}, Hit@10 {self.results_rank["Hits@10"][2]:.4f}')               
+                    
 
-                if self.results_rank["AUC"][1] > best_auc:
-                    best_auc = self.results_rank["AUC"][1]
-                elif self.results_rank['Hits@100'][1] > best_hit100:
-                    best_hits = self.results_rank['Hits@100'][1]
-                    
-                    
                 for key, result in self.results_rank.items():
                     self.loggers[key].add_result(self.run, result)
                     if epoch % 500 == 0:
                         for key, result in self.results_rank.items():
-                            print(key)
                             train_hits, valid_hits, test_hits = result
-                            print(
+                            self.print_logger.info(
                                 f'Run: {self.run + 1:02d}, '
                                 f'Key: {key}, '
                                 f'Epoch: {epoch:02d}, '
@@ -288,7 +295,7 @@ class Trainer():
                                 f'Train: {100 * train_hits:.2f}%, '
                                 f'Valid: {100 * valid_hits:.2f}%, '
                                 f'Test: {100 * test_hits:.2f}%')
-                        print('---')
+                        self.print_logger.info('---')
                         
 
         return best_auc, best_hits
@@ -321,16 +328,15 @@ class Trainer():
         
         root = os.path.join(self.FILE_PATH, cfg.out_dir)
         acc_file = os.path.join(root, f'{self.data_name}_wb_acc_mrr.csv')
-        print(f"save to {acc_file}")
+        self.print_logger.info(f"save to {acc_file}")
         os.makedirs(root, exist_ok=True)
-        id = wandb.util.generate_id()
         
         first_value_type = type(next(iter(results_dict.values())))
         if all(isinstance(value, first_value_type) for value in results_dict.values()):
             if first_value_type == float:
-                mvari_str2csv(id, results_dict, acc_file, self.data_name, self.model_name)
+                mvari_str2csv(self.name_tag, results_dict, acc_file)
             elif first_value_type == str:
-                mvari_str2csv(id, results_dict, acc_file, self.data_name, self.model_name)
+                mvari_str2csv(self.name_tag, results_dict, acc_file)
 
     def save_tune(self, run_result):
         for key in run_result.keys():
