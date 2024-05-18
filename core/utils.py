@@ -732,7 +732,7 @@ def create_optimizer(model, optimizer_config):
         optimizer = optim.SGD(params, lr=optimizer.base_lr)
     else:
         raise ValueError(f'Optimizer {optimizer_config.optimizer} not supported')
-
+    optimizer.zero_grad()
     return optimizer
 
 

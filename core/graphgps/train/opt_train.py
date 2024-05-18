@@ -81,7 +81,6 @@ class Trainer():
                      pos_train_weight,
                      device):
 
-        self.model.train()
 
         train_pos = self.train_data
         total_loss = total_examples = 0
@@ -160,6 +159,7 @@ class Trainer():
     
 
     def _train_vgae(self):
+
         self.model.train()
         self.optimizer.zero_grad()
         # encoder is VAE, forward is embedding
@@ -326,12 +326,7 @@ class Trainer():
         self.print_logger.info(f"save to {acc_file}")
         os.makedirs(root, exist_ok=True)
         
-        # first_value_type = type(next(iter(results_dict.values())))
-        # if all(isinstance(value, first_value_type) for value in results_dict.values()):
-        #     if first_value_type == float:
-        #         mvari_str2csv(self.name_tag, results_dict, acc_file)
-        #     elif first_value_type == str:
-        #         
+       
         mvari_str2csv(self.name_tag, results_dict, acc_file)
 
 
@@ -342,12 +337,7 @@ class Trainer():
         self.print_logger.info(f"save to {acc_file}")
         os.makedirs(root, exist_ok=True)
         
-        # first_value_type = type(next(iter(results_dict.values())))
-        # if all(isinstance(value, first_value_type) for value in results_dict.values()):
-        #     if first_value_type == float:
-        #         mvari_str2csv(self.name_tag, results_dict, acc_file)
-        #     elif first_value_type == str:
-        #         
+        
         save_parmet_tune(self.name_tag, results_dict, acc_file)    
 
         
