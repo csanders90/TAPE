@@ -12,7 +12,7 @@ from torch_geometric import seed_everything
 from torch_geometric.graphgym.utils.comp_budget import params_count
 from torch_geometric.graphgym.cmd_args import parse_args
 import argparse
-
+import wandb
 from graphgps.train.opt_train import Trainer
 from graphgps.network.custom_gnn import create_model
 from graphgps.config import (dump_cfg, dump_run_cfg)
@@ -55,7 +55,6 @@ def parse_args() -> argparse.Namespace:
 
     return parser.parse_args()
 
-import wandb
 
 def project_main():
     
@@ -99,8 +98,10 @@ def project_main():
         print_logger.info(f"The {cfg['data']['name']} graph {splits['train']['x'].shape} is loaded on {splits['train']['x'].device}, \n Train: {2*splits['train']['pos_edge_label'].shape[0]} samples,\n Valid: {2*splits['train']['pos_edge_label'].shape[0]} samples,\n Test: {2*splits['test']['pos_edge_label'].shape[0]} samples")
         dump_cfg(cfg)    
 
-        hyperparameter_search = {'out_channels': [160, 176], 'hidden_channels': [160, 176], 
-                                 "batch_size": [2**13, 2**14], "lr": [0.01, 0.008, 0.007, 0.015]}
+        # hyperparameter_search = {'out_channels': [160, 176], 'hidden_channels': [160, 176]} GCN, GAE, VGAE
+        hyperparameter_search = {'out_channels': [160, 176], 'hidden_channels': [160, 176],
+                              "batch_size": [2**13, 2**14], "lr": [0.01, 0.008, 0.007, 0.015]}
+        
         print_logger.info(f"hypersearch space: {hyperparameter_search}")
         for out,  hidden, bs, lr in tqdm(itertools.product(*hyperparameter_search.values())):
             cfg.model.out_channels = out

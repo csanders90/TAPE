@@ -315,10 +315,8 @@ class Logger(object):
 
         if print_mode:
             print(f'Run {run + 1:02d}:')
-            print(f'Highest Train: {result[:, 0].max().item():.2f} at Epoch {100*result[:, 0].argmax().item()}')
-            print(f'Highest Valid: {result[:, 1].max().item():.2f} at Epoch {100*best_valid_epoch}')
-            print(f'  Final Train: {best_train_valid:.2f} at Epoch {100*best_valid_epoch}')
-            print(f'   Final Test: {best_test_valid:.2f} at Epoch {100*best_valid_epoch}')
+            print(f'Highest Train: {result[:, 0].max().item():.2f} at Epoch {100*result[:, 0].argmax().item()}, Highest Valid: {result[:, 1].max().item():.2f} at Epoch {100*best_valid_epoch}, Final Train: {best_train_valid:.2f} at Epoch {100*best_valid_epoch}')
+            print(f'Final Test: {best_test_valid:.2f} at Epoch {100*best_valid_epoch}')
         
         # best train, best valid, train with the best valid epoch, test with the best valid epoch
         return round(result[:, 0].max().item(), 2), round(result[:, 1].max().item(), 2), round(best_train_valid.item(), 2), round(best_test_valid.item(), 2)

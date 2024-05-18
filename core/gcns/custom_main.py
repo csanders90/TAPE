@@ -48,7 +48,7 @@ def parse_args() -> argparse.Namespace:
                         help='data name')
     parser.add_argument('--device', dest='device', required=True, 
                         help='device id')
-    parser.add_argument('--epochs', dest='epoch', type=int, required=True,
+    parser.add_argument('--epochs', dest='epochs', type=int, required=True,
                         default=300,
                         help='data name')
     parser.add_argument('--repeat', type=int, default=1,
@@ -71,6 +71,14 @@ def project_main():
     cfg.merge_from_list(args.opts)
     custom_set_out_dir(cfg, args.cfg_file, cfg.wandb.name_tag)
     dump_cfg(cfg)
+    
+    
+    cfg.data.name = args.data
+    cfg.data.device = args.device
+    cfg.model.device = args.device
+    cfg.device = args.device
+    cfg.train.epochs = args.epochs
+    
     pprint.pprint(cfg)
 
     # Set Pytorch environment
@@ -121,25 +129,25 @@ def project_main():
 
         trainer.train()
 
-        run_result = {}
+        run_result = dict.fromkeys(trainer.loggers.keys())
         for key in trainer.loggers.keys():
             # refer to calc_run_stats in Logger class
             _, _, _, test_bvalid = trainer.loggers[key].calc_run_stats(run_id)
-            run_result.update({key: test_bvalid})
+            run_result[key] = test_bvalid
         print(run_result)
-        
+
         trainer.save_result(run_result)
+
+    if args.repeat > 1:
         
-    # statistic for all runs
-    print('All runs:')
+        print('All runs:')
+        result_dict = {}
+        for key in loggers:
+            print(key)
+            _, _, _, valid_test, _, _ = trainer.loggers[key].calc_all_stats()
+            result_dict.update({key: valid_test})
 
-    result_dict = {}
-    for key in loggers:
-        print(key)
-        _, _, _, valid_test, _, _ = trainer.loggers[key].calc_all_stats()
-        result_dict.update({key: valid_test})
-
-    trainer.save_result(result_dict)
+        trainer.save_result(result_dict)
 
 
 if __name__ == "__main__":
