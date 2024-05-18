@@ -228,4 +228,8 @@ def create_model(cfg):
     elif cfg.model.type == 'VGAE':
         model = VGAE(encoder= VariationalGCNEncoder(cfg))
     model.to(cfg.device)
+    else:
+        # Without this else I got: UnboundLocalError: local variable 'model' referenced before assignment
+        raise ValueError('Current model does not exist')
+
     return model 
