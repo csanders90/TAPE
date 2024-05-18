@@ -52,7 +52,11 @@ if __name__ == "__main__":
             seed_everything(cfg.seed)
             cfg = config_device(cfg)
             splits, _, data = load_data_lp[cfg.data.name](cfg.data)
+            cfg.model.in_channels = data.x.size(1)
 
+            print_logger = set_printing(cfg)
+            print_logger.info(f"The {cfg['data']['name']} graph {splits['train']['x'].shape} is loaded on {splits['train']['x'].device}, \n Train: {2*splits['train']['pos_edge_label'].shape[0]} samples,\n Valid: {2*splits['train']['pos_edge_label'].shape[0]} samples,\n Test: {2*splits['test']['pos_edge_label'].shape[0]} samples") 
+        
             lst_args = cfg.model.type.split('_')
             if lst_args[0] == 'gsaint':
                 sampler = get_loader
@@ -64,14 +68,18 @@ if __name__ == "__main__":
             optimizer = torch.optim.Adam(model.parameters(), lr=cfg.optimizer.base_lr)
 
             # Execute experiment
-            trainer = Trainer_Saint(FILE_PATH, 
-                        cfg, 
+            trainer = Trainer_Saint(FILE_PATH,
+                        cfg,
                         model, 
-                        optimizer, 
-                        splits, 
+                        None, 
+                        data,
+                        optimizer,
+                        splits,
                         run_id, 
                         args.repeat,
-                        loggers,
+                        loggers, 
+                        print_logger,
+                        cfg.device,
                         sampler, 
                         batch_size, 
                         walk_length, 

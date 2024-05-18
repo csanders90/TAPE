@@ -5,38 +5,39 @@ metric_best: acc
 cfg_dest: gae.yaml
 print: file
 seed: 0
+accelerator: auto
 
 run:
   seed: 0
   num_threads: 11
-  multiple_splits: N
+  multiple_splits: None
+
 
 wandb:
   use: True
   project: gtblueprint
-  name_tag: gae-arxiv23-origin
+  name_tag: gae-cora-origin
 
 train:
   mode: custom
-  batch_size: 1024 
+  batch_size: 2048
   eval_period: 1
-  epochs: 2000
+  epochs: 1000
   device: 1
   auto_resume: False
   final_eval: False
   finetune: False
-  
+
 model:
   type: GAE
   out_channels: 32
-  hidden_channels: 8  # Assume that the dimension of the hidden layer feature is 8
   in_channels: None
-
+  hidden_channels: 32
 
 num_threads: 11
 
 data:
-  name: arxiv_2023
+  name: cora
   undirected: True
   include_negatives: True
   val_pct: 0.15
@@ -48,5 +49,5 @@ data:
 
 optimizer:
   type: adam
-  base_lr: 0.01
+  base_lr: 0.001
   weight_decay: 0.0005

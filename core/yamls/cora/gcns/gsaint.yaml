@@ -1,9 +1,11 @@
 # line.yaml
+
 out_dir: results
 metric_best: acc
-cfg_dest: vgae.yaml
-print: both
+cfg_dest: gsaint.yaml
+print: file
 seed: 0
+
 run:
   seed: 0
   num_threads: 11
@@ -12,23 +14,25 @@ run:
 wandb:
   use: True
   project: gtblueprint
-  name_tag: vgae-cora-origin
-
+  name_tag: gsaint-cora-origin
+  
 train:
   mode: custom
-  batch_size: 2**14 
+  batch_size: 32   
   eval_period: 1
-  epochs: 200
+  epochs: 2000
   device: 0
+  lr: 0.01 # {0.1, 0.01, 0.001, 0.0001}
   auto_resume: False
-  final_eval: False
   finetune: False
+
   
 model:
-  type: VGAE
-  out_channels: 32
-  hidden_channels: 32  # Assume that the dimension of the hidden layer feature is 8
-    
+  type: gsaint_gae # Here you can paste different name of model
+  out_channels: 16
+  hidden_channels: 8  # {128, 256, 512}
+  in_channels: 1433
+
 num_threads: 11
 
 data:
@@ -46,3 +50,4 @@ optimizer:
   type: adam
   base_lr: 0.01
   weight_decay: 0.0005
+

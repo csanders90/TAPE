@@ -560,7 +560,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='GraphGym')
 
     parser.add_argument('--cfg', dest='cfg_file', type=str, required=False,
-                        default='core/yamls/cora/gcns/vgae.yaml',
+                        default='core/yamls/cora/gcns/gae.yaml',
                         help='The configuration file path.')
     parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
                         default='core/yamls/cora/gcns/gae_sp1.yaml',
@@ -582,7 +582,6 @@ def parse_args() -> argparse.Namespace:
 def set_cfg(file_path, cfg_file):
     with open(file_path + cfg_file, "r") as f:
         return CN.load_cfg(f)
-    
 
 def run_loop_settings(cfg: CN,
                       args: argparse.Namespace) -> Tuple[List[int], List[int], List[int]]:
@@ -605,7 +604,7 @@ def run_loop_settings(cfg: CN,
     if cfg.run.multiple_splits == 'None':
         # 'multi-seed' run mode
         num_iterations = args.repeat
-        seeds = [cfg.run.seed + x for x in range(num_iterations)]
+        seeds = [cfg.seed + x for x in range(num_iterations)]
         split_indices = [cfg.data.split_index] * num_iterations
         run_ids = seeds
     else:

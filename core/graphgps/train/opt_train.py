@@ -351,12 +351,14 @@ class Trainer_Saint(Trainer):
                  run, 
                  repeat, 
                  loggers,
+                 print_logger,
+                 device,
                  gsaint=None,
                  batch_size=None, 
                  walk_length=None, 
                  num_steps=None, 
                  sample_coverage=None):
-        super().__init__(FILE_PATH, cfg, model, optimizer, splits, run, repeat, loggers)
+        super().__init__(FILE_PATH, cfg, model, optimizer, splits, run, repeat, loggers, print_logger, device)
 
         
         self.device = config_device(cfg)
