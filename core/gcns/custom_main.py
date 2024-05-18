@@ -18,15 +18,48 @@ from torch_geometric.graphgym.config import (dump_cfg,
                                              makedirs_rm_exist)
 import torch_geometric.transforms as T
 from torch_geometric.datasets import Planetoid
+import argparse 
+
 from graphgps.train.opt_train import Trainer
 from graphgps.network.custom_gnn import create_model
 from data_utils.load import load_data_lp
-from utils import set_cfg, parse_args, get_git_repo_root_path, Logger, custom_set_out_dir \
+from utils import set_cfg, get_git_repo_root_path, Logger, custom_set_out_dir \
     , custom_set_run_dir, set_printing, run_loop_settings, create_optimizer, config_device, \
         init_model_from_pretrained, create_logger
 import pprint
 
 FILE_PATH = f'{get_git_repo_root_path()}/'
+
+def parse_args() -> argparse.Namespace:
+    r"""Parses the command line arguments."""
+    parser = argparse.ArgumentParser(description='GraphGym')
+
+    parser.add_argument('--cfg', dest='cfg_file', type=str, required=False,
+                        default='core/yamls/cora/gcns/gat.yaml',
+                        help='The configuration file path.')
+    parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
+                        default='core/yamls/cora/gcns/gae_sp1.yaml',
+                        help='The configuration file path.')
+    parser.add_argument('--data', dest='data', type=str, required=True,
+                        default='cora',
+                        help='data name')
+    parser.add_argument('--batch_size', dest='bs', type=int, required=False,
+                        default=2**15,
+                        help='data name')
+    parser.add_argument('--device', dest='device', required=True, 
+                        help='device id')
+    parser.add_argument('--epochs', dest='epoch', type=int, required=True,
+                        default=300,
+                        help='data name')
+    parser.add_argument('--repeat', type=int, default=1,
+                        help='The number of repeated jobs.')
+    parser.add_argument('--mark_done', action='store_true',
+                        help='Mark yaml as done after a job has finished.')
+    parser.add_argument('opts', default=None, nargs=argparse.REMAINDER,
+                        help='See graphgym/config.py for remaining options.')
+
+    return parser.parse_args()
+
 
 # TODO add weight biases to report result
 def project_main():

@@ -65,10 +65,13 @@ class GAT(MessagePassing):
         self.negative_slope = cfg.model.negative_slope
         self.dropout = cfg.model.dropout
         
+        self.H, self.C = self.heads, self.out_channels
+        assert self.C % self.H == 0, "Fatal error: hidden size must be divisible by number of heads."
+        
         self.lin_l = nn.Linear(in_features=self.in_channels, out_features=self.out_channels)
         self.lin_r = self.lin_l
-        self.att_l = nn.Parameter(data=torch.zeros(self.heads, self.out_channels))
-        self.att_r = nn.Parameter(data=torch.zeros(self.heads, self.out_channels))
+        self.att_l = nn.Parameter(data=torch.zeros(self.H, int(self.C/self.H)))
+        self.att_r = nn.Parameter(data=torch.zeros(self.H, int(self.C/self.H)))
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -78,11 +81,10 @@ class GAT(MessagePassing):
         nn.init.xavier_uniform_(self.att_r)
 
     def forward(self, x, edge_index, size = None):
-        
-        H, C = self.heads, self.out_channels
+        self.N = x.size(0)
         # reshape to [num_nodes, num_heads, hidden_size]
-        x_l = self.lin_l(x).reshape(-1, H, C)
-        x_r = self.lin_r(x).reshape(-1, H, C)
+        x_l = self.lin_l(x).reshape(self.N, self.H, int(self.C/self.H))
+        x_r = self.lin_r(x).reshape(self.N, self.H, int(self.C/self.H))
         # alpha vectors
         alpha_l = self.att_l * x_l
         alpha_r = self.att_r * x_r
@@ -91,7 +93,7 @@ class GAT(MessagePassing):
             x=(x_l, x_r),
             alpha=(alpha_l, alpha_r),
             size=size,
-        ).reshape(-1, H * C)
+        ).reshape(-1, self.C)
 
 
     def message(self, x_j, alpha_j, alpha_i, index, ptr, size_i):
@@ -107,43 +109,6 @@ class GAT(MessagePassing):
             inputs, index=index, dim=self.node_dim, dim_size=dim_size, reduce='sum'
         )
     
-
-class LinkPredModel(torch.nn.Module):
-
-    def __init__(self, encoder, decoder):
-        super(LinkPredModel, self).__init__()
-
-        self.encoder = encoder
-        self.loss_fn = nn.BCEWithLogitsLoss()
-        self.decoder = decoder
-        
-
-    def forward(self, x, edge_index):
-        return self.encoder(x, edge_index)
-    
-    def loss(self, pred, link_label):
-        return self.loss_fn(pred, link_label)
-    
-    def recon_loss(self, z, pos_edge_index, neg_edge_index=None):
-        """In this script we use the binary cross entropy loss function.
-
-        params
-        ----
-        z: output of encoder
-        pos_edge_index: positive edge index
-        neg_edge_index: negative edge index
-        """
-        EPS = 1e-15
-        
-        pos_loss = -torch.log(
-            self.decoder(z, pos_edge_index) + EPS).mean() # loss for positive samples
-
-        if neg_edge_index is None:
-            neg_edge_index = torch_geometric.utils.negative_sampling(pos_edge_index, z.size(0)) # negative sampling
-        neg_loss = -torch.log(
-            1 - self.decoder(z, neg_edge_index) + EPS).mean() # loss for negative samples
-
-        return pos_loss + neg_loss
 
 
 class GCNEncoder(torch.nn.Module):
@@ -253,10 +218,9 @@ class VGAE(GAE):
 
 def create_model(cfg):
     if cfg.model.type == 'GAT':
-        model = LinkPredModel(encoder=GAT(cfg),
-                              decoder=InnerProductDecoder())
+        model = GAE(encoder=GAT(cfg))
     elif cfg.model.type == 'GraphSage':
-        model = LinkPredModel(encoder=GraphSage(cfg),
+        model = GAE(encoder=GraphSage(cfg),
                               decoder=InnerProductDecoder())
     
     if cfg.model.type == 'GAE':
