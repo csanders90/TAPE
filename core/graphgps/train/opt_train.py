@@ -2,7 +2,7 @@ import os
 import sys
 from os.path import abspath, dirname, join
 sys.path.insert(0, abspath(join(dirname(dirname(__file__)))))
-
+# standard library imports
 import torch
 import wandb
 from ogb.linkproppred import Evaluator
@@ -14,12 +14,17 @@ from torch_geometric.data import Data
 from torch.utils.data import DataLoader
 from torch_sparse import SparseTensor
 from torch_geometric.utils import negative_sampling
+from graphgps.network.gsaint import GraphSAINTRandomWalkSampler   
+import torch.nn.functional as F
 
+# external 
 from embedding.tune_utils import param_tune_acc_mrr, mvari_str2csv
 from heuristic.eval import get_metric_score
 from utils import config_device
 from typing import Dict, Tuple
 from utils import Logger
+# Understand, whu is it work
+
 
 
 class Trainer():
@@ -128,6 +133,7 @@ class Trainer():
             loss = pos_loss + neg_loss
             loss.backward()
 
+            # delete thies two lines 
             if emb_update == 1: torch.nn.utils.clip_grad_norm_(x, 1.0)
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
 
@@ -141,13 +147,24 @@ class Trainer():
 
 
     def _train_gae(self):
+        # self.model.train()
+        # self.optimizer.zero_grad()
+        # z = self.model.encoder(self.train_data.x, self.train_data.edge_index)
+        # loss = self.model.recon_loss(z, self.train_data.pos_edge_label_index)
+        # loss.backward()
+        # self.optimizer.step()
+        # return loss.item()
         self.model.train()
-        self.optimizer.zero_grad()
-        z = self.model.encoder(self.train_data.x, self.train_data.edge_index)
-        loss = self.model.recon_loss(z, self.train_data.pos_edge_label_index)
-        loss.backward()
-        self.optimizer.step()
-        return loss.item()
+        total_loss = 0
+        for subgraph in self.train_data:
+            self.optimizer.zero_grad()
+            subgraph = subgraph.to(self.device)
+            z = self.model.encoder(subgraph.x, subgraph.edge_index)
+            loss = self.model.recon_loss(z, subgraph.pos_edge_label_index)
+            loss.backward()
+            self.optimizer.step()
+            total_loss += loss.item() * subgraph.num_nodes
+        return total_loss / len(self.train_data)
     
 
     def _train_vgae(self):
@@ -161,7 +178,6 @@ class Trainer():
         loss.backward()
         self.optimizer.step()
         return loss.item()
-
 
     @torch.no_grad()
     def _test(self, data: Data):
@@ -253,13 +269,14 @@ class Trainer():
             for key in result_test.keys()
         }
     
-    
+
     def train(self):  
         best_auc, best_hits, best_hit100 = 0, 0, 0
 
         for epoch in range(1, self.epochs + 1):
             loss = self.train_func[self.model_name]()
-            
+            print(epoch, ': ', loss)
+            # if epoch % 100 == 0:
             if epoch % 100 == 0:
                 self.results_rank = self.merge_result_rank()
                 self.print_logger.info(self.results_rank)
@@ -334,8 +351,9 @@ class Trainer():
         for key in run_result.keys():
             self.loggers[key].add_result(self.run, run_result[key])
         self.loggers.save(self.run, self.FILE_PATH, self.data_name, self.model_name)
-        
-        
+
+
+
 class Trainer_Saint(Trainer):
     def __init__(self, 
                  FILE_PATH: str, 
@@ -363,26 +381,166 @@ class Trainer_Saint(Trainer):
         self.print_logger = print_logger                
         self.model = model.to(self.device)
         self.emb = emb
-        self.data = data
+        self.data = data.to(self.device)
         self.model_name = cfg.model.type 
         self.data_name = cfg.data.name
-
+        
         self.FILE_PATH = FILE_PATH 
         self.epochs = cfg.train.epochs
         
         # GSAINT normalization
         if gsaint is not None:
             device_cpu = torch.device('cpu')
-            self.test_data = gsaint(splits['test'].to(device_cpu), batch_size_sampler, walk_length, num_steps, sample_coverage)
-            self.train_data = gsaint(splits['train'].to(device_cpu), batch_size_sampler, walk_length, num_steps, sample_coverage)
-            self.valid_data = gsaint(splits['valid'].to(device_cpu), batch_size_sampler, walk_length, num_steps, sample_coverage)
+            self.test_data  = GraphSAINTRandomWalkSampler(splits['test'].to(device_cpu), batch_size_sampler, walk_length, num_steps, sample_coverage)
+            self.train_data = GraphSAINTRandomWalkSampler(splits['train'].to(device_cpu), batch_size_sampler, walk_length, num_steps, sample_coverage)
+            self.valid_data = GraphSAINTRandomWalkSampler(splits['valid'].to(device_cpu), batch_size_sampler, walk_length, num_steps, sample_coverage)
         else:
-            self.test_data = splits['test']
-            self.train_data = splits['train']
-            self.valid_data = splits['valid']
+            self.test_data  = splits['test'].to(self.device)
+            self.train_data = splits['train'].to(self.device)
+            self.valid_data = splits['valid'].to(self.device)
+
+        self.optimizer  = optimizer
+    
+    # TODO: Understand how to get from subgraph global indexes, because my mapping is incorrect
+    def global_to_local(self, edge_label_index, node_idx):
+        global_to_local = {global_idx: local_idx for local_idx, global_idx in enumerate(node_idx.tolist())}
+
+        edge_indices = [
+            torch.tensor([global_to_local.get(idx.item(), -1) for idx in edge_label_index[0]], dtype=torch.long),
+            torch.tensor([global_to_local.get(idx.item(), -1) for idx in edge_label_index[1]], dtype=torch.long)
+        ]
+
+        local_indices = torch.stack(edge_indices, dim=0)
+
+        valid_indices = (local_indices >= 0).all(dim=0)
+        local_indices = local_indices[:, valid_indices]
+
+        return local_indices
+    
+    def _train_gae(self):
+        self.model.train()
+        total_loss = total_examples = 0
+        for subgraph in self.train_data:
+            self.optimizer.zero_grad()
+            subgraph = subgraph.to(self.device)
+
+            z = self.model.encoder(subgraph.x, subgraph.edge_index)
+
+            # import pdb; pdb.set_trace()
+            local_pos_indices = self.global_to_local(subgraph.pos_edge_label_index, subgraph.node_idx)
+            local_neg_indices = self.global_to_local(subgraph.neg_edge_label_index, subgraph.node_idx)
+
+            loss = self.model.recon_loss(z, local_pos_indices, local_neg_indices)
+
+            loss.backward()
+            self.optimizer.step()
+            total_loss += loss.item() * subgraph.num_nodes
+            total_examples += subgraph.num_nodes
         
-        self.test_data = splits['test'].to(self.device)
-        self.train_data = splits['train'].to(self.device)
-        self.valid_data = splits['valid'].to(self.device)
-        self.optimizer = optimizer
+        return total_loss / total_examples
+    
+    def _train_vgae(self):
+        self.model.train()
+        total_loss = total_examples = 0
+        for subgraph in self.train_data:
+            self.optimizer.zero_grad()
+            subgraph = subgraph.to(self.device)
+
+            z = self.model(subgraph.x, subgraph.edge_index)
+
+            # import pdb; pdb.set_trace()
+            local_pos_indices = self.global_to_local(subgraph.pos_edge_label_index, subgraph.node_idx)
+            local_neg_indices = self.global_to_local(subgraph.neg_edge_label_index, subgraph.node_idx)
+
+            loss = self.model.recon_loss(z, local_pos_indices, local_neg_indices)
+
+            loss += (1 / subgraph.num_nodes) * self.model.kl_loss()
+            loss.backward()
+            self.optimizer.step()
+            total_loss += loss.item() * subgraph.num_nodes
+            total_examples += subgraph.num_nodes
         
+        return total_loss / total_examples
+
+    @torch.no_grad()
+    def _evaluate(self, data_loader: Data):
+        self.model.eval()
+        accumulated_metrics = []
+
+        for data in data_loader:
+            data = data.to(self.device)
+
+            local_pos_indices = self.global_to_local(data.pos_edge_label_index, data.node_idx)
+            local_neg_indices = self.global_to_local(data.neg_edge_label_index, data.node_idx)
+            
+            z = self.model.encoder(data.x, data.edge_index)
+            pos_pred = self.model.decoder(z, local_pos_indices)
+            neg_pred = self.model.decoder(z, local_neg_indices)
+            y_pred = torch.cat([pos_pred, neg_pred], dim=0)
+
+            hard_thres = (y_pred.max() + y_pred.min())/2
+
+            pos_y = z.new_ones(local_pos_indices.size(1))
+            neg_y = z.new_zeros(local_neg_indices.size(1)) 
+            y = torch.cat([pos_y, neg_y], dim=0)
+            
+            y_pred[y_pred >= hard_thres] = 1
+            y_pred[y_pred < hard_thres] = 0
+            acc = torch.sum(y == y_pred) / len(y)
+
+            # if len(pos_y) > 0 and len(neg_y) > 0:  # Ensure both classes are present
+            pos_pred, neg_pred = pos_pred.cpu(), neg_pred.cpu()
+            result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_pred, neg_pred)
+            result_mrr.update({'acc': round(acc.item(), 5)})
+            accumulated_metrics.append(result_mrr)
+            # else:
+            #     print("Not enough diversity in labels to compute AUC.")
+
+        print(accumulated_metrics)
+        # Averaging accumulated metrics
+        averaged_results = {key: sum(values) / len(values) for key, values in accumulated_metrics.items()}
+        print(f"Average Accuracy: {averaged_results['average_accuracy']:.5f}")
+
+        return averaged_results
+
+    @torch.no_grad()
+    def _evaluate_vgae(self, data_loader):
+        self.model.eval()
+        accumulated_metrics = []
+
+        for data in data_loader:
+            data = data.to(self.device)
+
+            local_pos_indices = self.global_to_local(data.pos_edge_label_index, data.node_idx)
+            local_neg_indices = self.global_to_local(data.neg_edge_label_index, data.node_idx)
+            
+            z = self.model(data.x, data.edge_index)
+            pos_pred = self.model.decoder(z, local_pos_indices)
+            neg_pred = self.model.decoder(z, local_neg_indices)
+            y_pred = torch.cat([pos_pred, neg_pred], dim=0)
+
+            hard_thres = (y_pred.max() + y_pred.min())/2
+
+            pos_y = z.new_ones(local_pos_indices.size(1))
+            neg_y = z.new_zeros(local_neg_indices.size(1)) 
+            y = torch.cat([pos_y, neg_y], dim=0)
+            
+            y_pred[y_pred >= hard_thres] = 1
+            y_pred[y_pred < hard_thres] = 0
+            acc = torch.sum(y == y_pred) / len(y)
+
+            # if len(pos_y) > 0 and len(neg_y) > 0:  # Ensure both classes are present
+            pos_pred, neg_pred = pos_pred.cpu(), neg_pred.cpu()
+            result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_pred, neg_pred)
+            result_mrr.update({'acc': round(acc.item(), 5)})
+            accumulated_metrics.append(result_mrr)
+            # else:
+            #     print("Not enough diversity in labels to compute AUC.")
+
+        print(accumulated_metrics)
+        # Averaging accumulated metrics
+        averaged_results = {key: sum(values) / len(values) for key, values in accumulated_metrics.items()}
+        print(f"Average Accuracy: {averaged_results['average_accuracy']:.5f}")
+
+        return averaged_results
+

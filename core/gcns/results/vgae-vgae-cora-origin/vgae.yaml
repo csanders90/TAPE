@@ -1,8 +1,8 @@
 cfg_dest: vgae.yaml
 data:
-  device: cuda:0
+  device: 0
   include_negatives: true
-  name: pubmed
+  name: cora
   num_features: 1433
   split_index:
   - 0.8
@@ -16,7 +16,7 @@ device: 0
 metric_best: acc
 model:
   hidden_channels: 32
-  in_channels: 500
+  in_channels: 1433
   out_channels: 32
   type: VGAE
 num_threads: 11
@@ -30,7 +30,7 @@ run:
   multiple_splits: None
   num_threads: 11
   seed: 0
-run_dir: results/vgae-vgae-cora-origin/pubmed_runrscgaz1n_VGAE
+run_dir: results/vgae-vgae-cora-origin/cora_runogd0m694_VGAE
 run_id: 0
 seed: 0
 train:
@@ -43,6 +43,6 @@ train:
   finetune: false
   mode: custom
 wandb:
-  name_tag: pubmed_runrscgaz1n_VGAE
+  name_tag: cora_runogd0m694_VGAE
   project: gtblueprint
   use: true

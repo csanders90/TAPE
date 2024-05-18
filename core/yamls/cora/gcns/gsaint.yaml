@@ -21,15 +21,17 @@ train:
   batch_size: 32   
   eval_period: 1
   epochs: 2000
-  device: 0
+  device: 1
+  use_valedges_as_input: True
   lr: 0.01 # {0.1, 0.01, 0.001, 0.0001}
+  l2: 0.0
   auto_resume: False
   finetune: False
 
   
 model:
-  type: VGAE # Here you can paste different name of model
-  sampler: gsaint
+  type: GAE # Here you can paste different name of model
+  sampler: gsaint #None 
   out_channels: 16
   heads: 4
   hidden_channels: 8  # {128, 256, 512}
@@ -45,7 +47,7 @@ data:
   test_pct: 0.05
   split_labels: True
   num_features:  1433
-  device: 0
+  device: 1
   split_index: [0.8, 0.15, 0.05]
 
 optimizer:

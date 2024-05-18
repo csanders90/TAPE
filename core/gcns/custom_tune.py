@@ -17,7 +17,7 @@ from torch_geometric.graphgym.utils.agg_runs import agg_runs
 from torch_geometric.graphgym.utils.comp_budget import params_count
 from torch_geometric.graphgym.utils.device import auto_select_device
 from torch_geometric.graphgym.cmd_args import parse_args
-from torch_geometric.graphgym.config import dump_cfg, makedirs_rm_exist #, dump_run_cfg
+from torch_geometric.graphgym.config import dump_cfg, makedirs_rm_exist#, dump_run_cfg
 import torch_geometric.transforms as T
 from torch_geometric.datasets import Planetoid
 from distutils.util import strtobool
@@ -138,7 +138,9 @@ def project_main():
         custom_set_run_dir(cfg, cfg.wandb.name_tag)
     
         # dump_run_cfg(cfg)
-
+        
+        device = torch.device("cpu")#"cuda" if torch.cuda.is_available() else "cpu")
+        print(device)
         if cfg.model.sampler == 'gsaint':
             trainer = Trainer_Saint(
                 FILE_PATH=FILE_PATH,
@@ -151,9 +153,9 @@ def project_main():
                 run=0, 
                 repeat=args.repeat,
                 loggers=loggers,
-                print_logger=None,
-                device=cfg.device,
-                gsaint=get_loader_RW, 
+                print_logger=print_logger,
+                device=device, #cfg.device,
+                gsaint=sampler, 
                 batch_size_sampler=batch_size_sampler, 
                 walk_length=walk_length, 
                 num_steps=num_steps, 
@@ -167,7 +169,7 @@ def project_main():
                         data,
                         optimizer,
                         splits,
-                        run_id, 
+                        0, 
                         args.repeat,
                         loggers, 
                         print_logger,
@@ -178,7 +180,7 @@ def project_main():
         run_result = {}
         for key in trainer.loggers.keys():
             # refer to calc_run_stats in Logger class
-            _, _, _, test_bvalid = trainer.loggers[key].calc_run_stats(run_id)
+            _, _, _, test_bvalid = trainer.loggers[key].calc_run_stats(0)#run_id)
             run_result.update({key: test_bvalid})
         print_logger.info(run_result)
         

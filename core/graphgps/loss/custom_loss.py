@@ -13,6 +13,7 @@ class InnerProductDecoder(torch.nn.Module):
         z: 节点表示
         edge_index: 边索引，也就是节点对
         """
+
         value = (z[edge_index[0]] * z[edge_index[1]]).sum(dim=1)
         return torch.sigmoid(value) if sigmoid else value
 

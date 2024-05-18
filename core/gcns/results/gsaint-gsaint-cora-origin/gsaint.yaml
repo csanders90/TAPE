@@ -20,7 +20,7 @@ model:
   in_channels: 500
   out_channels: 16
   sampler: gsaint
-  type: VGAE
+  type: GAE
 num_threads: 11
 optimizer:
   base_lr: 0.01
@@ -32,19 +32,21 @@ run:
   multiple_splits: None
   num_threads: 11
   seed: 0
-run_dir: results/gsaint-gsaint-cora-origin/pubmed_runcykeffa6_VGAE
+run_dir: results/gsaint-gsaint-cora-origin/pubmed_runq59dnnu3_GAE
 run_id: 0
 seed: 0
 train:
   auto_resume: false
   batch_size: 32
-  device: 0
+  device: 1
   epochs: 2000
   eval_period: 1
   finetune: false
+  l2: 0.0
   lr: 0.01
   mode: custom
+  use_valedges_as_input: true
 wandb:
-  name_tag: pubmed_runcykeffa6_VGAE
+  name_tag: pubmed_runq59dnnu3_GAE
   project: gtblueprint
   use: true
