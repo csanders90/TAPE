@@ -98,7 +98,12 @@ class GraphSAINTSampler(torch.utils.data.DataLoader):
         assert len(data_list) == 1
         node_idx, adj = data_list[0]
 
+
         data = self.data.__class__()
+
+        # Save global indexes of subgraph
+        data.node_index = node_idx
+
         data.num_nodes = node_idx.size(0)
         row, col, edge_idx = adj.coo()
         data.edge_index = torch.stack([row, col], dim=0)
@@ -115,9 +120,6 @@ class GraphSAINTSampler(torch.utils.data.DataLoader):
         if self.sample_coverage > 0:
             data.node_norm = self.node_norm[node_idx]
             data.edge_norm = self.edge_norm[edge_idx]
-        
-        # тут
-        data.node_idx = node_idx
         
         return data
     

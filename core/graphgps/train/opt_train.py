@@ -5,6 +5,7 @@ sys.path.insert(0, abspath(join(dirname(dirname(__file__)))))
 # standard library imports
 import torch
 import wandb
+import numpy as np
 from ogb.linkproppred import Evaluator
 from torch_geometric.graphgym.config import cfg
 from sklearn.metrics import roc_auc_score, average_precision_score, roc_curve, auc
@@ -14,7 +15,7 @@ from torch_geometric.data import Data
 from torch.utils.data import DataLoader
 from torch_sparse import SparseTensor
 from torch_geometric.utils import negative_sampling
-from graphgps.network.gsaint import GraphSAINTRandomWalkSampler   
+from graphgps.network.gsaint import GraphSAINTRandomWalkSampler, GraphSAINTNodeSampler, GraphSAINTEdgeSampler
 import torch.nn.functional as F
 
 # external 
@@ -147,24 +148,13 @@ class Trainer():
 
 
     def _train_gae(self):
-        # self.model.train()
-        # self.optimizer.zero_grad()
-        # z = self.model.encoder(self.train_data.x, self.train_data.edge_index)
-        # loss = self.model.recon_loss(z, self.train_data.pos_edge_label_index)
-        # loss.backward()
-        # self.optimizer.step()
-        # return loss.item()
         self.model.train()
-        total_loss = 0
-        for subgraph in self.train_data:
-            self.optimizer.zero_grad()
-            subgraph = subgraph.to(self.device)
-            z = self.model.encoder(subgraph.x, subgraph.edge_index)
-            loss = self.model.recon_loss(z, subgraph.pos_edge_label_index)
-            loss.backward()
-            self.optimizer.step()
-            total_loss += loss.item() * subgraph.num_nodes
-        return total_loss / len(self.train_data)
+        self.optimizer.zero_grad()
+        z = self.model.encoder(self.train_data.x, self.train_data.edge_index)
+        loss = self.model.recon_loss(z, self.train_data.pos_edge_label_index)
+        loss.backward()
+        self.optimizer.step()
+        return loss.item()
     
 
     def _train_vgae(self):
@@ -277,7 +267,7 @@ class Trainer():
             loss = self.train_func[self.model_name]()
             print(epoch, ': ', loss)
             # if epoch % 100 == 0:
-            if epoch % 100 == 0:
+            if epoch % 20 == 0:
                 self.results_rank = self.merge_result_rank()
                 self.print_logger.info(self.results_rank)
                 
@@ -353,7 +343,6 @@ class Trainer():
         self.loggers.save(self.run, self.FILE_PATH, self.data_name, self.model_name)
 
 
-
 class Trainer_Saint(Trainer):
     def __init__(self, 
                  FILE_PATH: str, 
@@ -376,8 +365,7 @@ class Trainer_Saint(Trainer):
         # Correctly pass all parameters expected by the superclass constructor
         super().__init__(FILE_PATH, cfg, model, emb, data, optimizer, splits, run, repeat, loggers, print_logger, device)
         
-        # Initialize additional attributes specific to Trainer_Saint
-        self.device = device  # This might be redundant if set in the superclass
+        self.device = device 
         self.print_logger = print_logger                
         self.model = model.to(self.device)
         self.emb = emb
@@ -388,9 +376,10 @@ class Trainer_Saint(Trainer):
         self.FILE_PATH = FILE_PATH 
         self.epochs = cfg.train.epochs
         
-        # GSAINT normalization
+        # GSAINT splitting
         if gsaint is not None:
             device_cpu = torch.device('cpu')
+            print(batch_size_sampler, walk_length, num_steps, sample_coverage)
             self.test_data  = GraphSAINTRandomWalkSampler(splits['test'].to(device_cpu), batch_size_sampler, walk_length, num_steps, sample_coverage)
             self.train_data = GraphSAINTRandomWalkSampler(splits['train'].to(device_cpu), batch_size_sampler, walk_length, num_steps, sample_coverage)
             self.valid_data = GraphSAINTRandomWalkSampler(splits['valid'].to(device_cpu), batch_size_sampler, walk_length, num_steps, sample_coverage)
@@ -403,8 +392,11 @@ class Trainer_Saint(Trainer):
     
     # TODO: Understand how to get from subgraph global indexes, because my mapping is incorrect
     def global_to_local(self, edge_label_index, node_idx):
+
+        # Make dict where key: local indexes, value: global indexes
         global_to_local = {global_idx: local_idx for local_idx, global_idx in enumerate(node_idx.tolist())}
 
+        # Create new local edge indexes
         edge_indices = [
             torch.tensor([global_to_local.get(idx.item(), -1) for idx in edge_label_index[0]], dtype=torch.long),
             torch.tensor([global_to_local.get(idx.item(), -1) for idx in edge_label_index[1]], dtype=torch.long)
@@ -412,6 +404,8 @@ class Trainer_Saint(Trainer):
 
         local_indices = torch.stack(edge_indices, dim=0)
 
+        # Since we are going through the entire list of positive/negative indices, 
+        # some edges in the subgraph will be marked -1, so we delete them
         valid_indices = (local_indices >= 0).all(dim=0)
         local_indices = local_indices[:, valid_indices]
 
@@ -425,8 +419,8 @@ class Trainer_Saint(Trainer):
             subgraph = subgraph.to(self.device)
 
             z = self.model.encoder(subgraph.x, subgraph.edge_index)
-
             # import pdb; pdb.set_trace()
+            
             local_pos_indices = self.global_to_local(subgraph.pos_edge_label_index, subgraph.node_idx)
             local_neg_indices = self.global_to_local(subgraph.neg_edge_label_index, subgraph.node_idx)
 
@@ -488,6 +482,9 @@ class Trainer_Saint(Trainer):
             y_pred[y_pred < hard_thres] = 0
             acc = torch.sum(y == y_pred) / len(y)
 
+            # Here I got error, that my predictions contain only one class and usually Hits with
+            # different k equale 1.0
+            
             # if len(pos_y) > 0 and len(neg_y) > 0:  # Ensure both classes are present
             pos_pred, neg_pred = pos_pred.cpu(), neg_pred.cpu()
             result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_pred, neg_pred)

@@ -32,7 +32,7 @@ run:
   multiple_splits: None
   num_threads: 11
   seed: 0
-run_dir: results/gsaint-gsaint-cora-origin/pubmed_runq59dnnu3_GAE
+run_dir: results/gsaint-gsaint-cora-origin/pubmed_runw407zezz_GAE
 run_id: 0
 seed: 0
 train:
@@ -47,6 +47,6 @@ train:
   mode: custom
   use_valedges_as_input: true
 wandb:
-  name_tag: pubmed_runq59dnnu3_GAE
+  name_tag: pubmed_runw407zezz_GAE
   project: gtblueprint
   use: true
