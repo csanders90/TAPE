@@ -1,31 +1,32 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-# 生成一些随机数据
-data1 = np.random.randn(1000)  # 第一组数据
-data2 = np.random.rand(1000) * 100  # 第二组数据
+# 生成示例数据
+data = np.load('/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/gcns/data_seal.npz')
+data1 = data['pos_pred']
+data2 = data['neg_pred']
 
-# 创建一个新的图形
-fig, ax1 = plt.subplots()
 
-# 绘制第一个直方图 (左轴)
-color1 = 'blue'
-ax1.hist(data1, bins=30, alpha=0.7, color=color1, edgecolor='black')
-ax1.set_xlabel('Value')
-ax1.set_ylabel('Frequency (Data 1)', color=color1)
-ax1.tick_params(axis='y', labelcolor=color1)
+# 创建图形和主轴
+fig, ax = plt.subplots(figsize=(10, 6))
 
-# 创建一个共享x轴的第二个y轴
-ax2 = ax1.twinx()
+# 创建左侧直方图
+ax_left = ax.twiny()  # 创建一个共享y轴的次坐标轴
+ax_left.hist(data1, bins=30, orientation='horizontal', color='blue', edgecolor='black', alpha=0.7)
+ax_left.invert_xaxis()  # 反转x轴，使柱状图朝向中心
+ax_left.set_xlabel('Count (Left Histogram)')
+ax_left.set_ylabel('Frequency')
+ax_left.set_title('Histograms Facing Each Other')
 
-# 绘制第二个直方图 (右轴)
-color2 = 'red'
-ax2.hist(data2, bins=30, alpha=0.7, color=color2, edgecolor='black')
-ax2.set_ylabel('Frequency (Data 2)', color=color2)
-ax2.tick_params(axis='y', labelcolor=color2)
+# 创建右侧直方图
+ax.hist(data2, bins=30, orientation='horizontal', color='green', edgecolor='black', alpha=0.7)
+ax.set_xlabel('Count (Right Histogram)')
+ax.yaxis.tick_right()  # y轴刻度标签显示在右侧
+ax.yaxis.set_label_position("right")
 
-# 添加标题
-plt.title('Dual-Axis Histogram')
+# 调整布局
+plt.tight_layout()
+
 
 # 显示图形
-plt.savefig('hah')
+plt.savefig('/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/gcns/hah.png')

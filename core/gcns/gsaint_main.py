@@ -101,4 +101,4 @@ if __name__ == "__main__":
 
     # best_auc_metric, result_all_run = trainer.result_statistic()
     
-    print(f"best_auc_metric: {best_auc_metric}, result_all_run: {result_all_run}")
+    # print(f"best_auc_metric: {best_auc_metric}, result_all_run: {result_all_run}")

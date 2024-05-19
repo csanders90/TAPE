@@ -71,7 +71,7 @@ yaml_file = {
              'GraphSage': 'core/yamls/cora/gcns/graphsage.yaml'
             }
 
-def project_main():
+def project_main():  # sourcery skip: avoid-builtin-shadow  # sourcery skip: avoid-builtin-shadow
     
     # process params
     args = parse_args()
