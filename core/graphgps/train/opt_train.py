@@ -340,12 +340,31 @@ class Trainer():
         
         save_parmet_tune(self.name_tag, results_dict, acc_file)    
 
+# Trainer_Saint(FILE_PATH,
+                        # cfg,
+                        # model, 
+                        # None, 
+                        # data,
+                        # optimizer,
+                        # splits,
+                        # run_id, 
+                        # args.repeat,
+                        # loggers, 
+                        # print_logger,
+                        # cfg.device,
+                        # sampler, 
+                        # batch_size, 
+                        # walk_length, 
+                        # num_steps, 
+                        # sample_coverage)
         
 class Trainer_Saint(Trainer):
     def __init__(self, 
                  FILE_PATH,
                  cfg,
                  model, 
+                 emb,
+                 data,
                  optimizer,
                  splits,
                  run, 
@@ -353,13 +372,19 @@ class Trainer_Saint(Trainer):
                  loggers,
                  print_logger,
                  device,
-                 gsaint=None,
-                 batch_size=None, 
-                 walk_length=None, 
-                 num_steps=None, 
-                 sample_coverage=None):
-        super().__init__(FILE_PATH, cfg, model, optimizer, splits, run, repeat, loggers, print_logger, device)
-
+                 sampler=None):
+        super().__init__(FILE_PATH,
+                 cfg,
+                 model, 
+                 emb,
+                 data,
+                 optimizer,
+                 splits,
+                 run, 
+                 repeat, 
+                 loggers,
+                 print_logger,
+                 device)
         
         self.device = config_device(cfg)
             
@@ -370,6 +395,11 @@ class Trainer_Saint(Trainer):
 
         self.FILE_PATH = FILE_PATH 
         self.epochs = cfg.train.epochs
+        
+        batch_size = cfg.sampler.batch_size 
+        walk_length = cfg.sampler.walk_length
+        num_steps = cfg.sampler.num_steps
+        sample_coverage = cfg.sampler.sample_coverage
         
         # Added GSAINT normalization
         if gsaint is not None:

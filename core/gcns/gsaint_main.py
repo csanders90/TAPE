@@ -80,11 +80,7 @@ if __name__ == "__main__":
                         loggers, 
                         print_logger,
                         cfg.device,
-                        sampler, 
-                        batch_size, 
-                        walk_length, 
-                        num_steps, 
-                        sample_coverage)
+                        sampler)
 
             start = time.time()
             trainer.train()
