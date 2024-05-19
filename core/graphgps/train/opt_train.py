@@ -340,24 +340,18 @@ class Trainer():
         
         save_parmet_tune(self.name_tag, results_dict, acc_file)    
 
-# Trainer_Saint(FILE_PATH,
-                        # cfg,
-                        # model, 
-                        # None, 
-                        # data,
-                        # optimizer,
-                        # splits,
-                        # run_id, 
-                        # args.repeat,
-                        # loggers, 
-                        # print_logger,
-                        # cfg.device,
-                        # sampler, 
-                        # batch_size, 
-                        # walk_length, 
-                        # num_steps, 
-                        # sample_coverage)
-        
+                #  FILE_PATH: str, 
+                #  cfg: CN, 
+                #  model: torch.nn.Module, 
+                #  emb: torch.nn.Module,
+                #  data: Data,
+                #  optimizer: torch.optim.Optimizer, 
+                #  splits: Dict[str, Data], 
+                #  run: int, 
+                #  repeat: int,
+                #  loggers: Logger, 
+                #  print_logger: None, 
+                #  device: int
 class Trainer_Saint(Trainer):
     def __init__(self, 
                  FILE_PATH,
@@ -386,26 +380,17 @@ class Trainer_Saint(Trainer):
                  print_logger,
                  device)
         
-        self.device = config_device(cfg)
-            
-        self.model = model.to(self.device)
-        
-        self.model_name = cfg.model.type 
-        self.data_name = cfg.data.name
-
-        self.FILE_PATH = FILE_PATH 
-        self.epochs = cfg.train.epochs
-        
+        self.sampler = sampler
         batch_size = cfg.sampler.batch_size 
         walk_length = cfg.sampler.walk_length
         num_steps = cfg.sampler.num_steps
         sample_coverage = cfg.sampler.sample_coverage
         
         # Added GSAINT normalization
-        if gsaint is not None:
-            self.test_data = gsaint(splits['test'], batch_size, walk_length, num_steps, sample_coverage)
-            self.train_data = gsaint(splits['train'], batch_size, walk_length, num_steps, sample_coverage)
-            self.valid_data = gsaint(splits['valid'], batch_size, walk_length, num_steps, sample_coverage)
+        if self.sampler is not None:
+            self.test_data = self.sampler(splits['test'], batch_size, walk_length, num_steps, sample_coverage)
+            self.train_data = self.sampler(splits['train'], batch_size, walk_length, num_steps, sample_coverage)
+            self.valid_data = self.sampler(splits['valid'], batch_size, walk_length, num_steps, sample_coverage)
         else:
             self.test_data = splits['test']
             self.train_data = splits['train']

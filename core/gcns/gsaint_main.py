@@ -90,12 +90,15 @@ if __name__ == "__main__":
                 
         best_auc, best_hits = trainer.train()
         
-        for key in loggers:
-            print(key)
-            trainer.loggers[key].print_statistics(run_id)
-            
-        print(trainer.results_rank)
 
-    best_auc_metric, result_all_run = trainer.result_statistic()
+        run_result = {}
+        for key in trainer.loggers.keys():
+            # refer to calc_run_stats in Logger class
+            _, _, _, test_bvalid = trainer.loggers[key].calc_run_stats(run_id)
+            run_result.update({key: test_bvalid})
+                
+        # print(trainer.results_rank)
+
+    # best_auc_metric, result_all_run = trainer.result_statistic()
     
     print(f"best_auc_metric: {best_auc_metric}, result_all_run: {result_all_run}")

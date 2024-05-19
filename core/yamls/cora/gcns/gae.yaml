@@ -51,3 +51,10 @@ optimizer:
   type: adam
   base_lr: 0.001
   weight_decay: 0.0005
+
+
+sampler:
+  batch_size: 2048
+  walk_length: 20
+  num_steps: 30 
+  sample_coverage: 100
