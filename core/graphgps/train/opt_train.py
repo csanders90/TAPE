@@ -4,6 +4,7 @@ from os.path import abspath, dirname, join
 sys.path.insert(0, abspath(join(dirname(dirname(__file__)))))
 # standard library imports
 import torch
+import time
 import wandb
 import numpy as np
 from ogb.linkproppred import Evaluator
@@ -19,7 +20,7 @@ from graphgps.network.gsaint import GraphSAINTRandomWalkSampler, GraphSAINTNodeS
 import torch.nn.functional as F
 
 # external 
-from embedding.tune_utils import param_tune_acc_mrr, mvari_str2csv
+from embedding.tune_utils import param_tune_acc_mrr, mvari_str2csv, save_parmet_tune
 from heuristic.eval import get_metric_score
 from utils import config_device
 from typing import Dict, Tuple
@@ -265,9 +266,9 @@ class Trainer():
 
         for epoch in range(1, self.epochs + 1):
             loss = self.train_func[self.model_name]()
-            print(epoch, ': ', loss)
+
             # if epoch % 100 == 0:
-            if epoch % 20 == 0:
+            if epoch % 10 == 0:
                 self.results_rank = self.merge_result_rank()
                 self.print_logger.info(self.results_rank)
                 
@@ -330,17 +331,18 @@ class Trainer():
         self.print_logger.info(f"save to {acc_file}")
         os.makedirs(root, exist_ok=True)
         
-        first_value_type = type(next(iter(results_dict.values())))
-        if all(isinstance(value, first_value_type) for value in results_dict.values()):
-            if first_value_type == float:
-                mvari_str2csv(self.name_tag, results_dict, acc_file)
-            elif first_value_type == str:
-                mvari_str2csv(self.name_tag, results_dict, acc_file)
+       
+        mvari_str2csv(self.name_tag, results_dict, acc_file)
 
-    def save_tune(self, run_result):
-        for key in run_result.keys():
-            self.loggers[key].add_result(self.run, run_result[key])
-        self.loggers.save(self.run, self.FILE_PATH, self.data_name, self.model_name)
+
+    def save_tune(self, results_dict: Dict[str, float], to_file):  # sourcery skip: avoid-builtin-shadow
+        
+        root = os.path.join(self.FILE_PATH, cfg.out_dir)
+        acc_file = os.path.join(root, to_file)
+        self.print_logger.info(f"save to {acc_file}")
+        os.makedirs(root, exist_ok=True)
+        
+        save_parmet_tune(self.name_tag, results_dict, acc_file)
 
 
 class Trainer_Saint(Trainer):
@@ -379,7 +381,6 @@ class Trainer_Saint(Trainer):
         # GSAINT splitting
         if gsaint is not None:
             device_cpu = torch.device('cpu')
-            print(batch_size_sampler, walk_length, num_steps, sample_coverage)
             self.test_data  = GraphSAINTRandomWalkSampler(splits['test'].to(device_cpu), batch_size_sampler, walk_length, num_steps, sample_coverage)
             self.train_data = GraphSAINTRandomWalkSampler(splits['train'].to(device_cpu), batch_size_sampler, walk_length, num_steps, sample_coverage)
             self.valid_data = GraphSAINTRandomWalkSampler(splits['valid'].to(device_cpu), batch_size_sampler, walk_length, num_steps, sample_coverage)
@@ -390,7 +391,6 @@ class Trainer_Saint(Trainer):
 
         self.optimizer  = optimizer
     
-    # TODO: Understand how to get from subgraph global indexes, because my mapping is incorrect
     def global_to_local(self, edge_label_index, node_idx):
 
         # Make dict where key: local indexes, value: global indexes
@@ -419,10 +419,9 @@ class Trainer_Saint(Trainer):
             subgraph = subgraph.to(self.device)
 
             z = self.model.encoder(subgraph.x, subgraph.edge_index)
-            # import pdb; pdb.set_trace()
-            
-            local_pos_indices = self.global_to_local(subgraph.pos_edge_label_index, subgraph.node_idx)
-            local_neg_indices = self.global_to_local(subgraph.neg_edge_label_index, subgraph.node_idx)
+
+            local_pos_indices = self.global_to_local(subgraph.pos_edge_label_index, subgraph.node_index)
+            local_neg_indices = self.global_to_local(subgraph.neg_edge_label_index, subgraph.node_index)
 
             loss = self.model.recon_loss(z, local_pos_indices, local_neg_indices)
 
@@ -442,13 +441,12 @@ class Trainer_Saint(Trainer):
 
             z = self.model(subgraph.x, subgraph.edge_index)
 
-            # import pdb; pdb.set_trace()
-            local_pos_indices = self.global_to_local(subgraph.pos_edge_label_index, subgraph.node_idx)
-            local_neg_indices = self.global_to_local(subgraph.neg_edge_label_index, subgraph.node_idx)
+            local_pos_indices = self.global_to_local(subgraph.pos_edge_label_index, subgraph.node_index)
+            local_neg_indices = self.global_to_local(subgraph.neg_edge_label_index, subgraph.node_index)
 
             loss = self.model.recon_loss(z, local_pos_indices, local_neg_indices)
-
             loss += (1 / subgraph.num_nodes) * self.model.kl_loss()
+
             loss.backward()
             self.optimizer.step()
             total_loss += loss.item() * subgraph.num_nodes
@@ -464,8 +462,8 @@ class Trainer_Saint(Trainer):
         for data in data_loader:
             data = data.to(self.device)
 
-            local_pos_indices = self.global_to_local(data.pos_edge_label_index, data.node_idx)
-            local_neg_indices = self.global_to_local(data.neg_edge_label_index, data.node_idx)
+            local_pos_indices = self.global_to_local(data.pos_edge_label_index, data.node_index)
+            local_neg_indices = self.global_to_local(data.neg_edge_label_index, data.node_index)
             
             z = self.model.encoder(data.x, data.edge_index)
             pos_pred = self.model.decoder(z, local_pos_indices)
@@ -482,21 +480,22 @@ class Trainer_Saint(Trainer):
             y_pred[y_pred < hard_thres] = 0
             acc = torch.sum(y == y_pred) / len(y)
 
-            # Here I got error, that my predictions contain only one class and usually Hits with
-            # different k equale 1.0
-            
-            # if len(pos_y) > 0 and len(neg_y) > 0:  # Ensure both classes are present
             pos_pred, neg_pred = pos_pred.cpu(), neg_pred.cpu()
             result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_pred, neg_pred)
             result_mrr.update({'acc': round(acc.item(), 5)})
             accumulated_metrics.append(result_mrr)
-            # else:
-            #     print("Not enough diversity in labels to compute AUC.")
 
-        print(accumulated_metrics)
-        # Averaging accumulated metrics
-        averaged_results = {key: sum(values) / len(values) for key, values in accumulated_metrics.items()}
-        print(f"Average Accuracy: {averaged_results['average_accuracy']:.5f}")
+        # Aggregate results from accumulated_metrics
+        aggregated_results = {}
+        for result in accumulated_metrics:
+            for key, value in result.items():
+                if key in aggregated_results:
+                    aggregated_results[key].append(value)
+                else:
+                    aggregated_results[key] = [value]
+
+        # Calculate average results
+        averaged_results = {key: sum(values) / len(values) for key, values in aggregated_results.items()}
 
         return averaged_results
 
@@ -508,8 +507,8 @@ class Trainer_Saint(Trainer):
         for data in data_loader:
             data = data.to(self.device)
 
-            local_pos_indices = self.global_to_local(data.pos_edge_label_index, data.node_idx)
-            local_neg_indices = self.global_to_local(data.neg_edge_label_index, data.node_idx)
+            local_pos_indices = self.global_to_local(data.pos_edge_label_index, data.node_index)
+            local_neg_indices = self.global_to_local(data.neg_edge_label_index, data.node_index)
             
             z = self.model(data.x, data.edge_index)
             pos_pred = self.model.decoder(z, local_pos_indices)
@@ -525,19 +524,23 @@ class Trainer_Saint(Trainer):
             y_pred[y_pred >= hard_thres] = 1
             y_pred[y_pred < hard_thres] = 0
             acc = torch.sum(y == y_pred) / len(y)
-
-            # if len(pos_y) > 0 and len(neg_y) > 0:  # Ensure both classes are present
+            
             pos_pred, neg_pred = pos_pred.cpu(), neg_pred.cpu()
             result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_pred, neg_pred)
             result_mrr.update({'acc': round(acc.item(), 5)})
             accumulated_metrics.append(result_mrr)
-            # else:
-            #     print("Not enough diversity in labels to compute AUC.")
 
-        print(accumulated_metrics)
-        # Averaging accumulated metrics
-        averaged_results = {key: sum(values) / len(values) for key, values in accumulated_metrics.items()}
-        print(f"Average Accuracy: {averaged_results['average_accuracy']:.5f}")
+        # Aggregate results from accumulated_metrics
+        aggregated_results = {}
+        for result in accumulated_metrics:
+            for key, value in result.items():
+                if key in aggregated_results:
+                    aggregated_results[key].append(value)
+                else:
+                    aggregated_results[key] = [value]
+
+        # Calculate average results
+        averaged_results = {key: sum(values) / len(values) for key, values in aggregated_results.items()}
 
         return averaged_results
 
