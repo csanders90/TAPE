@@ -13,7 +13,7 @@ from torch_geometric.graphgym.utils.comp_budget import params_count
 from torch_geometric.graphgym.cmd_args import parse_args
 import argparse
 import wandb
-from graphgps.train.opt_train import Trainer
+from graphgps.train.opt_train import Trainer_Heart
 from graphgps.network.custom_gnn import create_model
 from graphgps.config import (dump_cfg, dump_run_cfg)
 
@@ -28,9 +28,6 @@ FILE_PATH = f'{get_git_repo_root_path()}/'
 def parse_args() -> argparse.Namespace:
     r"""Parses the command line arguments."""
     parser = argparse.ArgumentParser(description='GraphGym')
-    parser.add_argument('--cfg', dest='cfg_file', type=str, required=False,
-                        default='core/yamls/cora/gcns/gat.yaml',
-                        help='The configuration file path.')
     parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
                         default='core/yamls/cora/gcns/gae_sp1.yaml',
                         help='The configuration file path.')
@@ -57,13 +54,16 @@ def parse_args() -> argparse.Namespace:
 
     return parser.parse_args()
 
+#'out_channels': [2**7, 2**8], 'hidden_channels':  [2**8],
+# 'heads': [2**2, 2], 'negative_slope': [0.1], 'dropout': [0], 
+# 'num_layers': [5, 6, 7],
+
 hyperparameter_space = {
-    'GAT': {'out_channels': [2**7, 2**8], 'hidden_channels':  [2**8],
-                                'heads': [2**2, 2], 'negative_slope': [0.1], 'dropout': [0], 
-                                'num_layers': [5, 6, 7], 'base_lr': [0.015]},
-    'GAE': {'out_channels': [160, 176], 'hidden_channels': [160, 176]},
-    'VGAE': {'out_channels': [160, 176], 'hidden_channels': [160, 176]},
-    'GraphSage': {'out_channels': [2**8, 2**9], 'hidden_channels': [2**8, 2**9]}, 'base_lr': [0.015, 0.1, 0.01]
+    'GAT': { 'base_lr': [0.1, 0.015]}, "batch_size": [2**10, 2**11, 2**12, 2**13],
+    'GAE': {'out_channels': [160, 176], 'hidden_channels': [160, 176]},  'base_lr': [0.1, 0.015], "batch_size": [2**10, 2**11, 2**12, 2**13],
+    'VGAE': {'out_channels': [160, 176], 'hidden_channels': [160, 176]},  'base_lr':[0.1, 0.015], "batch_size": [2**10, 2**11, 2**12, 2**13],
+    'GraphSage': {'out_channels': [2**8, 2**9], 'hidden_channels': [2**8, 2**9]}, 'base_lr': [0.015, 0.1, 0.01],
+     "batch_size": [2**10, 2**11, 2**12, 2**13],
 }
 
 yaml_file = {   
@@ -89,6 +89,7 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
     cfg.model.device = args.device
     cfg.device = args.device
     cfg.train.epochs = args.epoch
+    cfg.model.type = args.model
     
     # save params
     custom_set_out_dir(cfg, args.cfg_file, cfg.wandb.name_tag)
@@ -123,17 +124,18 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
         keys = hyperparameter_search.keys()
         # Generate Cartesian product of the hyperparameter values
         product = itertools.product(*hyperparameter_search.values())
-        # Iterate over each combination and set the attributes dynamically
 
         for combination in tqdm(product):
             for key, value in zip(keys, combination):
                 setattr(cfg.model, key, value)
             
-            print_logger.info(f"out : {cfg.model.out_channels}, hidden: {cfg.model.hidden_channels}")
+            # print_logger.info(f"out : {cfg.model.out_channels}, hidden: {cfg.model.hidden_channels}")
             print_logger.info(f"bs : {cfg.train.batch_size}, lr: {cfg.optimizer.base_lr}")
                         
             start_time = time.time()
-                
+            
+            print_logger.info(f"The model {cfg.model.type} is initialized.")
+            
             model = create_model(cfg)
             
             print_logger.info(f"{model} on {next(model.parameters()).device}" )
@@ -156,7 +158,7 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
             print_logger.info(f"config saved into {cfg.run_dir}")
             print_logger.info(f'Run {run_id} with seed {seed} and split {split_index} on device {cfg.device}')
             
-            trainer = Trainer(FILE_PATH,
+            trainer = Trainer_Heart(FILE_PATH,
                         cfg,
                         model, 
                         None, 

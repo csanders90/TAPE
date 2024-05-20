@@ -86,3 +86,5 @@ dataset.tar.gz
 /results 
 core/dataset
 */dataset
+
+core/gcns/results/

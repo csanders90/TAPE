@@ -4,6 +4,7 @@ out_dir: results
 metric_best: acc
 cfg_dest: gat.yaml
 print: file
+seed: 0
 
 run:
   seed: 0

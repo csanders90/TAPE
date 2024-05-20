@@ -686,15 +686,16 @@ def set_printing(cfg):
     logger = logging.getLogger(__name__)
 
     # Step 2: Set the overall log level for the logger
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
 
     # Step 3: Create handlers
     file_handler = logging.FileHandler(f'{cfg.run_dir}/logging.log')
-    console_handler = logging.StreamHandler(sys.stdout)
-
+    # console_handler = logging.StreamHandler(sys.stdout) # if you dont want to see the log in the console
+    console_handler = logging.StreamHandler() 
+    
     # Step 4: Set log levels for handlers
-    file_handler.setLevel(logging.DEBUG)
-    console_handler.setLevel(logging.DEBUG)
+    file_handler.setLevel(logging.INFO)
+    console_handler.setLevel(logging.INFO)
 
     # Step 5: Create formatters and add them to handlers
     formatter = logging.Formatter('%(asctime)s - %(message)s')

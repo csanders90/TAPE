@@ -116,17 +116,15 @@ def test(model,
     # adj_t = adj_t.transpose(1,0)
     train_val_edge, pos_valid_edge, neg_valid_edge, pos_test_edge,  neg_test_edge = evaluation_edges
 
-    if emb == None: x = data.x
-    else: x = emb.weight
-    
+    x = data.x if emb is None else emb.weight
     x = x.to(device)
     data = data.to(device)
     h = model(x, data.edge_index.to(x.device))
     # print(h[0][:10])
     train_val_edge = train_val_edge.to(x.device)
-    pos_valid_edge = pos_valid_edge.to(x.device) 
+    pos_valid_edge = pos_valid_edge.to(x.device)
     neg_valid_edge = neg_valid_edge.to(x.device)
-    pos_test_edge = pos_test_edge.to(x.device) 
+    pos_test_edge = pos_test_edge.to(x.device)
     neg_test_edge = neg_test_edge.to(x.device)
 
     pos_train_pred = test_edge(score_func, train_val_edge, h, batch_size)
@@ -153,10 +151,11 @@ def test(model,
     result_valid = get_metric_score(evaluator_hit, evaluator_mrr, pos_valid_pred, pos_valid_pred)
     result_test = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
     score_emb = [pos_valid_pred.cpu(),neg_valid_pred.cpu(), pos_test_pred.cpu(), neg_test_pred.cpu(), h.cpu()]
-    
-    result= {}
-    for k, val in result_train.items():
-        result.update({k: (result_train[k], result_valid[k], result_test[k])})
+
+    result = {
+        k: (result_train[k], result_valid[k], result_test[k])
+        for k, val in result_train.items()
+    }
     return result, score_emb
 
 
@@ -168,12 +167,11 @@ def test_edge(score_func, input_data, h, batch_size):
     # input_data  = input_data.transpose(1, 0)
     # with torch.no_grad():
     preds = []
+
     for perm  in DataLoader(range(input_data.size(0)), batch_size):
         edge = input_data[perm].t()
-    
-        preds += [score_func(h[edge[0]], h[edge[1]]).cpu()]
-        
-    pred_all = torch.cat(preds, dim=0)
 
-    return pred_all
+        preds += [score_func(h[edge[0]], h[edge[1]]).cpu()]
+
+    return torch.cat(preds, dim=0)
 
