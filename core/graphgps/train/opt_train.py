@@ -267,8 +267,7 @@ class Trainer():
         for epoch in range(1, self.epochs + 1):
             loss = self.train_func[self.model_name]()
 
-            # if epoch % 100 == 0:
-            if epoch % 10 == 0:
+            if epoch % 100 == 0:
                 self.results_rank = self.merge_result_rank()
                 self.print_logger.info(self.results_rank)
                 

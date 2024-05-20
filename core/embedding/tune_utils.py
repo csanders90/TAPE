@@ -170,6 +170,7 @@ def save_parmet_tune(name_tag, metrics, root):
     highest_values = new_Data.apply(lambda column: max(column, default=None))
     # concat and save
     Best_list = ['Best'] + highest_values[1:].tolist()
+    # print(Best_list)
     Best_df = pd.DataFrame([Best_list], columns=Data.columns)
 
     upt_Data = pd.concat([new_Data, Best_df])

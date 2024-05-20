@@ -75,6 +75,7 @@ def save_results_to_file(result_dict, cfg, output_dir):
     # Add configuration details as columns
     print(cfg)
     result_df['ModelType'] = cfg.type
+    result_df['BatchSize'] = cfg.batch_size
     result_df['BatchSizeSampler'] = cfg.batch_size_sampler
     result_df['HiddenChannels'] = cfg.hidden_channels
     result_df['OutChannels'] = cfg.out_channels
@@ -97,16 +98,17 @@ hyperparameter_space = {
     'GAT': {'out_channels': [2**7, 2**8], 'hidden_channels':  [2**8],
                                 'heads': [2**2, 2], 'negative_slope': [0.1], 'dropout': [0], 
                                 'num_layers': [5, 6, 7], 'base_lr': [0.015]},
-    'GAE': {'out_channels': [160, 176], 'hidden_channels': [160, 176]},
-    'VGAE': {'out_channels': [160, 176], 'hidden_channels': [160, 176]},
+    'GAE': {'out_channels': [16], 'hidden_channels': [16]},
+    'VGAE': {'out_channels': [16], 'hidden_channels': [16]},
     'GraphSage': {'out_channels': [2**8, 2**9], 'hidden_channels': [2**8, 2**9]}, 'base_lr': [0.015, 0.1, 0.01]
 }
 
 hyperparameter_gsaint = {
-        'batch_size_sampler': [128, 256, 512, 1024], # 32, 64 very bad we get very sparse graphs
-        'walk_length'       : [40, 60, 80],
-        'num_steps'         : [20, 30],
-        'sample_coverage'   : [100, 150, 200]
+        'batch_size': [2048],
+        'batch_size_sampler': [128], # 32, 64 very bad we get very sparse graphs
+        'walk_length'       : [10],
+        'num_steps'         : [10],
+        'sample_coverage'   : [100]
 }
 
 yaml_file = {   
@@ -147,121 +149,122 @@ def project_main():
         output_dir = os.path.join(FILE_PATH, f"results_{model_type}")
         os.makedirs(output_dir, exist_ok=True)
 
-        # for run_id, seed, split_index in zip(*run_loop_settings(cfg, args)):
-        # Set configurations for each run TODO clean code here 
-        id = wandb.util.generate_id()
-        cfg.wandb.name_tag = f'{cfg.data.name}_run{id}_{cfg.model.type}' 
-        custom_set_run_dir(cfg, cfg.wandb.name_tag)
-
-        cfg.seed = 0# seed
-        cfg.run_id = 0#run_id
-        seed_everything(cfg.seed)
-        
-        cfg = config_device(cfg)
-        cfg.data.name = args.data
-
-        splits, _, data = load_data_lp[cfg.data.name](cfg.data)
-        cfg.model.in_channels = splits['train'].x.shape[1]
-
-        print_logger = set_printing(cfg)
-        print_logger.info(f"The {cfg['data']['name']} graph {splits['train']['x'].shape} is loaded on {splits['train']['x'].device}, \n Train: {2*splits['train']['pos_edge_label'].shape[0]} samples,\n Valid: {2*splits['train']['pos_edge_label'].shape[0]} samples,\n Test: {2*splits['test']['pos_edge_label'].shape[0]} samples")
-        dump_cfg(cfg)    
-
-        hyperparameter_search = hyperparameter_space[cfg.model.type]
-        combined_hyperparameters = {**hyperparameter_search, **hyperparameter_gsaint}
-        
-        print_logger.info(f"hypersearch space: {combined_hyperparameters}")
-        
-        keys = combined_hyperparameters.keys()
-        values = combined_hyperparameters.values()
-        combinations = itertools.product(*values)
-        
-        for combination in combinations:
-            param_dict = dict(zip(keys, combination))
-        
-            for key, value in param_dict.items():
-                setattr(cfg.model, key, value)
-
-            print_logger.info(f"out : {cfg.model.out_channels}, hidden: {cfg.model.hidden_channels}")
-            print_logger.info(f"bs : {cfg.train.batch_size}, lr: {cfg.optimizer.base_lr}")
-                        
-            start_time = time.time()
-                
-            model = create_model(cfg)
-            
-            logging.info(f"{model} on {next(model.parameters()).device}" )
-            logging.info(cfg)
-            cfg.params = params_count(model)
-            logging.info(f'Num parameters: {cfg.params}')
-
-            optimizer = create_optimizer(model, cfg)
-
-            # LLM: finetuning
-            if cfg.train.finetune: 
-                model = init_model_from_pretrained(model, cfg.train.finetune,
-                                                cfg.train.freeze_pretrained)
-                
-            hyper_id = wandb.util.generate_id()
-            cfg.wandb.name_tag = f'{cfg.data.name}_run{id}_{cfg.model.type}_hyper{hyper_id}' 
+        for run_id, seed, split_index in zip(*run_loop_settings(cfg, args)):
+            # Set configurations for each run TODO clean code here 
+            id = wandb.util.generate_id()
+            cfg.wandb.name_tag = f'{cfg.data.name}_run{id}_{cfg.model.type}' 
             custom_set_run_dir(cfg, cfg.wandb.name_tag)
-        
-            # dump_run_cfg(cfg)
-            print_logger.info(f"config saved into {cfg.run_dir}")
-            # print_logger.info(f'Run {run_id} with seed {seed} and split {split_index} on device {cfg.device}')
-            
-            if cfg.model.sampler == 'gsaint':
-                sampler = get_loader_RW
 
-                trainer = Trainer_Saint(
-                    FILE_PATH=FILE_PATH,
-                    cfg=cfg, 
-                    model=model,
-                    emb=None,
-                    data=data,
-                    optimizer=optimizer,
-                    splits=splits, 
-                    run=0,#run_id, 
-                    repeat=args.repeat,
-                    loggers=loggers,
-                    print_logger=print_logger,
-                    device=cfg.device,
-                    gsaint=sampler, 
-                    batch_size_sampler=cfg.model.batch_size_sampler, 
-                    walk_length=cfg.model.walk_length, 
-                    num_steps=cfg.model.num_steps, 
-                    sample_coverage=cfg.model.sample_coverage
-                    )
-            else:
-                trainer = Trainer(FILE_PATH,
-                            cfg,
-                            model, 
-                            None, 
-                            data,
-                            optimizer,
-                            splits,
-                            run_id, 
-                            args.repeat,
-                            loggers, 
-                            print_logger,
-                            cfg.device)
-
-            trainer.train()
-
-            run_result = {}
-            for key in trainer.loggers.keys():
-                # refer to calc_run_stats in Logger class
-                _, _, _, test_bvalid = trainer.loggers[key].calc_run_stats(0)#run_id)
-                run_result.update({key: test_bvalid})
-            for key in combined_hyperparameters.keys():
-                run_result.update({key: getattr(cfg.model, key)})
-            run_result.update({'epochs': cfg.train.epochs})
+            cfg.seed = seed
+            cfg.run_id = run_id
+            seed_everything(cfg.seed)
             
-            print_logger.info(run_result)
+            cfg = config_device(cfg)
+            cfg.data.name = args.data
+
+            splits, _, data = load_data_lp[cfg.data.name](cfg.data)
+            cfg.model.in_channels = splits['train'].x.shape[1]
+
+            print_logger = set_printing(cfg)
+            print_logger.info(f"The {cfg['data']['name']} graph {splits['train']['x'].shape} is loaded on {splits['train']['x'].device}, \n Train: {2*splits['train']['pos_edge_label'].shape[0]} samples,\n Valid: {2*splits['train']['pos_edge_label'].shape[0]} samples,\n Test: {2*splits['test']['pos_edge_label'].shape[0]} samples")
+            dump_cfg(cfg)    
+
+            hyperparameter_search = hyperparameter_space[cfg.model.type]
+            combined_hyperparameters = {**hyperparameter_search, **hyperparameter_gsaint}
             
-            to_file = f'{cfg.data.name}_{cfg.model.type}_tune_result.csv'
-            trainer.save_tune(run_result, to_file)
-            save_results_to_file(run_result, cfg.model, output_dir)
-            print_logger.info(f"runing time {time.time() - start_time}")
+            print_logger.info(f"hypersearch space: {combined_hyperparameters}")
+            
+            keys = combined_hyperparameters.keys()
+            values = combined_hyperparameters.values()
+            combinations = itertools.product(*values)
+            
+            for combination in combinations:
+                param_dict = dict(zip(keys, combination))
+            
+                for key, value in param_dict.items():
+                    setattr(cfg.model, key, value)
+                
+                cfg.train.batch_size = cfg.model.batch_size
+                print_logger.info(f"out : {cfg.model.out_channels}, hidden: {cfg.model.hidden_channels}")
+                print_logger.info(f"bs : {cfg.train.batch_size}, lr: {cfg.optimizer.base_lr}")
+                            
+                start_time = time.time()
+                    
+                model = create_model(cfg)
+                
+                logging.info(f"{model} on {next(model.parameters()).device}" )
+                logging.info(cfg)
+                cfg.params = params_count(model)
+                logging.info(f'Num parameters: {cfg.params}')
+
+                optimizer = create_optimizer(model, cfg)
+
+                # LLM: finetuning
+                if cfg.train.finetune: 
+                    model = init_model_from_pretrained(model, cfg.train.finetune,
+                                                    cfg.train.freeze_pretrained)
+                    
+                hyper_id = wandb.util.generate_id()
+                cfg.wandb.name_tag = f'{cfg.data.name}_run{id}_{cfg.model.type}_hyper{hyper_id}' 
+                custom_set_run_dir(cfg, cfg.wandb.name_tag)
+            
+                # dump_run_cfg(cfg)
+                print_logger.info(f"config saved into {cfg.run_dir}")
+                print_logger.info(f'Run {run_id} with seed {seed} and split {split_index} on device {cfg.device}')
+                
+                if cfg.model.sampler == 'gsaint':
+                    sampler = get_loader_RW
+
+                    trainer = Trainer_Saint(
+                        FILE_PATH=FILE_PATH,
+                        cfg=cfg, 
+                        model=model,
+                        emb=None,
+                        data=data,
+                        optimizer=optimizer,
+                        splits=splits, 
+                        run=run_id, 
+                        repeat=args.repeat,
+                        loggers=loggers,
+                        print_logger=print_logger,
+                        device=cfg.device,
+                        gsaint=sampler, 
+                        batch_size_sampler=cfg.model.batch_size_sampler, 
+                        walk_length=cfg.model.walk_length, 
+                        num_steps=cfg.model.num_steps, 
+                        sample_coverage=cfg.model.sample_coverage
+                        )
+                else:
+                    trainer = Trainer(FILE_PATH,
+                                cfg,
+                                model, 
+                                None, 
+                                data,
+                                optimizer,
+                                splits,
+                                run_id, 
+                                args.repeat,
+                                loggers, 
+                                print_logger,
+                                cfg.device)
+
+                trainer.train()
+
+                run_result = {}
+                for key in trainer.loggers.keys():
+                    # refer to calc_run_stats in Logger class
+                    _, _, _, test_bvalid = trainer.loggers[key].calc_run_stats(run_id)
+                    run_result.update({key: test_bvalid})
+                for key in combined_hyperparameters.keys():
+                    run_result.update({key: getattr(cfg.model, key)})
+                run_result.update({'epochs': cfg.train.epochs})
+                
+                print_logger.info(run_result)
+                
+                to_file = f'{cfg.data.name}_{cfg.model.type}_tune_result.csv'
+                trainer.save_tune(run_result, to_file)
+                save_results_to_file(run_result, cfg.model, output_dir)
+                print_logger.info(f"runing time {time.time() - start_time}")
         
     # statistic for all runs
 
