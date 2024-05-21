@@ -9,7 +9,7 @@ from ogb.linkproppred import Evaluator
 from torch_geometric.graphgym.config import cfg
 from sklearn.metrics import roc_auc_score, average_precision_score, roc_curve, auc
 from yacs.config import CfgNode as CN
-
+from tqdm import tqdm 
 from torch_geometric.data import Data
 from torch.utils.data import DataLoader
 from torch_sparse import SparseTensor
@@ -24,9 +24,9 @@ from utils import Logger
 
 report_step = {
     'cora': 100,
-    'pubmed': 100,
-    'arxiv_2023': 20,
-    'ogbn-arxiv': 50,
+    'pubmed': 1000,
+    'arxiv_2023': 100,
+    'ogbn-arxiv': 1,
     'ogbn-products': 1,
 }
 
@@ -332,9 +332,12 @@ class Trainer_Heart(Trainer):
         
         self.batch_size = cfg.train.batch_size
         model_types = ['VGAE', 'GAE', 'GAT', 'GraphSage']
-        self.train_func = {model_type: self._train_heart  for model_type in model_types}
-        self.test_func = {model_type: self._eval_heart for model_type in model_types}
-        self.evaluate_func = {model_type: self._eval_heart for model_type in model_types}
+
+        self.train_func = {model_type: self._train_heart for model_type in model_types}
+        self.test_func = {model_type: self._eval_heart  for model_type in model_types}
+        self.evaluate_func = {model_type: self._eval_heart  for model_type in model_types}
+
+
         self.evaluator_hit = Evaluator(name='ogbl-collab')
         self.evaluator_mrr = Evaluator(name='ogbl-citation2')
         
@@ -375,25 +378,20 @@ class Trainer_Heart(Trainer):
 
             adj = SparseTensor.from_edge_index(train_edge_mask, edge_weight_mask, [num_nodes, num_nodes]).to(edge_index.device)
 
-            batch_edge_index = adj.to_torch_sparse_coo_tensor().coalesce().indices()
+            row, col, _ = adj.coo()
+            batch_edge_index = torch.stack([col, row], dim=0)
+            
             
             x = x.to(self.device)
-            edge_index = edge_index.to(self.device)
-            h = self.model.encoder(x, batch_edge_index)
+            pos_edge =  edge_index[:, perm].to(self.device)
+            if self.model_name == 'VGAE':
+                h = self.model(x, batch_edge_index)
+                loss = self.model.recon_loss(h, pos_edge)
+                loss = loss + (1 / self.train_data.num_nodes) * self.model.kl_loss()
+            elif self.model_name in ['GAE', 'GAT', 'GraphSage']:
+                h = self.model.encoder(x, batch_edge_index)
+                loss = self.model.recon_loss(h, pos_edge)
 
-            edge = edge_index[:, perm]
-            pos_out = self.model.decoder(h, edge)
-            pos_loss = -torch.log(pos_out + 1e-15).mean()
-
-            row, col, _ = adj.coo()
-            neg_edge = torch.stack([col, row], dim=0)
-            neg_edge = negative_sampling(neg_edge, num_nodes=x.size(0),
-                                    num_neg_samples=perm.size(0), method='dense')
-
-            neg_out = self.model.decoder(h, neg_edge)
-            neg_loss = -torch.log(1 - neg_out + 1e-15).mean()
-
-            loss = pos_loss + neg_loss
             loss.backward()
 
             if emb_update == 1: torch.nn.utils.clip_grad_norm_(x, 1.0)
@@ -402,6 +400,7 @@ class Trainer_Heart(Trainer):
             self.optimizer.step()           
 
         return loss.item() 
+
 
     @torch.no_grad()
     def test_edge(self, h, edge_index):
@@ -421,7 +420,10 @@ class Trainer_Heart(Trainer):
         pos_edge_index = data.pos_edge_label_index
         neg_edge_index = data.neg_edge_label_index
 
-        z = self.model.encoder(data.x, data.edge_index)
+        if self.model_name == 'VGAE':
+            z = self.model(data.x, data.edge_index)
+        elif self.model_name in ['GAE', 'GAT', 'GraphSage']:
+            z = self.model.encoder(data.x, data.edge_index)
         
         pos_pred = self.test_edge(z, pos_edge_index)
         neg_pred = self.test_edge(z, neg_edge_index)

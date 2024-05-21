@@ -29,7 +29,7 @@
 			"console": "integratedTerminal",
 			"args": [
 				"--data",
-				"pubmed",
+				"ogbn-arxiv",
 				"--device",
 				"cpu",
 				"--epochs",
