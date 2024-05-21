@@ -302,16 +302,15 @@ class MF(torch.nn.Module):
 
         if self.num_layers == 0:
             return self.emb.weight
-        
-        else:
-            for lin in self.lins[:-1]:
-                x = lin(x)
-                x = F.relu(x)
-                x = F.dropout(x, p=self.dropout, training=self.training)
 
-            x = self.lins[-1](x)
+        for lin in self.lins[:-1]:
+            x = lin(x)
+            x = F.relu(x)
+            x = F.dropout(x, p=self.dropout, training=self.training)
 
-            return x
+        x = self.lins[-1](x)
+
+        return x
 
 
 class DGCNN(torch.nn.Module):
@@ -327,10 +326,7 @@ class DGCNN(torch.nn.Module):
             if train_dataset is None:
                 k = 30
             else:
-                if dynamic_train:
-                    sampled_train = train_dataset[:1000]
-                else:
-                    sampled_train = train_dataset
+                sampled_train = train_dataset[:1000] if dynamic_train else train_dataset
                 num_nodes = sorted([g.num_nodes for g in sampled_train])
                 k = num_nodes[int(math.ceil(k * len(num_nodes))) - 1]
                 k = max(10, k)
@@ -426,3 +422,32 @@ class mlp_score(torch.nn.Module):
             x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.lins[-1](x)
         return torch.sigmoid(x)
+
+
+# merge the encoder and decoder
+def create_heart_model(cfg):
+    # input check
+    model = eval(cfg.model.type)(cfg.model.input_channels, cfg.model.hidden_channels,
+                                 cfg.model.hidden_channels, cfg.model.num_layers, 
+                                 cfg.model.dropout).to(cfg.device)
+    
+    score_func = eval(cfg.score_model.name)(cfg.score_model.hidden_channels, 
+                                            cfg.score_model.hidden_channels,
+                                            1, 
+                                            cfg.score_model.num_layers_predictor, 
+                                            cfg.score_model.dropout).to(cfg.device)
+    
+    raise NotImplementedError('This function is not implemented yet')
+    if cfg.model.type == 'GAT':
+        model = GAE(encoder=GAT(cfg))
+    elif cfg.model.type == 'GraphSage':
+        model = GAE(encoder=GraphSage(cfg))
+    elif cfg.model.type == 'GAE':
+        model = GAE(encoder = GCNEncoder(cfg) )
+    elif cfg.model.type == 'VGAE':
+        model = VGAE(encoder= VariationalGCNEncoder(cfg))
+    else:
+        # Without this else I got: UnboundLocalError: local variable 'model' referenced before assignment
+        raise ValueError('Current model does not exist')
+    model.to(cfg.device)
+    return model 

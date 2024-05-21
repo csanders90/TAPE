@@ -314,9 +314,7 @@ class Logger(object):
         best_train_valid, _, best_test_valid = result[best_valid_epoch]
 
         if print_mode:
-            print(f'Run {run + 1:02d}:')
-            print(f'Highest Train: {result[:, 0].max().item():.2f} at Epoch {100*result[:, 0].argmax().item()}, Highest Valid: {result[:, 1].max().item():.2f} at Epoch {100*best_valid_epoch}, Final Train: {best_train_valid:.2f} at Epoch {100*best_valid_epoch}')
-            print(f'Final Test: {best_test_valid:.2f} at Epoch {100*best_valid_epoch}')
+            print(f'Highest Train: {result[:, 0].max().item():.2f} at Epoch {100*result[:, 0].argmax().item()}, Highest Valid: {result[:, 1].max().item():.2f} at Epoch {100*best_valid_epoch}, Final Train: {best_train_valid:.2f} at Epoch {100*best_valid_epoch} Final Test: {best_test_valid:.2f} at Epoch {100*best_valid_epoch}.')
         
         # best train, best valid, train with the best valid epoch, test with the best valid epoch
         return round(result[:, 0].max().item(), 2), round(result[:, 1].max().item(), 2), round(best_train_valid.item(), 2), round(best_test_valid.item(), 2)
@@ -365,8 +363,6 @@ class Logger(object):
 
     def save2dict(self):
         "save the result into csv based on calc_all_stats"
-        
-        
         
 
 def get_logger(name, log_dir, config_dir):
@@ -686,15 +682,16 @@ def set_printing(cfg):
     logger = logging.getLogger(__name__)
 
     # Step 2: Set the overall log level for the logger
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
 
     # Step 3: Create handlers
     file_handler = logging.FileHandler(f'{cfg.run_dir}/logging.log')
-    console_handler = logging.StreamHandler(sys.stdout)
-
+    # console_handler = logging.StreamHandler(sys.stdout) # if you dont want to see the log in the console
+    console_handler = logging.StreamHandler() 
+    
     # Step 4: Set log levels for handlers
-    file_handler.setLevel(logging.DEBUG)
-    console_handler.setLevel(logging.DEBUG)
+    file_handler.setLevel(logging.INFO)
+    console_handler.setLevel(logging.INFO)
 
     # Step 5: Create formatters and add them to handlers
     formatter = logging.Formatter('%(asctime)s - %(message)s')

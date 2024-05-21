@@ -221,8 +221,7 @@ def create_model(cfg):
         model = GAE(encoder=GAT(cfg))
     elif cfg.model.type == 'GraphSage':
         model = GAE(encoder=GraphSage(cfg))
-    
-    if cfg.model.type == 'GAE':
+    elif cfg.model.type == 'GAE':
         model = GAE(encoder = GCNEncoder(cfg) )
     elif cfg.model.type == 'VGAE':
         model = VGAE(encoder= VariationalGCNEncoder(cfg))

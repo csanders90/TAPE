@@ -1,42 +1,59 @@
-# #!/bin/bash
-# #SBATCH --time=24:00:00
-# #SBATCH --nodes=24
-# #SBATCH --ntasks=152
-# #SBATCH --partition=accelerated
-# #SBATCH --job-name=gnn_wb
-# #SBATCH --mem=501600mb
-# #SBATCH --output=log/TAG_Benchmark_%j.output
-# #SBATCH --error=error/TAG_Benchmark_%j.error
-# #SBATCH --gres=gpu:4
+#!/bin/sh
+#SBATCH --time=2-00:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=152
+#SBATCH --partition=accelerated
+#SBATCH --job-name=gnn_wb
+#SBATCH --mem=40960mb
+#BATCH  --cpu-per-gpu=38
+#SBATCH --output=log/TAG_Benchmark_%j.output
+#SBATCH --error=error/TAG_Benchmark_%j.error
+#SBATCH --gres=gpu:4
 
-# #SBATCH --chdir=/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/batch
 
-# # Notification settings:
-# #SBATCH --mail-type=ALL
-# #SBATCH --mail-user=cc7738@kit.edu
-# source /hkfs/home/project/hk-project-test-p0021478/cc7738/anaconda3/etc/profile.d/conda.sh
+#SBATCH --chdir=/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/batch
 
-# conda activate base
-# conda activate EAsF
-# # <<< conda initialize <<<
-# module purge
-# module load devel/cmake/3.18
-# module load devel/cuda/11.8
-# module load compiler/gnu/12
+# Notification settings:
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=cc7738@kit.edu
+
+source /hkfs/home/project/hk-project-test-p0021478/cc7738/anaconda3/etc/profile.d/conda.sh
+
+conda activate base
+conda activate EAsF
+# <<< conda initialize <<<
+module purge
+module load devel/cmake/3.18
+module load devel/cuda/11.8
+module load compiler/gnu/12
 
 
 cd /hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/gcns
 
-# Define the list of items for the loop
-items=(ogbn-arxiv ogbn-product pubmed ogbn-products)
 
-# Run the loop in parallel
-for item in ogbn-arxiv ogbn-products pubmed ogbn-products; do
-    echo "Processing $item"
-    python custom_tune.py --data "$item" > "$item-VAE-custom_tune_output.txt" 
-done 
+device_list=(0 1 2 3)
+data_list=(cora pubmed arxiv_2023)
+model_list=(GAT GAE GraphSage VGAE)
 
+# Assuming device_list, model_list, and data_list are defined and populated
 
-python custom_tune.py --data pubmed --device cuda:0  > pubmed-VAE-custom_tune_output.txt
+for index in "${!data_list[@]}"; do
+    data=${data_list[$index]}
+    models=("GAT" "GAE" "GraphSage" "VGAE")
+    for device in {0..3}; do
+        model=${models[$device]}
+        if [ -z "$data" ]; then
+            echo "Skipping round $index due to missing data"
+            continue
+        fi
+        echo "Running on data $data with device cuda:$device and model $model"
+        python universal_tune_heart.py --device cuda:$device --data $data --model $model --epochs 10000 > "${model}-${device}-${data}-universal_tune_heart_output.txt" &
+        python universal_tune.py --device cuda:$device --data $data --model $model --epochs 10000 > "${model}-${device}-${data}-universal_tune_heart_output.txt" &
+        
+        while [ "$(jobs -r | wc -l)" -ge 4 ]; do
+            sleep 1
+        done
+    done
+    echo "round $index"
+done
 
-python custom_tune.py --data cora --device cuda:0 > cora-VAE-tune2_output.txt
