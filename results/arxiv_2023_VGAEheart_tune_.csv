@@ -1,3 +1,0 @@
-Metric,Hits@1,Hits@3,Hits@10,Hits@20,Hits@50,Hits@100,MRR,mrr_hit1,mrr_hit3,mrr_hit10,mrr_hit20,mrr_hit50,mrr_hit100,AUC,AP,acc,base_lr,batch_size,out_channels,hidden_channels,epochs
-arxiv_2023_run7bc3vc5i_VGAE,13.59,23.17,37.47,52.59,80.88,89.66,22.75,13.59,23.17,37.47,52.59,80.88,89.66,96.47,96.62,90.52,0.015,1024,32,32,1000
-Best,13.59,23.17,37.47,52.59,80.88,89.66,22.75,13.59,23.17,37.47,52.59,80.88,89.66,96.47,96.62,90.52,0.015,1024,32,32,1000

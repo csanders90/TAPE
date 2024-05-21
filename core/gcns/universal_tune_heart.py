@@ -163,18 +163,16 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
             
             # print_logger.info(f"out : {cfg.model.out_channels}, hidden: {cfg.model.hidden_channels}")
             print_logger.info(f"bs : {cfg.train.batch_size}, lr: {cfg.optimizer.base_lr}")
-
-            start_time = time.time()
-
             print_logger.info(f"The model {cfg.model.type} is initialized.")
 
             model = create_model(cfg)
-
+            
             print_logger.info(f"{model} on {next(model.parameters()).device}" )
             # print_logger.info(cfg)
-            cfg.params = params_count(model)
-            print_logger.info(f'Num parameters: {cfg.params}')
 
+            cfg.model.params = params_count(model)
+            print_logger.info(f'Num parameters: {cfg.model.params}')
+            
             optimizer = create_optimizer(model, cfg)
 
             # LLM: finetuning
@@ -208,6 +206,7 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
             run_result = {}
             for key in trainer.loggers.keys():
                 # refer to calc_run_stats in Logger class
+                print(key)
                 _, _, _, test_bvalid = trainer.loggers[key].calc_run_stats(run_id, True)
                 run_result[key] = test_bvalid
 
@@ -220,16 +219,17 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
                     run_result[k] = getattr(cfg.optimizer, k)
 
             run_result['epochs'] = cfg.train.epochs
-
-            print_logger.info(run_result)
+            run_result['train_time'] = trainer.run_result['train_time']
+            run_result['test_time'] = trainer.run_result['eval_time']
+            run_result['params'] = cfg.model.params
             
-            to_file = f'{cfg.data.name}_{cfg.model.type}heart_tune_.csv'
+            print_logger.info(run_result)
+            to_file = f'{cfg.data.name}_{cfg.model.type}heart_tune_time_.csv'
             trainer.save_tune(run_result, to_file)
-
-            print_logger.info(f"runing time {time.time() - start_time}")
+            
+            print_logger.info(f"train time per epoch {run_result['train_time']}")
+            print_logger.info(f"test time per epoch {run_result['test_time']}")
+            
         
-    # statistic for all runs
-    
-
 if __name__ == "__main__":
     project_main()

@@ -5,6 +5,7 @@ sys.path.insert(0, abspath(join(dirname(dirname(__file__)))))
 
 import torch
 import wandb
+import time   
 from ogb.linkproppred import Evaluator
 from torch_geometric.graphgym.config import cfg
 from sklearn.metrics import roc_auc_score, average_precision_score, roc_curve, auc
@@ -76,7 +77,8 @@ class Trainer():
         self.run = run
         self.repeat = repeat
         self.results_rank = {}
-
+        self.run_result = {}
+        
     def _train_gae(self):
         self.model.train()
         self.optimizer.zero_grad()
@@ -133,6 +135,7 @@ class Trainer():
         neg_pred = self.model.decoder(z, neg_edge_index)
         y_pred = torch.cat([pos_pred, neg_pred], dim=0)
         
+        # add a visualization of the threshold
         hard_thres = (y_pred.max() + y_pred.min())/2
 
         pos_y = z.new_ones(pos_edge_index.size(1))
@@ -194,7 +197,7 @@ class Trainer():
         for epoch in range(1, self.epochs + 1):
             loss = self.train_func[self.model_name]()
             
-            if epoch % self.report_step == 0:
+            if epoch % int(self.epochs/100) == 0:
                 self.results_rank = self.merge_result_rank()
                 
                 self.print_logger.info(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {self.results_rank["AUC"][0]:.4f}, AP: {self.results_rank["AP"][0]:.4f}, MRR: {self.results_rank["MRR"][0]:.4f}, Hit@10 {self.results_rank["Hits@10"][0]:.4f}')
@@ -211,6 +214,12 @@ class Trainer():
                                 f'Epoch: {epoch:02d}, Loss: {loss:.4f}, Train: {100 * train_hits:.2f}, Valid: {100 * valid_hits:.2f}, Test: {100 * test_hits:.2f}%')
                         self.print_logger.info('---')
 
+        for _ in range(1):
+            start_train = time.time() 
+            self.train_func[self.model_name]()
+            self.run_result['train_time'] = time.time() - start_train
+            self.evaluate_func[self.model_name](self.test_data)
+            self.run_result['eval_time'] = time.time() - start_train
 
 
     def result_statistic(self):
@@ -406,6 +415,7 @@ class Trainer_Heart(Trainer):
     def test_edge(self, h, edge_index):
         preds = []
         edge_index = edge_index.t()
+
         for perm  in DataLoader(range(edge_index.size(0)), self.batch_size):
             edge = edge_index[perm].t()
 

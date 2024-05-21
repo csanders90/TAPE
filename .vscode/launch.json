@@ -29,7 +29,7 @@
 			"console": "integratedTerminal",
 			"args": [
 				"--data",
-				"ogbn-arxiv",
+				"cora",
 				"--device",
 				"cpu",
 				"--epochs",

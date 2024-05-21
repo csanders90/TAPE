@@ -1,0 +1,3 @@
+Metric,Hits@1,Hits@3,Hits@10,Hits@20,Hits@50,Hits@100,MRR,mrr_hit1,mrr_hit3,mrr_hit10,mrr_hit20,mrr_hit50,mrr_hit100,AUC,AP,acc,base_lr,batch_size,out_channels,hidden_channels,heads,negative_slope,dropout,num_layers,epochs,train_time,test_time,params
+cora_runoxq4l6dy_GAT,2.77,2.77,14.58,27.49,66.61,81.73,6.35,2.77,2.77,14.58,27.49,66.61,81.73,88.87,85.76,76.94,0.01,1024,32,32,4,0.1,0,5,100,0.09286642074584961,0.10150742530822754,45952
+Best,2.77,2.77,14.58,27.49,66.61,81.73,6.35,2.77,2.77,14.58,27.49,66.61,81.73,88.87,85.76,76.94,0.01,1024,32,32,4,0.1,0,5,100,0.09286642074584961,0.10150742530822754,45952
