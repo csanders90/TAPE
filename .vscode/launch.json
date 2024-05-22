@@ -28,14 +28,14 @@
 			"program": "${file}",
 			"console": "integratedTerminal",
 			"args": [
-				"--data",
-				"cora",
-				"--device",
-				"cpu",
-				"--epochs",
-				"100",
-				"--model",
-				"GAT"
+				// "--data",
+				// "cora",
+				// "--device",
+				// "cpu",
+				// "--epochs",
+				// "100",
+				// "--model",
+				// "GAT"
 			],
 		}
 	]

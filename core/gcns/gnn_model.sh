@@ -4,7 +4,7 @@
 #SBATCH --ntasks=152
 #SBATCH --partition=accelerated
 #SBATCH --job-name=gnn_wb
-#SBATCH --mem=40960mb
+#SBATCH --mem=501600mb
 #BATCH  --cpu-per-gpu=38
 #SBATCH --output=log/TAG_Benchmark_%j.output
 #SBATCH --error=error/TAG_Benchmark_%j.error
@@ -32,7 +32,7 @@ cd /hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/gcns
 
 
 device_list=(0 1 2 3)
-data_list=(cora pubmed arxiv_2023)
+data_list=(pubmed)  #pubmed arxiv_2023
 model_list=(GAT GAE GraphSage VGAE)
 
 # Assuming device_list, model_list, and data_list are defined and populated
@@ -47,8 +47,8 @@ for index in "${!data_list[@]}"; do
             continue
         fi
         echo "Running on data $data with device cuda:$device and model $model"
-        python universal_tune_heart.py --device cuda:$device --data $data --model $model --epochs 10000 > "${model}-${device}-${data}-universal_tune_heart_output.txt" &
-        python universal_tune.py --device cuda:$device --data $data --model $model --epochs 10000 > "${model}-${device}-${data}-universal_tune_heart_output.txt" &
+        python universal_tune_heart.py --device cuda:$device --data $data --model $model --epochs 10000 > "${model}-${device}-${data}-universal_tune_heart_output.txt" 
+        python universal_tune.py --device cuda:$device --data $data --model $model --epochs 10000 > "${model}-${device}-${data}-universal_tune_heart_output.txt" 
         
         while [ "$(jobs -r | wc -l)" -ge 4 ]; do
             sleep 1
