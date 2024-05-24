@@ -58,6 +58,7 @@ def parse_args() -> argparse.Namespace:
 hyperparameter_space = {
     'GAT': {'base_lr': [0.01], 
             'batch_size': [2**10],
+            # 64,
             'out_channels': [2**5, 2**6, 2**7, 2**8], 
             'hidden_channels':  [2**5, 2**6, 2**7, 2**8],
             'heads': [2**2, 2, 2**3], 

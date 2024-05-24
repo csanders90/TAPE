@@ -620,32 +620,4 @@ class Trainer_SEAL(Trainer):
         return result_mrr
 
 
-import matplotlib.pyplot as plt
-import seaborn as sns
 
-counter = 0
-import numpy as np
-
-def plot_acc(y_true, y_pred, hard_thres):
-    file_name = 'data.npz'
-    np.savez(file_name, pos_pred=y_pred[y_true == 1], neg_pred=y_pred[y_true == 0])
-    global counter
-    counter += 1
-    file_name = f'plot_{counter}_acc_{torch.sum(y_true == torch.where(y_pred >= hard_thres, torch.tensor(1), torch.tensor(0))) / len(y_true)}.png'
-    save_dir = './plots'
-    os.makedirs(save_dir, exist_ok=True)
-    save_path = os.path.join(save_dir, file_name)
-    plt.figure(figsize=(8, 6))
-
-    plt.axvline(x=hard_thres, color='red', linestyle='--', label=f'Hard Threshold: {hard_thres.item()}')
-
-    sns.kdeplot(x=y_pred[y_true == 1], cmap="Blues", fill=True, bw_adjust=.5, label='y_true = 1')
-    sns.kdeplot(x=y_pred[y_true == 0], cmap="Reds", fill=True, bw_adjust=.5, label='y_true = 0')
-
-    plt.xlabel('distribution')
-    plt.xlabel('y_pred')
-    plt.title('Distribution Plot of Predictions vs Hard Threshold')
-    plt.legend()
-    plt.grid(True)
-    plt.savefig(save_path)
-    plt.close()
