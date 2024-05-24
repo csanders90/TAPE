@@ -205,7 +205,6 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
 
             run_result = {}
             for key in trainer.loggers.keys():
-                # refer to calc_run_stats in Logger class
                 print(key)
                 _, _, _, test_bvalid = trainer.loggers[key].calc_run_stats(run_id, True)
                 run_result[key] = test_bvalid

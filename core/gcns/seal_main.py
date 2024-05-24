@@ -19,7 +19,6 @@ from graphgps.encoder.seal import get_pos_neg_edges, extract_enclosing_subgraphs
 from torch_geometric.data import InMemoryDataset, Dataset
 from data_utils.load_data_nc import load_graph_cora, load_graph_pubmed, load_tag_arxiv23, load_graph_ogbn_arxiv
 import scipy.sparse as ssp
-from lpda.adjacency import construct_sparse_adj, plot_coo_matrix
 
 
 def parse_args() -> argparse.Namespace:
@@ -88,11 +87,7 @@ class SEALDataset(InMemoryDataset):
             shape=(self.data.num_nodes, self.data.num_nodes)
         )
 
-        if self.directed:
-            A_csc = A.tocsc()
-        else:
-            A_csc = None
-
+        A_csc = A.tocsc() if self.directed else None
         # Extract enclosing subgraphs for pos and neg edges
         pos_list = extract_enclosing_subgraphs(
             pos_edge, A, self.data.x, 1, self.num_hops, self.node_label,
@@ -188,6 +183,7 @@ if __name__ == "__main__":
                 data, _ = load_tag_arxiv23()
             elif cfg.data.name == 'ogbn-arxiv':
                 data = load_graph_ogbn_arxiv(False)
+            # i am not sure your split shares the same format with mine please visualize it and redo for the old split
             splits = do_edge_split(copy.deepcopy(data), cfg.data.val_pct, cfg.data.test_pct)
             
             # TODO visualize

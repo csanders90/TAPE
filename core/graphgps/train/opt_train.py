@@ -489,6 +489,9 @@ class Trainer_SEAL(Trainer):
                  loggers,
                  print_logger = None,
                  batch_size=None):
+        # TODO ruirui since you inherit the Trainer, you only need to 
+        # initilize the new params 
+        # please remove the duplicated params for readability
         self.name_tag = cfg.wandb.name_tag
         self.print_logger = print_logger
         self.report_step = report_step[cfg.data.name]
@@ -541,6 +544,7 @@ class Trainer_SEAL(Trainer):
             total_loss += loss.item() * data.num_graphs
 
         return total_loss / len(self.train_data)
+    
     def train(self):
         best_auc, best_hits, best_hit100 = 0, 0, 0
         for epoch in range(1, self.epochs + 1):

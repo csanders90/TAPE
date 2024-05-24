@@ -61,18 +61,13 @@ def k_hop_subgraph(src, dst, num_hops, A, sample_ratio=1.0,
         node_features = node_features[nodes]
 
     return nodes, subgraph, dists, node_features, y
-def neighbors(fringe, A, outgoing=True):
-    # Find all 1-hop neighbors of nodes in fringe from graph A,
-    # where A is a scipy csr adjacency matrix.
-    # If outgoing=True, find neighbors with outgoing edges;
-    # otherwise, find neighbors with incoming edges (you should
-    # provide a csc matrix in this case).
-    if outgoing:
-        res = set(A[list(fringe)].indices)
-    else:
-        res = set(A[:, list(fringe)].indices)
 
-    return res
+def neighbors(fringe, A, outgoing=True):
+    return (
+        set(A[list(fringe)].indices)
+        if outgoing
+        else set(A[:, list(fringe)].indices)
+    )
 
 def construct_pyg_graph(node_ids, adj, dists, node_features, y, node_label='drnl'):
     # Construct a pytorch_geometric graph from a scipy csr adjacency matrix.
@@ -89,9 +84,15 @@ def construct_pyg_graph(node_ids, adj, dists, node_features, y, node_label='drnl
         z = drnl_node_labeling(adj, 0, 1)
     else:
         z = torch.zeros(len(dists), dtype=torch.long)
-    data = Data(node_features, edge_index, edge_weight=edge_weight, y=y, z=z,
-                node_id=node_ids, num_nodes=num_nodes)
-    return data
+    return Data(
+        node_features,
+        edge_index,
+        edge_weight=edge_weight,
+        y=y,
+        z=z,
+        node_id=node_ids,
+        num_nodes=num_nodes,
+    )
 
 
 

@@ -63,12 +63,26 @@ All graph encoder modules including node encoder and edge encoder are implemente
 
 #### FeatNodeEncoder
 
-### B. LLM responses
-
 ## 2. Fine-tuning the LMs
-### To use the orginal text attributes
-### To use the GPT responses
+To use the orginal text attributes in custom_main.py
+```
+....
 
+splits, _, data = load_data_lp[cfg.data.name](cfg.data)
+
+# LLM: finetuning
+if cfg.train.finetune: 
+    # load custom embedding 
+    #  basically data.x = $your embedding in tensor
+    data = init_model_from_pretrained(model, cfg.train.finetune,
+                                        cfg.train.freeze_pretrained)
+...
+```
+
+### To load pretrained embedding
+```
+
+```
 
 
 ## 3. Training the GNNs
