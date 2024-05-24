@@ -97,8 +97,6 @@ class GraphSAINTSampler(torch.utils.data.DataLoader):
     def __collate__(self, data_list):
         assert len(data_list) == 1
         node_idx, adj = data_list[0]
-
-
         data = self.data.__class__()
 
         # Save global indexes of subgraph

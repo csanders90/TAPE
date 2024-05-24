@@ -20,8 +20,12 @@ from graphgps.network.custom_gnn import create_model
 from data_utils.load import load_data_nc, load_data_lp
 from utils import create_optimizer, config_device, \
         init_model_from_pretrained, create_logger, set_cfg
+<<<<<<< HEAD
 
 from gcns.gsaint_main import get_loader
+=======
+from gcns.gsaint_main import get_loader_RW
+>>>>>>> d987485649d900ef25fb5bb36d043b11b293f164
 import wandb 
 from sklearn.metrics import *
 from embedding.tune_utils import (
@@ -58,7 +62,40 @@ def wandb_record_files(path):
             break
     return record_or_not
 
+def save_results_to_file(result_dict, cfg, wandb, output_dir):
+    """
+    Saves the results and the configuration to a CSV file.
+    """
+    # Create a DataFrame from the result dictionary
+    result_df = pd.DataFrame([result_dict])
+    
+    # Add configuration details as columns
+    result_df['ModelType'] = cfg.model.type
+    result_df['BatchSize'] = wandb.batch_size
+    result_df['BatchSizeSampler'] = wandb.batch_size_sampler
+    result_df['HiddenChannels'] = wandb.hidden_channels
+    result_df['OutChannels'] = wandb.out_channels
+    result_df['NumSteps'] = wandb.num_steps
+    result_df['SampleCoverage'] = wandb.sample_coverage
+    result_df['WalkLength'] = wandb.walk_length
+    result_df['LearningRate'] = wandb.lr
+    result_df['Epochs'] = cfg.train.epochs
+    
+    # Specify the output file path
+    output_file = os.path.join(output_dir, 'results_summary.csv')
+    
+    # Check if file exists to append or write header
+    if os.path.exists(output_file):
+        result_df.to_csv(output_file, mode='a', header=False, index=False)
+    else:
+        result_df.to_csv(output_file, mode='w', header=True, index=False)
+    
+    print(f"Results saved to {output_file}")
+
 def run_experiment():  # sourcery skip: avoid-builtin-shadow
+
+    output_dir = os.path.join(FILE_PATH, "results_vgae")
+    os.makedirs(output_dir, exist_ok=True)
 
     id = wandb.util.generate_id()
     
@@ -86,6 +123,8 @@ def run_experiment():  # sourcery skip: avoid-builtin-shadow
     torch.set_num_threads(cfg.run.num_threads)
     splits, _, data = load_data_lp[cfg.data.name](cfg.data)
     cfg.model.in_channels = splits['train'].x.shape[1]
+
+    cfg.train.batch_size = wandb_config.batch_size
     model = create_model(cfg)
     
     wandb.watch(model, log="all",log_freq=10)
@@ -99,6 +138,7 @@ def run_experiment():  # sourcery skip: avoid-builtin-shadow
     if cfg.train.finetune: 
         model = init_model_from_pretrained(model, cfg.train.finetune,
                                             cfg.train.freeze_pretrained)
+<<<<<<< HEAD
     
     if trainer_type == 'GSAINT':
         trainer = Trainer_Saint(FILE_PATH, 
@@ -126,6 +166,43 @@ def run_experiment():  # sourcery skip: avoid-builtin-shadow
                 args.repeat,
                 loggers, 
                 cfg.device)
+=======
+
+    print(cfg.model.type)
+    if cfg.model.sampler == 'gsaint':
+            trainer = Trainer_Saint(
+        FILE_PATH=FILE_PATH,
+        cfg=cfg, 
+        model=model,
+        emb=None,
+        data=data,
+        optimizer=optimizer,
+        splits=splits, 
+        run=0, 
+        repeat=args.repeat,
+        loggers=loggers,
+        print_logger=None,
+        device=cfg.device,
+        gsaint=get_loader_RW, 
+        batch_size_sampler=wandb_config.batch_size_sampler, 
+        walk_length=wandb_config.walk_length, 
+        num_steps=wandb_config.num_steps, 
+        sample_coverage=wandb_config.sample_coverage
+        )
+    else:
+        trainer = Trainer(FILE_PATH,
+                    cfg,
+                    model, 
+                    None, 
+                    data,
+                    optimizer,
+                    splits,
+                    0, 
+                    args.repeat,
+                    loggers,
+                    None, 
+                    cfg.device)
+>>>>>>> d987485649d900ef25fb5bb36d043b11b293f164
 
     for epoch in range(1, cfg.train.epochs + 1):
         loss = trainer.train_func[trainer.model_name]()
@@ -157,6 +234,7 @@ def run_experiment():  # sourcery skip: avoid-builtin-shadow
     
     
     trainer.save_result(result_dict)
+    save_results_to_file(result_dict, cfg, wandb_config, output_dir)
     wandb.log({'Hits@20': set_float(result_dict['Hits@100'])})
     
     wandb.log({'best hits100': best_hits100})
@@ -225,7 +303,7 @@ def parse_args() -> argparse.Namespace:
 
 cfg_config.data.name = args.data
 cfg_config.data.device = args.device
-cfg_config.model.type = 'GAT'
+cfg_config.model.type = 'GAE'
 
 # cfg_sweep= 'core/yamls/cora/gcns/gsait_sweep.yaml'
 # cfg_config = 'core/yamls/cora/gcns/gsaint.yaml'
@@ -239,6 +317,10 @@ pprint.pprint(cfg_config)
 sweep_id = wandb.sweep(sweep=cfg_sweep, project=f"{cfg_config.model.type}-sweep-{cfg_config.data.name}")
 
 
+<<<<<<< HEAD
 wandb.agent(sweep_id, run_experiment, count=30)
 
 
+=======
+# TODO multirun weight baises trainer 
+>>>>>>> d987485649d900ef25fb5bb36d043b11b293f164
