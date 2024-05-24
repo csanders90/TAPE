@@ -10,6 +10,7 @@ from torch_geometric.data import Data
 from torch_geometric.utils import (negative_sampling, add_self_loops,
                                    train_test_split_edges)
 
+
 def extract_enclosing_subgraphs(link_index, A, x, y, num_hops, node_label='drnl',
                                 ratio_per_hop=1.0, max_nodes_per_hop=None,
                                 directed=False, A_csc=None):

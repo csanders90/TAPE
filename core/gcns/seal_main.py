@@ -19,6 +19,8 @@ from graphgps.encoder.seal import get_pos_neg_edges, extract_enclosing_subgraphs
 from torch_geometric.data import InMemoryDataset, Dataset
 from data_utils.load_data_nc import load_graph_cora, load_graph_pubmed, load_tag_arxiv23, load_graph_ogbn_arxiv
 import scipy.sparse as ssp
+from lpda.adjacency import construct_sparse_adj, plot_coo_matrix
+
 
 def parse_args() -> argparse.Namespace:
     r"""Parses the command line arguments."""
@@ -187,6 +189,8 @@ if __name__ == "__main__":
             elif cfg.data.name == 'ogbn-arxiv':
                 data = load_graph_ogbn_arxiv(False)
             splits = do_edge_split(copy.deepcopy(data), cfg.data.val_pct, cfg.data.test_pct)
+            
+            # TODO visualize
             path = f'{os.path.dirname(__file__)}/seal_{cfg.data.name}'
             dataset = {}
 

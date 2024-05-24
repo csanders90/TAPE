@@ -528,7 +528,7 @@ class Trainer_SEAL(Trainer):
         self.model.train()
         total_loss = 0
         train_loader = DataLoader(self.train_data, batch_size=self.batch_size, shuffle=True)
-        for idx, data in enumerate(train_loader):
+        for data in train_loader:
             data = data.to(self.device)
             self.optimizer.zero_grad()
             x = data.x

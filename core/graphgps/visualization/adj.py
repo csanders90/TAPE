@@ -13,6 +13,8 @@ from scipy.sparse import csc_array
 
 from data_utils.load import load_data_nc
 
+import matplotlib.pyplot as plt
+from scipy.sparse import coo_matrix
 import matspy as spy # https://github.com/alugowski/matspy
 import math
 import argparse
@@ -98,8 +100,6 @@ def compare_adj(data_name, data_edges):
 def plot_adj_sparse():
       """plot the adjacency matrix of a sparse matrix"""
 
-import matplotlib.pyplot as plt
-from scipy.sparse import coo_matrix
       
 def plot_coo_matrix(m: coo_matrix, name: str):
     """
