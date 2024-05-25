@@ -102,7 +102,8 @@ def get_edge_split(data: Data,
                                 num_val=val_pct,
                                 num_test=test_pct,
                                 add_negative_train_samples=include_negatives, 
-                                split_labels=split_labels)
+                                split_labels=split_labels),
+        
     ])
     del data.adj_t, data.e_id, data.batch_size, data.n_asin, data.n_id
     train_data, val_data, test_data = transform(data)

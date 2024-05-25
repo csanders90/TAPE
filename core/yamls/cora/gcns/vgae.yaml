@@ -16,7 +16,11 @@ wandb:
 
 train:
   mode: custom
+<<<<<<< HEAD
   batch_size: 2**14 
+=======
+  batch_size: 2**14
+>>>>>>> ea92b90a2dc71dd378457a0877c2aab641119c5e
   eval_period: 1
   epochs: 200
   device: 0
