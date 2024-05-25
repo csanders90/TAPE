@@ -16,7 +16,7 @@ from torch_geometric.nn import GCNConv, SAGEConv, GINConv, GATConv
 from ogb.linkproppred import Evaluator
 from graphgps.network.heart_gnn import (GCN, GAT, SAGE, mlp_score)
 from data_utils.load import load_data_lp
-from utils import Logger, save_emb, get_root_dir, get_logger, config_device, set_cfg, get_git_repo_root_path
+from core.graphgps.utility.utils import Logger, save_emb, get_root_dir, get_logger, config_device, set_cfg, get_git_repo_root_path
 from core.graphgps.train.heart_train import train, test, test_edge
 
 

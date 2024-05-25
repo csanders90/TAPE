@@ -22,7 +22,7 @@ from sklearn.neural_network import MLPClassifier
 from yacs.config import CfgNode as CN
 from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
 
-from utils import (
+from core.graphgps.utility.utils import (
     get_git_repo_root_path,
     append_acc_to_excel,
     append_mrr_to_excel
@@ -32,7 +32,7 @@ from data_utils.load_arxiv2023_lp import get_raw_text_arxiv_2023
 from data_utils.load_pubmed_lp import get_pubmed_casestudy
 from lpda.adjacency import plot_coo_matrix, construct_sparse_adj
 from heuristic.eval import get_metric_score
-from embedding.tune_utils import parse_args, param_tune_acc_mrr
+from core.embedding.tune_utils import parse_args, param_tune_acc_mrr
 import torch
 from time import time
 import numpy as np

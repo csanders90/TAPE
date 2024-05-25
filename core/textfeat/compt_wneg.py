@@ -22,7 +22,7 @@ from sklearn.neural_network import MLPClassifier
 from yacs.config import CfgNode as CN
 from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
 
-from utils import (
+from core.graphgps.utility.utils import (
     get_git_repo_root_path,
     append_acc_to_excel,
     append_mrr_to_excel

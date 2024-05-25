@@ -15,7 +15,7 @@ import torch.nn.functional as F
 # external 
 from embedding.tune_utils import param_tune_acc_mrr, mvari_str2csv, save_parmet_tune
 from heuristic.eval import get_metric_score
-from utils import config_device, savepred, Logger
+from core.graphgps.utiliity.utils import config_device, savepred, Logger
 from typing import Dict, Tuple
 
 # Understand, whu is it work

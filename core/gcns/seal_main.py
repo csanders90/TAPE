@@ -11,7 +11,7 @@ from graphgps.network.heart_gnn import DGCNN
 
 from torch_geometric import seed_everything
 from torch_geometric.graphgym.utils.device import auto_select_device
-from utils import set_cfg, get_git_repo_root_path, custom_set_run_dir, set_printing, run_loop_settings, create_optimizer, config_device, \
+from core.graphgps.utility.utils import set_cfg, get_git_repo_root_path, custom_set_run_dir, set_printing, run_loop_settings, create_optimizer, config_device, \
     create_logger
 
 from graphgps.encoder.seal import get_pos_neg_edges, extract_enclosing_subgraphs, k_hop_subgraph, construct_pyg_graph, do_edge_split

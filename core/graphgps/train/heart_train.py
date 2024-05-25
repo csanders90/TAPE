@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from utils import *
+
 # from logger import Logger
 import torch
 from ogb.linkproppred import Evaluator
@@ -18,6 +18,7 @@ from heuristic.eval import get_metric_score
 from torch.utils.data import DataLoader
 from torch_geometric.utils import negative_sampling
 from torch_geometric.data import Data
+from graphgps.train.opt_train import Trainer
 
 def train(model, 
           score_func,  
@@ -204,8 +205,7 @@ class Trainer_Heart(Trainer):
                     repeat, 
                     loggers,
                     print_logger,
-                    device, 
-                    if_wandb)
+                    device)
         
         self.batch_size = cfg.train.batch_size
         model_types = ['VGAE', 'GAE', 'GAT', 'GraphSage']
@@ -225,7 +225,7 @@ class Trainer_Heart(Trainer):
                           drop_last=True) 
         if if_wandb:
             iters = len(self.train_loader)
-            step = self.epoch * iters
+            step = self.epochs * iters
             best_loss = torch.inf
         
     def _train_heart(self):

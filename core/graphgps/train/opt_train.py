@@ -14,16 +14,15 @@ from yacs.config import CfgNode as CN
 from tqdm import tqdm 
 from torch_geometric.data import Data
 
-from embedding.tune_utils import param_tune_acc_mrr, mvari_str2csv, save_parmet_tune
+from embedding.tune_utils import mvari_str2csv, save_parmet_tune
 from heuristic.eval import get_metric_score
-from utils import config_device
+from graphgps.utility.utils import config_device, Logger
 from typing import Dict, Tuple
-from utils import Logger
 
 
 report_step = {
     'cora': 100,
-    'pubmed': 1000,
+    'pubmed': 1,
     'arxiv_2023': 100,
     'ogbn-arxiv': 1,
     'ogbn-products': 1,
@@ -197,8 +196,8 @@ class Trainer():
         for epoch in range(1, self.epochs + 1):
             loss = self.train_func[self.model_name]()
             
-            if self.if_wandb:
-                wandb.log({'loss': loss, 'epoch': epoch})
+            wandb.log({'loss': loss, 'epoch': epoch}) if self.if_wandb else None
+                
             if epoch % int(self.report_step) == 0:
 
                 self.results_rank = self.merge_result_rank()
@@ -209,13 +208,16 @@ class Trainer():
                     
                 for key, result in self.results_rank.items():
                     self.loggers[key].add_result(self.run, result)
-                    if epoch % 500 == 0:
-                        for key, result in self.results_rank.items():
-                            train_hits, valid_hits, test_hits = result
-                            self.print_logger.info(
-                                f'Run: {self.run + 1:02d}, Key: {key}, '
-                                f'Epoch: {epoch:02d}, Loss: {loss:.4f}, Train: {100 * train_hits:.2f}, Valid: {100 * valid_hits:.2f}, Test: {100 * test_hits:.2f}%')
-                        self.print_logger.info('---')
+                    
+                    train_hits, valid_hits, test_hits = result
+                    self.print_logger.info(
+                        f'Run: {self.run + 1:02d}, Key: {key}, '
+                        f'Epoch: {epoch:02d}, Loss: {loss:.4f}, Train: {100 * train_hits:.2f}, Valid: {100 * valid_hits:.2f}, Test: {100 * test_hits:.2f}%')
+                    wandb.log({f"Metrics/train_{key}": train_hits})
+                    wandb.log({f"Metrics/valid_{key}": valid_hits})
+                    wandb.log({f"Metrics/test_{key}": test_hits})
+                    
+                self.print_logger.info('---')
 
         for _ in range(1):
             start_train = time.time() 

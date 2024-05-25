@@ -2,7 +2,7 @@ import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import torch
 import pandas as pd
-from utils import get_git_repo_root_path
+from graphgps.utility.utils import get_git_repo_root_path
 from typing import Dict
 import numpy as np
 import scipy.sparse as ssp
@@ -23,8 +23,8 @@ from data_utils.load_data_nc import load_tag_cora, load_tag_pubmed, \
                             load_text_product
                     
                     
-from utils import get_git_repo_root_path, config_device, init_cfg_test
-from utils import time_logger
+from graphgps.utility.utils import get_git_repo_root_path, config_device, init_cfg_test
+from graphgps.utility.utils import time_logger
 from typing import Dict, Tuple, List, Union
 
 FILE = 'core/dataset/ogbn_products_orig/ogbn-products.csv'

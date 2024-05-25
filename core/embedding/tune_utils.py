@@ -10,15 +10,15 @@ from yacs.config import CfgNode as CN
 from heuristic.eval import get_metric_score
 from ogb.linkproppred import Evaluator
 import argparse
-from utils import (
+import pandas as pd 
+from typing import Dict
+import copy
+
+from graphgps.utility.utils import (
     get_git_repo_root_path,
     append_acc_to_excel,
     append_mrr_to_excel,
 )
-
-import pandas as pd 
-from typing import Dict
-import copy
 
 # Constants
 FILE_PATH = get_git_repo_root_path() + '/'
@@ -176,6 +176,7 @@ def save_parmet_tune(name_tag, metrics, root):
     upt_Data = pd.concat([new_Data, Best_df])
     upt_Data.to_csv(root,index=False)
     return upt_Data
+    
     
 def mvari_str2csv(name_tag, metrics, root):
     # if not exists save the first row

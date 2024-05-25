@@ -13,12 +13,12 @@ from torch_geometric.graphgym.utils.comp_budget import params_count
 from torch_geometric.graphgym.cmd_args import parse_args
 import argparse
 import wandb
+
+from data_utils.load import load_data_lp
 from graphgps.train.heart_train import Trainer_Heart
 from graphgps.network.custom_gnn import create_model
 from graphgps.config import (dump_cfg, dump_run_cfg)
-
-from data_utils.load import load_data_lp
-from utils import set_cfg, parse_args, get_git_repo_root_path, Logger, custom_set_out_dir \
+from graphgps.utility.utils import set_cfg, parse_args, get_git_repo_root_path, Logger, custom_set_out_dir \
     , custom_set_run_dir, set_printing, run_loop_settings, create_optimizer, config_device, \
         init_model_from_pretrained, create_logger
 import pprint
@@ -211,34 +211,19 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
             print_logger.info(f"config saved into {cfg.run_dir}")
             print_logger.info(f'Run {run_id} with seed {seed} and split {split_index} on device {cfg.device}')
 
-            if args.wandb:
-                trainer = Trainer_Heart(FILE_PATH,
-                        cfg,
-                        model, 
-                        None, 
-                        data,
-                        optimizer,
-                        splits,
-                        run_id, 
-                        args.repeat,
-                        loggers, 
-                        print_logger,
-                        cfg.device, 
-                        True)
-            else:
-                trainer = Trainer_Heart(FILE_PATH,
-                        cfg,
-                        model, 
-                        None, 
-                        data,
-                        optimizer,
-                        splits,
-                        run_id, 
-                        args.repeat,
-                        loggers, 
-                        print_logger,
-                        cfg.device, 
-                        False)
+            trainer = Trainer_Heart(FILE_PATH,
+                    cfg,
+                    model, 
+                    None, 
+                    data,
+                    optimizer,
+                    splits,
+                    run_id, 
+                    args.repeat,
+                    loggers, 
+                    print_logger,
+                    cfg.device, 
+                    True if args.wandb else False)
 
             trainer.train()
 
@@ -247,10 +232,7 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
                 print(key)
                 best_train, best_valid, train_bvalid, test_bvalid = trainer.loggers[key].calc_run_stats(run_id, True)
                 run_result[key] = test_bvalid
-                wandb.log({f"valid/test_{key}": test_bvalid})
-                wandb.log({f"valid/train_{key}": train_bvalid})
-                wandb.log({f"train/valid_{key}": best_valid})
-                wandb.log({f"train/train_{key}": best_train})
+
     
             for k in hyperparameter_search.keys():
                 if hasattr(cfg.model, k):

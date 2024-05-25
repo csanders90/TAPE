@@ -19,12 +19,12 @@ from torch_geometric.datasets import Planetoid
 from graphgps.train.opt_train import Trainer, Trainer_Saint
 from graphgps.network.custom_gnn import create_model
 from data_utils.load import load_data_nc, load_data_lp
-from utils import create_optimizer, config_device, \
+from core.graphgps.utility.utils import create_optimizer, config_device, \
         init_model_from_pretrained, create_logger, set_cfg
 from gcns.gsaint_main import get_loader_RW
 import wandb 
 from sklearn.metrics import *
-from embedding.tune_utils import (
+from core.embedding.tune_utils import (
 
     FILE_PATH
 )

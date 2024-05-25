@@ -13,9 +13,9 @@ from data_utils.load import load_data_lp
 from torch_geometric import seed_everything
 from torch_geometric.data.makedirs import makedirs
 from torch_geometric.graphgym.utils.device import auto_select_device
-from custom_main import run_loop_settings, custom_set_run_dir, set_printing
+from gcns.custom_main import run_loop_settings, custom_set_run_dir, set_printing
 from graphgps.network.custom_gnn import create_model
-from utils import set_cfg, parse_args, get_git_repo_root_path, Logger, custom_set_out_dir \
+from core.graphgps.utiliity.utils import set_cfg, parse_args, get_git_repo_root_path, Logger, custom_set_out_dir \
     , custom_set_run_dir, set_printing, run_loop_settings, create_optimizer, config_device, \
         init_model_from_pretrained, create_logger
 

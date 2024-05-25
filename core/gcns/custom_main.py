@@ -23,7 +23,7 @@ import argparse
 from graphgps.train.opt_train import Trainer
 from graphgps.network.custom_gnn import create_model
 from data_utils.load import load_data_lp
-from utils import set_cfg, get_git_repo_root_path, Logger, custom_set_out_dir \
+from core.graphgps.utility.utils import set_cfg, get_git_repo_root_path, Logger, custom_set_out_dir \
     , custom_set_run_dir, set_printing, run_loop_settings, create_optimizer, config_device, \
         init_model_from_pretrained, create_logger
 import pprint
@@ -61,7 +61,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-# TODO add weight biases to report result
+
 def project_main():
     
     args = parse_args()

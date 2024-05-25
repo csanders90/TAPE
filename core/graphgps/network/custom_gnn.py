@@ -14,7 +14,8 @@ from torch import nn
 from torch_geometric.nn import GCNConv, MessagePassing
 from torch_geometric.utils import softmax
 from graphgps.loss.custom_loss import InnerProductDecoder
-from graphgps.network.heart_gnn import (GCN, GAT, SAGE, mlp_score)
+from graphgps.network.heart_gnn import GAT
+from torch_geometric.utils import negative_sampling
 
 class GraphSage(MessagePassing):
     
@@ -160,7 +161,7 @@ class GAE(torch.nn.Module):
             self.decoder(z, pos_edge_index) + EPS).mean() # loss for positive samples
 
         if neg_edge_index is None:
-            neg_edge_index = torch_geometric.utils.negative_sampling(pos_edge_index, z.size(0)) # negative sampling
+            neg_edge_index = negative_sampling(pos_edge_index, z.size(0)) # negative sampling
         neg_loss = -torch.log(
             1 - self.decoder(z, neg_edge_index) + EPS).mean() # loss for negative samples
 
@@ -204,8 +205,7 @@ class VGAE(GAE):
         """编码功能"""
         self.__mu__, self.__logstd__ = self.encoder(*args, **kwargs) # 编码后的mu和std表示一个分布
         self.__logstd__ = self.__logstd__.clamp(max=MAX_LOGSTD) # 这里把std最大值限制一下
-        z = self.reparametrize(self.__mu__, self.__logstd__) # 进行reparametrization，这样才能够训练模型
-        return z
+        return self.reparametrize(self.__mu__, self.__logstd__) # 进行reparametrization，这样才能够训练模型
 
     def kl_loss(self, mu=None, logstd=None):
         """我们给隐变量的分布加上（0，I）高斯变量的先验，即希望隐变量分布服从（0，I）的高斯分布
@@ -215,6 +215,7 @@ class VGAE(GAE):
             max=MAX_LOGSTD)
         return -0.5 * torch.mean(
             torch.sum(1 + 2 * logstd - mu**2 - logstd.exp()**2, dim=1)) # 两个高斯分布之间的KL损失
+
 
 def create_model(cfg):
     if cfg.model.type == 'GAT':

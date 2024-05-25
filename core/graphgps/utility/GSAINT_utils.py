@@ -14,7 +14,7 @@ from torch_geometric.graphgym.utils.agg_runs import agg_runs
 from torch_geometric.graphgym.utils.comp_budget import params_count
 from torch_geometric.graphgym.utils.device import auto_select_device
 
-from embedding.tune_utils import (
+from core.embedding.tune_utils import (
     parse_args, 
     get_git_repo_root_path
 )

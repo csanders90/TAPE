@@ -8,29 +8,26 @@ import torch
 import logging
 import itertools
 from tqdm import tqdm
-from torch_geometric.graphgym.utils.comp_budget import params_count
-from torch_geometric.graphgym.cmd_args import parse_args
 import argparse
 import wandb
-from graphgps.config import (dump_cfg, dump_run_cfg)
-
-from utils import set_cfg, parse_args, get_git_repo_root_path, Logger, custom_set_out_dir \
-    , custom_set_run_dir, set_printing, run_loop_settings, create_optimizer, config_device, \
-        init_model_from_pretrained, create_logger
-
 import time
-from graphgps.train.opt_train import Trainer_SEAL
-from graphgps.network.heart_gnn import DGCNN
-
+from torch_geometric.data import InMemoryDataset, Dataset
+from torch_geometric.graphgym.utils.comp_budget import params_count
+from torch_geometric.graphgym.cmd_args import parse_args
 from torch_geometric import seed_everything
 from torch_geometric.graphgym.utils.device import auto_select_device
-from utils import set_cfg, parse_args, get_git_repo_root_path, custom_set_run_dir, set_printing, run_loop_settings, create_optimizer, config_device, \
-    create_logger
-from gcns_subgraph.SEAL.utils import *
-from torch_geometric.data import InMemoryDataset, Dataset
+import scipy.sparse as ssp
+from core.graphgps.utility.utils import set_cfg, parse_args, get_git_repo_root_path, custom_set_run_dir, set_printing, run_loop_settings, \
+          create_optimizer, config_device,  create_logger, custom_set_out_dir
 from data_utils.load_data_nc import load_graph_cora, load_graph_pubmed, load_tag_arxiv23, load_graph_ogbn_arxiv
+from graphgps.encoder.seal import get_pos_neg_edges, extract_enclosing_subgraphs, k_hop_subgraph, construct_pyg_graph, do_edge_split
+from graphgps.config import (dump_cfg, dump_run_cfg)
+from graphgps.train.seal_train import Trainer_SEAL
+from graphgps.network.heart_gnn import DGCNN
+
 
 FILE_PATH = f'{get_git_repo_root_path()}/'
+
 class SEALDataset(InMemoryDataset):
     def __init__(self, root, data, splits, num_hops, percent=100, split='train',node_label='drnl', ratio_per_hop=1.0,
                  max_nodes_per_hop=None, directed=False):

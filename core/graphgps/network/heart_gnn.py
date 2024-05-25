@@ -7,7 +7,9 @@ import math
 from torch.nn import (ModuleList, Linear, Conv1d, MaxPool1d, Embedding)
 from torch.nn import BatchNorm1d as BN
 from torch_geometric.nn import global_sort_pool
-
+from custom_gnn import GAE, VGAE
+from torch_geometric.utils import negative_sampling
+from torch.nn import Module
 
 class GCN(torch.nn.Module):
     def __init__(self, in_channels, hidden_channels, out_channels, num_layers,
@@ -65,8 +67,14 @@ class GCN(torch.nn.Module):
 
 
 class GAT(torch.nn.Module):
-    def __init__(self, in_channels, hidden_channels, out_channels, num_layers,
-                 dropout, mlp_layer=None,  head=None, node_num=None,  cat_node_feat_mf=False, data_name=None):
+    def __init__(self, 
+                 in_channels, 
+                 hidden_channels, 
+                 out_channels, 
+                 num_layers,
+                 dropout, 
+                 head=None, 
+                 data_name=None):
         super(GAT, self).__init__()
 
         self.convs = torch.nn.ModuleList()
@@ -422,30 +430,78 @@ class mlp_score(torch.nn.Module):
             x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.lins[-1](x)
         return torch.sigmoid(x)
+    
 
+class GAE_forall(torch.nn.Module):
+    """graph auto encoder。
+    """
+    def __init__(self, 
+                 encoder: Module, 
+                 product: Module, 
+                 decoder: Module):
+        super().__init__()
+        self.encoder = encoder
+        self.product = product
+        self.decoder = decoder
 
+    def get_embedding(self, *args, **kwargs):
+        return self.encoder(*args, **kwargs)
+    
+    def get_link_embed(self, edge_index):
+        z = self.get_embedding()
+        return z[edge_index[0]], z[edge_index[1]]
+        
+    def get_logits(self, z, edge_index):
+        z = self.get_embedding()
+        return self.product(z[edge_index[0]], z[edge_index[1]])
+        
+        
+    def recon_loss(self, z, pos_edge_index, neg_edge_index=None):
+        """In this script we use the binary cross entropy loss function.
+
+        params
+        ----
+        z: output of encoder
+        pos_edge_index: positive edge index
+        neg_edge_index: negative edge index
+        """
+        EPS = 1e-15 
+
+        pos_logits = self.get_logits(z, pos_edge_index)
+        pos_loss = -torch.log(
+            pos_logits + EPS).mean() # loss for positive samples
+
+        if neg_edge_index is None:
+            neg_edge_index = negative_sampling(pos_edge_index, z.size(0)) # negative sampling
+        neg_logits = self.get_logits(z, neg_edge_index)
+        neg_loss = -torch.log(
+            1 - neg_logits + EPS).mean() # loss for negative samples
+
+        return pos_loss + neg_loss
+
+class InnerProduct(torch.nn.Module):
+    """解码器，用向量内积表示重建的图结构"""
+    
+    def forward(self, z1, z2, sigmoid=True):
+        """
+        参数说明：
+        z: 节点表示
+        edge_index: 边索引，也就是节点对
+        """
+        value = (z1 * z2).sum(dim=1)
+        return torch.sigmoid(value) if sigmoid else value
+    
+    
 # merge the encoder and decoder
 def create_heart_model(cfg):
     # input check
-    model = eval(cfg.model.type)(cfg.model.input_channels, cfg.model.hidden_channels,
-                                 cfg.model.hidden_channels, cfg.model.num_layers, 
-                                 cfg.model.dropout).to(cfg.device)
-    
-    score_func = eval(cfg.score_model.name)(cfg.score_model.hidden_channels, 
-                                            cfg.score_model.hidden_channels,
-                                            1, 
-                                            cfg.score_model.num_layers_predictor, 
-                                            cfg.score_model.dropout).to(cfg.device)
-    
-    raise NotImplementedError('This function is not implemented yet')
     if cfg.model.type == 'GAT':
-        model = GAE(encoder=GAT(cfg))
-    elif cfg.model.type == 'GraphSage':
-        model = GAE(encoder=GraphSage(cfg))
-    elif cfg.model.type == 'GAE':
-        model = GAE(encoder = GCNEncoder(cfg) )
-    elif cfg.model.type == 'VGAE':
-        model = VGAE(encoder= VariationalGCNEncoder(cfg))
+        model = GAE_forall(encoder= GAT(cfg), 
+                           product= InnerProduct(),
+                           decoder= mlp_score(cfg.score_model.hidden_channels))
+
+    elif cfg.model.type in ['GraphSage', 'GAE', 'VGAE']:
+        raise NotImplementedError
     else:
         # Without this else I got: UnboundLocalError: local variable 'model' referenced before assignment
         raise ValueError('Current model does not exist')
