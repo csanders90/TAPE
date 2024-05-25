@@ -795,3 +795,18 @@ def init_model_from_pretrained(model, pretrained_dir, freeze_pretrained=False):
                 param.requires_grad = False
     return model
 
+def savepred(cfg, FILE_PATH, pred, true, data):
+    root = os.path.join(FILE_PATH, cfg.out_dir, 'pred_record')
+    os.makedirs(root, exist_ok=True)
+    timestamp = time.strftime('%Y%m%d%H%M%S', time.localtime(time.time()))
+    file_path = os.path.join(root, f'{cfg.data.name}_{cfg.model.type}_{timestamp}.txt')
+    print(file_path)
+    with open(file_path, 'w') as f:
+        for idx, subgraph in enumerate(data):
+            edges = subgraph.edge_index.t().numpy()
+            pred_idx = pred[idx].numpy()
+            true_idx = true[idx].numpy()
+            
+            lines = [f"{edge[0]} {edge[1]} {p.item()} {t.item()}\n"
+                     for edge, p, t in zip(edges, pred_idx, true_idx)]
+            f.writelines(lines)

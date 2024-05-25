@@ -76,6 +76,7 @@ def save_results_to_file(result_dict, cfg, output_dir):
     print(cfg)
     result_df['ModelType'] = cfg.type
     result_df['BatchSize'] = cfg.batch_size
+    result_df['LearningRate'] = cfg.lr
     result_df['BatchSizeSampler'] = cfg.batch_size_sampler
     result_df['HiddenChannels'] = cfg.hidden_channels
     result_df['OutChannels'] = cfg.out_channels
@@ -98,14 +99,16 @@ hyperparameter_space = {
     'GAT': {'out_channels': [2**7, 2**8], 'hidden_channels':  [2**8],
                                 'heads': [2**2, 2], 'negative_slope': [0.1], 'dropout': [0], 
                                 'num_layers': [5, 6, 7], 'base_lr': [0.015]},
-    'GAE': {'out_channels': [16], 'hidden_channels': [16]},
-    'VGAE': {'out_channels': [16], 'hidden_channels': [16]},
+    'GAE': {'out_channels': [32], 'hidden_channels': [32]},
+    'VGAE': {'out_channels': [32], 'hidden_channels': [32]},
     'GraphSage': {'out_channels': [2**8, 2**9], 'hidden_channels': [2**8, 2**9]}, 'base_lr': [0.015, 0.1, 0.01]
 }
 
 hyperparameter_gsaint = {
-        'batch_size': [2048],
-        'batch_size_sampler': [128], # 32, 64 very bad we get very sparse graphs
+        'batch_size': [32],
+        'lr': [0.01],
+        'batch_size_sampler': [1024], # 32, 64 very bad we get very sparse graphs for Cora
+                                     # 32, 64, 128, 256 very bad we get very sparse graphs for Arxiv_2023
         'walk_length'       : [10],
         'num_steps'         : [10],
         'sample_coverage'   : [100]
@@ -113,8 +116,8 @@ hyperparameter_gsaint = {
 
 yaml_file = {   
              'GAT': 'core/yamls/cora/gcns/gat.yaml',
-             'GAE': 'core/yamls/cora/gcns/gae.yaml',
-             'VGAE': 'core/yamls/cora/gcns/vgae.yaml',
+             'GAE': 'core/yamls/arxiv_2023/gcns/gae.yaml',
+             'VGAE': 'core/yamls/arxiv_2023/gcns/vgae.yaml',
              'GraphSage': 'core/yamls/cora/gcns/graphsage.yaml'
             }
 
@@ -128,8 +131,8 @@ def project_main():
     cfg.merge_from_list(args.opts)
     
     cfg.data.name = args.data
-    # cfg.data.device = args.device
-    # cfg.model.device = args.device
+    cfg.data.device = "cpu"#args.device
+    cfg.model.device = "cpu"#args.device
     # cfg.device = args.device
     # cfg.train.epochs = args.epoch
     
@@ -185,8 +188,9 @@ def project_main():
                     setattr(cfg.model, key, value)
                 
                 cfg.train.batch_size = cfg.model.batch_size
+                cfg.train.lr = cfg.model.lr
                 print_logger.info(f"out : {cfg.model.out_channels}, hidden: {cfg.model.hidden_channels}")
-                print_logger.info(f"bs : {cfg.train.batch_size}, lr: {cfg.optimizer.base_lr}")
+                print_logger.info(f"bs : {cfg.train.batch_size}, lr: {cfg.model.lr}")
                             
                 start_time = time.time()
                     
@@ -212,6 +216,9 @@ def project_main():
                 print_logger.info(f"config saved into {cfg.run_dir}")
                 print_logger.info(f'Run {run_id} with seed {seed} and split {split_index} on device {cfg.device}')
                 
+                cfg.model.params = params_count(model)
+                print_logger.info(f'Num parameters: {cfg.model.params}')
+
                 if cfg.model.sampler == 'gsaint':
                     sampler = get_loader_RW
 

@@ -2,12 +2,12 @@ cfg_dest: gsaint.yaml
 data:
   device: cpu
   include_negatives: true
-  name: cora
+  name: pubmed
   num_features: 1433
   split_index:
-  - 0.8
-  - 0.15
-  - 0.05
+  - 0.4
+  - 0.125
+  - 0.025
   split_labels: true
   test_pct: 0.05
   undirected: true
@@ -19,32 +19,32 @@ model:
   device: cpu
   heads: 4
   hidden_channels: 32
-  in_channels: 1433
+  in_channels: 500
   num_steps: 20
   out_channels: 32
   sample_coverage: 100
   sampler: gsaint
-  type: GAE
+  type: VGAE
   walk_length: 50
 num_threads: 11
 optimizer:
   base_lr: 0.01
   type: adam
   weight_decay: 0.0005
-out_dir: results/gae-gsaint-cora-origin
+out_dir: results/vgae-gsaint-pubmed-origin
 print: file
 run:
   multiple_splits: None
   num_threads: 11
   seed: 0
-run_dir: results/gae-gsaint-cora-origin/cora_runuzy2eioc_GAE
+run_dir: results/vgae-gsaint-pubmed-origin/pubmed_runt3ytbfor_VGAE
 run_id: 0
 seed: 0
 train:
   auto_resume: false
   batch_size: 2048
   device: 1
-  epochs: 200
+  epochs: 500
   eval_period: 1
   finetune: false
   l2: 0.0
@@ -52,6 +52,6 @@ train:
   mode: custom
   use_valedges_as_input: true
 wandb:
-  name_tag: cora_runuzy2eioc_GAE
+  name_tag: pubmed_runt3ytbfor_VGAE
   project: gtblueprint
   use: true

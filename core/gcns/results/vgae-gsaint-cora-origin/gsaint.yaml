@@ -24,20 +24,20 @@ model:
   out_channels: 32
   sample_coverage: 100
   sampler: gsaint
-  type: GAE
+  type: VGAE
   walk_length: 50
 num_threads: 11
 optimizer:
   base_lr: 0.01
   type: adam
   weight_decay: 0.0005
-out_dir: results/gae-gsaint-cora-origin
+out_dir: results/vgae-gsaint-cora-origin
 print: file
 run:
   multiple_splits: None
   num_threads: 11
   seed: 0
-run_dir: results/gae-gsaint-cora-origin/cora_runuzy2eioc_GAE
+run_dir: results/vgae-gsaint-cora-origin/cora_run2eb86049_VGAE
 run_id: 0
 seed: 0
 train:
@@ -52,6 +52,6 @@ train:
   mode: custom
   use_valedges_as_input: true
 wandb:
-  name_tag: cora_runuzy2eioc_GAE
+  name_tag: cora_run2eb86049_VGAE
   project: gtblueprint
   use: true

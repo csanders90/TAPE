@@ -22,7 +22,7 @@ import torch.nn.functional as F
 # external 
 from embedding.tune_utils import param_tune_acc_mrr, mvari_str2csv, save_parmet_tune
 from heuristic.eval import get_metric_score
-from utils import config_device
+from utils import config_device, savepred
 from typing import Dict, Tuple
 from utils import Logger
 # Understand, whu is it work
@@ -263,12 +263,20 @@ class Trainer():
 
     def train(self):  
         best_auc, best_hits, best_hit100 = 0, 0, 0
-
+        # train_time = 0
         for epoch in range(1, self.epochs + 1):
+            # start = time.time()
             loss = self.train_func[self.model_name]()
+            # end = time.time()
+            # train_time += end - start
 
             if epoch % 100 == 0:
+                
+                # print('One epoch time: ', train_time / epoch)
+                # start = time.time()
                 self.results_rank = self.merge_result_rank()
+                # end = time.time()
+                # print('Inference time: ', end - start)
                 self.print_logger.info(self.results_rank)
                 
                 # for key, result in results_rank.items():
@@ -366,6 +374,7 @@ class Trainer_Saint(Trainer):
         # Correctly pass all parameters expected by the superclass constructor
         super().__init__(FILE_PATH, cfg, model, emb, data, optimizer, splits, run, repeat, loggers, print_logger, device)
         
+        self.cfg = cfg
         self.device = device 
         self.print_logger = print_logger                
         self.model = model.to(self.device)
@@ -457,6 +466,8 @@ class Trainer_Saint(Trainer):
     def _evaluate(self, data_loader: Data):
         self.model.eval()
         accumulated_metrics = []
+        predictions = []
+        gr_truth = []
 
         for data in data_loader:
             data = data.to(self.device)
@@ -478,12 +489,16 @@ class Trainer_Saint(Trainer):
             y_pred[y_pred >= hard_thres] = 1
             y_pred[y_pred < hard_thres] = 0
             acc = torch.sum(y == y_pred) / len(y)
-
+            
+            predictions.append(y_pred)
+            gr_truth.append(y)
+            
             pos_pred, neg_pred = pos_pred.cpu(), neg_pred.cpu()
             result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_pred, neg_pred)
             result_mrr.update({'acc': round(acc.item(), 5)})
             accumulated_metrics.append(result_mrr)
 
+        savepred(self.cfg, self.FILE_PATH, predictions, gr_truth, data_loader)
         # Aggregate results from accumulated_metrics
         aggregated_results = {}
         for result in accumulated_metrics:
@@ -499,9 +514,11 @@ class Trainer_Saint(Trainer):
         return averaged_results
 
     @torch.no_grad()
-    def _evaluate_vgae(self, data_loader):
+    def _evaluate_vgae(self, data_loader: Data):
         self.model.eval()
         accumulated_metrics = []
+        predictions = []
+        gr_truth = []
 
         for data in data_loader:
             data = data.to(self.device)
@@ -524,10 +541,15 @@ class Trainer_Saint(Trainer):
             y_pred[y_pred < hard_thres] = 0
             acc = torch.sum(y == y_pred) / len(y)
             
+            predictions.append(y_pred)
+            gr_truth.append(y)
+
             pos_pred, neg_pred = pos_pred.cpu(), neg_pred.cpu()
             result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_pred, neg_pred)
             result_mrr.update({'acc': round(acc.item(), 5)})
             accumulated_metrics.append(result_mrr)
+
+        savepred(self.cfg, self.FILE_PATH, predictions, gr_truth, data_loader)
 
         # Aggregate results from accumulated_metrics
         aggregated_results = {}
