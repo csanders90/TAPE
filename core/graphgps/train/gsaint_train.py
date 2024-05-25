@@ -128,3 +128,94 @@ class Trainer_Saint(Trainer):
             self.optimizer.step()
             total_loss += loss.item() * subgraph.num_nodes
             total_examples += subgraph.num_nodes
+            
+
+    @torch.no_grad()
+    def _evaluate(self, data_loader: Data):
+        self.model.eval()
+        accumulated_metrics = []
+
+        for data in data_loader:
+            data = data.to(self.device)
+
+            local_pos_indices = self.global_to_local(data.pos_edge_label_index, data.node_index)
+            local_neg_indices = self.global_to_local(data.neg_edge_label_index, data.node_index)
+            
+            z = self.model.encoder(data.x, data.edge_index)
+            pos_pred = self.model.decoder(z, local_pos_indices)
+            neg_pred = self.model.decoder(z, local_neg_indices)
+            y_pred = torch.cat([pos_pred, neg_pred], dim=0)
+
+            hard_thres = (y_pred.max() + y_pred.min())/2
+
+            pos_y = z.new_ones(local_pos_indices.size(1))
+            neg_y = z.new_zeros(local_neg_indices.size(1)) 
+            y = torch.cat([pos_y, neg_y], dim=0)
+            
+            y_pred[y_pred >= hard_thres] = 1
+            y_pred[y_pred < hard_thres] = 0
+            acc = torch.sum(y == y_pred) / len(y)
+
+            pos_pred, neg_pred = pos_pred.cpu(), neg_pred.cpu()
+            result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_pred, neg_pred)
+            result_mrr.update({'acc': round(acc.item(), 5)})
+            accumulated_metrics.append(result_mrr)
+
+        # Aggregate results from accumulated_metrics
+        aggregated_results = {}
+        for result in accumulated_metrics:
+            for key, value in result.items():
+                if key in aggregated_results:
+                    aggregated_results[key].append(value)
+                else:
+                    aggregated_results[key] = [value]
+
+        # Calculate average results
+        averaged_results = {key: sum(values) / len(values) for key, values in aggregated_results.items()}
+
+        return averaged_results
+
+    @torch.no_grad()
+    def _evaluate_vgae(self, data_loader):
+        self.model.eval()
+        accumulated_metrics = []
+
+        for data in data_loader:
+            data = data.to(self.device)
+
+            local_pos_indices = self.global_to_local(data.pos_edge_label_index, data.node_index)
+            local_neg_indices = self.global_to_local(data.neg_edge_label_index, data.node_index)
+            
+            z = self.model(data.x, data.edge_index)
+            pos_pred = self.model.decoder(z, local_pos_indices)
+            neg_pred = self.model.decoder(z, local_neg_indices)
+            y_pred = torch.cat([pos_pred, neg_pred], dim=0)
+
+            hard_thres = (y_pred.max() + y_pred.min())/2
+
+            pos_y = z.new_ones(local_pos_indices.size(1))
+            neg_y = z.new_zeros(local_neg_indices.size(1)) 
+            y = torch.cat([pos_y, neg_y], dim=0)
+            
+            y_pred[y_pred >= hard_thres] = 1
+            y_pred[y_pred < hard_thres] = 0
+            acc = torch.sum(y == y_pred) / len(y)
+            
+            pos_pred, neg_pred = pos_pred.cpu(), neg_pred.cpu()
+            result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_pred, neg_pred)
+            result_mrr.update({'acc': round(acc.item(), 5)})
+            accumulated_metrics.append(result_mrr)
+
+        # Aggregate results from accumulated_metrics
+        aggregated_results = {}
+        for result in accumulated_metrics:
+            for key, value in result.items():
+                if key in aggregated_results:
+                    aggregated_results[key].append(value)
+                else:
+                    aggregated_results[key] = [value]
+
+        # Calculate average results
+        averaged_results = {key: sum(values) / len(values) for key, values in aggregated_results.items()}
+
+        return averaged_results

@@ -13,7 +13,7 @@ from torch_geometric.graphgym.utils.comp_budget import params_count
 from torch_geometric.graphgym.cmd_args import parse_args
 import argparse
 import wandb
-from graphgps.train.opt_train import Trainer_Heart
+from graphgps.train.heart_train import Trainer_Heart
 from graphgps.network.custom_gnn import create_model
 from graphgps.config import (dump_cfg, dump_run_cfg)
 
@@ -40,11 +40,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--device', dest='device', required=True, 
                         help='device id')
     parser.add_argument('--epochs', dest='epoch', type=int, required=True,
-                        default=300,
+                        default=400,
                         help='data name')
     parser.add_argument('--model', dest='model', type=str, required=True,
                         default='GAE',
                         help='data name')
+    parser.add_argument('--wandb', dest='wandb', required=True, action='store_true',
+                        help='data name')
+    
     parser.add_argument('--repeat', type=int, default=1,
                         help='The number of repeated jobs.')
     parser.add_argument('--mark_done', action='store_true',
@@ -55,32 +58,42 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+# hyperparameter_space = {
+#     'GAT': {'base_lr': [0.01], 
+#             'batch_size': [2**10],
+#             # 64,
+#             'out_channels': [2**5, 2**6, 2**7, 2**8], 
+#             'hidden_channels':  [2**5, 2**6, 2**7, 2**8],
+#             'heads': [2**2, 2, 2**3], 
+#             'negative_slope': [0.1, 0.2], 
+#             'dropout': [0, 0.1], 
+#             'num_layers': [5, 6, 7]},
+    
+#     'GAE': {'base_lr': [0.01, 0.015], 
+#             'batch_size': [2**10, 2**12, 2**13],
+#             'out_channels': [2**5, 2**6, 2**7, 2**8], 
+#             'hidden_channels': [2**5, 2**6, 2**7, 2**8]},
+    
+#     'VGAE': {'base_lr':[0.015, 0.01],  
+#              'batch_size': [2**10],
+#              'out_channels': [2**5, 2**6, 2**7, 2**8], 
+#              'hidden_channels': [2**5, 2**6, 2**7, 2**8]},
+    
+#     'GraphSage': {'base_lr': [0.015, 0.01], 
+#                   'batch_size': [2**10],
+#                   'out_channels': [2**5, 2**6, 2**7, 2**8], 
+#                   'hidden_channels': [2**5, 2**6, 2**7, 2**8]}
+# }
+
 hyperparameter_space = {
-    'GAT': {'base_lr': [0.01], 
-            'batch_size': [2**10],
-            # 64,
-            'out_channels': [2**5, 2**6, 2**7, 2**8], 
-            'hidden_channels':  [2**5, 2**6, 2**7, 2**8],
-            'heads': [2**2, 2, 2**3], 
-            'negative_slope': [0.1, 0.2], 
-            'dropout': [0, 0.1], 
-            'num_layers': [5, 6, 7]},
-    
-    'GAE': {'base_lr': [0.01, 0.015], 
-            'batch_size': [2**10, 2**12, 2**13],
-            'out_channels': [2**5, 2**6, 2**7, 2**8], 
-            'hidden_channels': [2**5, 2**6, 2**7, 2**8]},
-    
-    'VGAE': {'base_lr':[0.015, 0.01],  
-             'batch_size': [2**10],
-             'out_channels': [2**5, 2**6, 2**7, 2**8], 
-             'hidden_channels': [2**5, 2**6, 2**7, 2**8]},
-    
-    'GraphSage': {'base_lr': [0.015, 0.01], 
-                  'batch_size': [2**10],
-                  'out_channels': [2**5, 2**6, 2**7, 2**8], 
-                  'hidden_channels': [2**5, 2**6, 2**7, 2**8]}
+    'GAT': {'out_channels': [2**7, 2**8], 'hidden_channels':  [2**8],
+                                'heads': [2**2, 2], 'negative_slope': [0.1], 'dropout': [0], 
+                                'num_layers': [5, 6, 7], 'base_lr': [0.015]},
+    'GAE': {'out_channels': [32], 'hidden_channels': [32], 'batch_size': [2**10]},
+    'VGAE': {'out_channels': [32], 'hidden_channels': [32], 'batch_size': [2**10]},
+    'GraphSage': {'out_channels': [2**8, 2**9], 'hidden_channels': [2**8, 2**9]}, 'base_lr': [0.015, 0.1, 0.01]
 }
+
 
 yaml_file = {   
              'GAT': 'core/yamls/cora/gcns/gat.yaml',
@@ -116,8 +129,10 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
 
     for run_id, seed, split_index in zip(*run_loop_settings(cfg, args)):
         # Set configurations for each run TODO clean code here 
-        
-        cfg.wandb.name_tag = f'{cfg.data.name}_run{id}_{cfg.model.type}'
+        if args.wandb:
+            id = wandb.util.generate_id()
+            cfg.wandb.name_tag = f'{cfg.data.name}_run{id}_{cfg.model.type}'
+            
         custom_set_run_dir(cfg, cfg.wandb.name_tag)
 
         cfg.seed = seed
@@ -162,11 +177,13 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
                     setattr(cfg.train, key, value)
                     print_logger.info(f"Object cfg.train.{key} updated to {getattr(cfg.optimizer, key)}")
             
-            # print_logger.info(f"out : {cfg.model.out_channels}, hidden: {cfg.model.hidden_channels}")
+            
+            print_logger.info(f"out : {cfg.model.out_channels}, hidden: {cfg.model.hidden_channels}")
             print_logger.info(f"bs : {cfg.train.batch_size}, lr: {cfg.optimizer.base_lr}")
             print_logger.info(f"The model {cfg.model.type} is initialized.")
 
             model = create_model(cfg)
+            
             
             print_logger.info(f"{model} on {next(model.parameters()).device}" )
             # print_logger.info(cfg)
@@ -181,15 +198,21 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
                 model = init_model_from_pretrained(model, cfg.train.finetune,
                                                 cfg.train.freeze_pretrained)
 
-            hyper_id = wandb.util.generate_id()
-            cfg.wandb.name_tag = f'{cfg.data.name}_run{id}_{cfg.model.type}_hyper{hyper_id}'
+
+            if args.wandb:
+                hyper_id = wandb.util.generate_id()
+                cfg.wandb.name_tag = f'{cfg.data.name}_run{id}_{cfg.model.type}_hyper{hyper_id}'
+                wandb.init(id=id, config=cfg, settings=wandb.Settings(_service_wait=300), save_code=True)
+                wandb.watch(model, log="all",log_freq=10)
+            
             custom_set_run_dir(cfg, cfg.wandb.name_tag)
 
             dump_run_cfg(cfg)
             print_logger.info(f"config saved into {cfg.run_dir}")
             print_logger.info(f'Run {run_id} with seed {seed} and split {split_index} on device {cfg.device}')
 
-            trainer = Trainer_Heart(FILE_PATH,
+            if args.wandb:
+                trainer = Trainer_Heart(FILE_PATH,
                         cfg,
                         model, 
                         None, 
@@ -200,16 +223,35 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
                         args.repeat,
                         loggers, 
                         print_logger,
-                        cfg.device)
+                        cfg.device, 
+                        True)
+            else:
+                trainer = Trainer_Heart(FILE_PATH,
+                        cfg,
+                        model, 
+                        None, 
+                        data,
+                        optimizer,
+                        splits,
+                        run_id, 
+                        args.repeat,
+                        loggers, 
+                        print_logger,
+                        cfg.device, 
+                        False)
 
             trainer.train()
 
             run_result = {}
             for key in trainer.loggers.keys():
                 print(key)
-                _, _, _, test_bvalid = trainer.loggers[key].calc_run_stats(run_id, True)
+                best_train, best_valid, train_bvalid, test_bvalid = trainer.loggers[key].calc_run_stats(run_id, True)
                 run_result[key] = test_bvalid
-
+                wandb.log({f"valid/test_{key}": test_bvalid})
+                wandb.log({f"valid/train_{key}": train_bvalid})
+                wandb.log({f"train/valid_{key}": best_valid})
+                wandb.log({f"train/train_{key}": best_train})
+    
             for k in hyperparameter_search.keys():
                 if hasattr(cfg.model, k):
                     run_result[k] = getattr(cfg.model, k)

@@ -7,14 +7,17 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from utils import *
 # from logger import Logger
 import torch
+from ogb.linkproppred import Evaluator
 from torch.utils.data import DataLoader
 from torch_sparse import SparseTensor
 from torch_geometric.utils import negative_sampling
 from torch_geometric.graphgym.config import cfg
-from sklearn.metrics import *
+# from sklearn.metrics import *
 from torch_sparse import SparseTensor
 from heuristic.eval import get_metric_score
-
+from torch.utils.data import DataLoader
+from torch_geometric.utils import negative_sampling
+from torch_geometric.data import Data
 
 def train(model, 
           score_func,  
@@ -175,3 +178,158 @@ def test_edge(score_func, input_data, h, batch_size):
 
     return torch.cat(preds, dim=0)
 
+class Trainer_Heart(Trainer):
+    def __init__(self, 
+                FILE_PATH,
+                cfg,
+                model, 
+                emb,
+                data,
+                optimizer,
+                splits,
+                run, 
+                repeat, 
+                loggers,
+                print_logger,
+                device, 
+                if_wandb):
+        super().__init__(FILE_PATH,
+                    cfg,
+                    model, 
+                    emb,
+                    data,
+                    optimizer,
+                    splits,
+                    run, 
+                    repeat, 
+                    loggers,
+                    print_logger,
+                    device, 
+                    if_wandb)
+        
+        self.batch_size = cfg.train.batch_size
+        model_types = ['VGAE', 'GAE', 'GAT', 'GraphSage']
+
+        self.train_func = {model_type: self._train_heart for model_type in model_types}
+        self.test_func = {model_type: self._eval_heart  for model_type in model_types}
+        self.evaluate_func = {model_type: self._eval_heart  for model_type in model_types}
+
+        self.if_wandb = if_wandb
+        self.evaluator_hit = Evaluator(name='ogbl-collab')
+        self.evaluator_mrr = Evaluator(name='ogbl-citation2')
+        
+        self.train_loader = DataLoader(range(self.train_data.edge_index.size(1)),
+                          batch_size=self.batch_size,
+                          shuffle=True,  # Adjust the number of workers based on your system configuration
+                          pin_memory=True,  # Enable pinning memory for faster data transfer
+                          drop_last=True) 
+        if if_wandb:
+            iters = len(self.train_loader)
+            step = self.epoch * iters
+            best_loss = torch.inf
+        
+    def _train_heart(self):
+
+        edge_index = self.train_data.edge_index
+        pos_train_weight = None
+        
+        if self.emb is None: 
+            x = self.train_data.x
+            emb_update = 0
+        else: 
+            x = self.emb.weight
+            emb_update = 1
+      
+        for perm in self.train_loader:  # Drop the last incomplete batch if dataset size is not divisible by batch size
+            
+            self.optimizer.zero_grad()
+            num_nodes = x.size(0)
+
+            ######################### remove loss edges from the aggregation
+            mask = torch.ones(edge_index.size(1), dtype=torch.bool).to(edge_index.device)
+            mask[perm] = 0
+            train_edge_mask = edge_index[:, mask]
+            train_edge_mask = torch.cat((train_edge_mask, train_edge_mask[[1,0]]),dim=1)
+
+            # visualize
+            if pos_train_weight != None:
+                pos_train_weight = pos_train_weight.to(mask.device)
+                edge_weight_mask = pos_train_weight[mask]
+                edge_weight_mask = torch.cat((edge_weight_mask, edge_weight_mask), dim=0).to(torch.float)
+            else:
+                edge_weight_mask = torch.ones(train_edge_mask.size(1)).to(torch.float).to(edge_index.device)
+
+            adj = SparseTensor.from_edge_index(train_edge_mask, edge_weight_mask, [num_nodes, num_nodes]).to(edge_index.device)
+
+            row, col, _ = adj.coo()
+            batch_edge_index = torch.stack([col, row], dim=0)
+            
+            
+            x = x.to(self.device)
+            pos_edge =  edge_index[:, perm].to(self.device)
+            if self.model_name == 'VGAE':
+                h = self.model(x, batch_edge_index)
+                loss = self.model.recon_loss(h, pos_edge)
+                loss = loss + (1 / self.train_data.num_nodes) * self.model.kl_loss()
+            elif self.model_name in ['GAE', 'GAT', 'GraphSage']:
+                h = self.model.encoder(x, batch_edge_index)
+                loss = self.model.recon_loss(h, pos_edge)
+
+            loss.backward()
+
+            if emb_update == 1: torch.nn.utils.clip_grad_norm_(x, 1.0)
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+
+            self.optimizer.step()           
+
+        return loss.item() 
+
+
+    @torch.no_grad()
+    def test_edge(self, h, edge_index):
+        preds = []
+        edge_index = edge_index.t()
+
+        for perm  in DataLoader(range(edge_index.size(0)), self.batch_size):
+            edge = edge_index[perm].t()
+
+            preds += [self.model.decoder(h, edge).cpu()]
+
+        return torch.cat(preds, dim=0)
+
+
+    @torch.no_grad()
+    def _eval_heart(self, data: Data):
+        self.model.eval()
+        pos_edge_index = data.pos_edge_label_index
+        neg_edge_index = data.neg_edge_label_index
+
+        if self.model_name == 'VGAE':
+            z = self.model(data.x, data.edge_index)
+        elif self.model_name in ['GAE', 'GAT', 'GraphSage']:
+            z = self.model.encoder(data.x, data.edge_index)
+        
+        pos_pred = self.test_edge(z, pos_edge_index)
+        neg_pred = self.test_edge(z, neg_edge_index)
+        y_pred = torch.cat([pos_pred, neg_pred], dim=0)
+        
+        hard_thres = (y_pred.max() + y_pred.min())/2
+
+        pos_y = z.new_ones(pos_edge_index.size(1))
+        neg_y = z.new_zeros(neg_edge_index.size(1)) 
+        y = torch.cat([pos_y, neg_y], dim=0)
+        
+        y_pred[y_pred >= hard_thres] = 1
+        y_pred[y_pred < hard_thres] = 0
+
+        y = y.to(self.device)
+        y_pred = y_pred.to(self.device)
+        acc = torch.sum(y == y_pred)/len(y)
+        
+        pos_pred, neg_pred = pos_pred.cpu(), neg_pred.cpu()
+        result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_pred, neg_pred)
+        result_mrr.update({'acc': round(acc.tolist(), 5)})
+    
+        return result_mrr
+    
+    
