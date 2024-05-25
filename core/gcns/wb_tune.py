@@ -160,8 +160,6 @@ def run_experiment():  # sourcery skip: avoid-builtin-shadow
                     None, 
                     cfg.device)
 
-    best_auc, best_hits, best_hit100 = 0, 0, 0
-    results_rank = {}
     for epoch in range(1, cfg.train.epochs + 1):
         loss = trainer.train_func[cfg.model.type]()
         
@@ -258,7 +256,8 @@ cfg_config.model.type = 'GAE'
 pprint.pprint(cfg_config)
 sweep_id = wandb.sweep(sweep=cfg_sweep, project=f"{cfg_config.model.type}-sweep-{cfg_config.data.name}")
 
+
+
 wandb.agent(sweep_id, run_experiment, count=30)
 # CUDA_VISIBLE_DEVICES=0 wandb agent sweep_ID
 
-# TODO multirun weight baises trainer 

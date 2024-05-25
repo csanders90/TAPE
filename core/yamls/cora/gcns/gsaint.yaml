@@ -32,7 +32,7 @@ train:
   use_valedges_as_input: True
   lr: 0.01 # {0.1, 0.01, 0.001, 0.0001}
   l2: 0.0
->>>>>>> ea92b90a2dc71dd378457a0877c2aab641119c5e
+>>>>>>> d987485649d900ef25fb5bb36d043b11b293f164
   auto_resume: False
   finetune: False
 
@@ -54,7 +54,7 @@ model:
   walk_length: 50
   num_steps: 20
   sample_coverage: 100
->>>>>>> ea92b90a2dc71dd378457a0877c2aab641119c5e
+>>>>>>> d987485649d900ef25fb5bb36d043b11b293f164
 
 num_threads: 11
 
@@ -71,7 +71,7 @@ data:
 =======
   num_features: 1433
   device: 1
->>>>>>> ea92b90a2dc71dd378457a0877c2aab641119c5e
+>>>>>>> d987485649d900ef25fb5bb36d043b11b293f164
   split_index: [0.8, 0.15, 0.05]
 
 optimizer:

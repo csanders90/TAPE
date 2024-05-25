@@ -23,7 +23,11 @@ parameters:
     values: [1024, 2048, 4096]
   batch_size_sampler: # RandomWalk parameters
     values: [32, 64, 128, 256]
+<<<<<<< HEAD
 >>>>>>> ea92b90a2dc71dd378457a0877c2aab641119c5e
+=======
+>>>>>>> d987485649d900ef25fb5bb36d043b11b293f164
+>>>>>>> Wektor607-gcn_wb
   walk_length: 
     values: [10, 20, 50, 100, 150, 200]
   num_steps:
