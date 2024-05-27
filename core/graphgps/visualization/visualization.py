@@ -1,21 +1,21 @@
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 import time
 import torch
 import logging
 from itertools import product
 from torch_geometric.graphgym.utils.comp_budget import params_count
-from graphgps.network.gsaint import GraphSAINTNodeSampler, GraphSAINTEdgeSampler, GraphSAINTRandomWalkSampler
-from graphgps.train.opt_train import Trainer, Trainer_Saint
+from core.graphgps.network.gsaint import GraphSAINTNodeSampler, GraphSAINTEdgeSampler, GraphSAINTRandomWalkSampler
+from core.graphgps.train.opt_train import Trainer
 from torch_geometric.graphgym.cmd_args import parse_args
 from data_utils.load import load_data_lp
 from torch_geometric import seed_everything
 from torch_geometric.data.makedirs import makedirs
 from torch_geometric.graphgym.utils.device import auto_select_device
-from gcns.custom_main import run_loop_settings, custom_set_run_dir, set_printing
-from graphgps.network.custom_gnn import create_model
-from core.graphgps.utiliity.utils import set_cfg, parse_args, get_git_repo_root_path, Logger, custom_set_out_dir \
+from core.gcns.custom_main import run_loop_settings, custom_set_run_dir, set_printing
+from core.graphgps.network.custom_gnn import create_model
+from core.graphgps.utility.utils import set_cfg, parse_args, get_git_repo_root_path, Logger, custom_set_out_dir \
     , custom_set_run_dir, set_printing, run_loop_settings, create_optimizer, config_device, \
         init_model_from_pretrained, create_logger
 
@@ -136,7 +136,8 @@ if __name__ == "__main__":
     loggers = create_logger(args.repeat)
     for batch_size, walk_length, num_steps, sample_coverage, sampler in product(batch_sizes, walk_lengths, num_steps, sample_coverages, samplers):
     
-            splits, text = load_data_lp[cfg.data.name](cfg.data)
+            splits, text, extra_value = load_data_lp[cfg.data.name](cfg.data)
+
             if flag:
                 lst_args = cfg.model.type.split('_')
                 cfg.model.type = lst_args[1].upper() # Convert to upper cas
