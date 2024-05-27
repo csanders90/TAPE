@@ -6,12 +6,12 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 import argparse 
 import time
 import torch
-from graphgps.train.opt_train import Trainer_SEAL
+from graphgps.train.seal_train import Trainer_SEAL
 from graphgps.network.heart_gnn import DGCNN
 
 from torch_geometric import seed_everything
 from torch_geometric.graphgym.utils.device import auto_select_device
-from core.graphgps.utility.utils import set_cfg, get_git_repo_root_path, custom_set_run_dir, set_printing, run_loop_settings, create_optimizer, config_device, \
+from graphgps.utility.utils import set_cfg, get_git_repo_root_path, custom_set_run_dir, set_printing, run_loop_settings, create_optimizer, config_device, \
     create_logger
 
 from graphgps.encoder.seal import get_pos_neg_edges, extract_enclosing_subgraphs, k_hop_subgraph, construct_pyg_graph, do_edge_split
@@ -161,7 +161,7 @@ if __name__ == "__main__":
     cfg.merge_from_list(args.opts)
 
     torch.set_num_threads(cfg.num_threads)
-    batch_sizes = [cfg.train.batch_size]  # [8, 16, 32, 64]
+    batch_sizes = [cfg.train.batch_size]
 
 
     best_acc = 0
@@ -259,7 +259,6 @@ if __name__ == "__main__":
                                    run_id,
                                    args.repeat,
                                    loggers,
-                                   print_logger = None,
                                    batch_size=batch_size)
 
             start = time.time()
