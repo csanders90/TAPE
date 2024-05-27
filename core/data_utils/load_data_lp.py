@@ -36,15 +36,15 @@ def load_taglp_arxiv2023(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
 
     data, text = load_tag_arxiv23()
     undirected = data.is_directed()
-        
-    splits = get_edge_split(data, 
-                       undirected,
-                       cfg.device,
-                       cfg.split_index[1], 
-                       cfg.split_index[2],
-                       cfg.include_negatives,
-                       cfg.split_labels
-                       )  
+
+    splits = get_edge_split(data,
+                            undirected,
+                            cfg.device,
+                            cfg.data.split_index[1],
+                            cfg.data.split_index[2],
+                            cfg.data.include_negatives,
+                            cfg.data.split_labels
+                            )
     return splits, text, data
 
 def load_taglp_cora(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
@@ -58,10 +58,10 @@ def load_taglp_cora(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
     splits = get_edge_split(data, 
                        undirected,
                        cfg.device,
-                       cfg.split_index[1], 
-                       cfg.split_index[2],
-                       cfg.include_negatives,
-                       cfg.split_labels
+                       cfg.data.split_index[1],
+                       cfg.data.split_index[2],
+                       cfg.data.include_negatives,
+                       cfg.data.split_labels
                        )   
     return splits, text, data
 
@@ -115,15 +115,15 @@ def load_taglp_product(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
     undirected = data.is_directed()
     
     cfg = config_device(cfg)
-        
-    splits = get_edge_split(data, 
-                       undirected,
-                       cfg.device,
-                       cfg.split_index[1], 
-                       cfg.split_index[2],
-                       cfg.include_negatives,
-                       cfg.split_labels
-                       )   
+
+    splits = get_edge_split(data,
+                            undirected,
+                            cfg.device,
+                            cfg.data.split_index[1],
+                            cfg.data.split_index[2],
+                            cfg.data.include_negatives,
+                            cfg.data.split_labels
+                            )
     return splits, text, data
 
 def load_taglp_pubmed(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
@@ -134,14 +134,14 @@ def load_taglp_pubmed(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
     undirected = data.is_directed()
     
 
-    splits = get_edge_split(data, 
-                       undirected,
-                       cfg.device,
-                       cfg.split_index[1], 
-                       cfg.split_index[2],
-                       cfg.include_negatives,
-                       cfg.split_labels
-                       )   
+    splits = get_edge_split(data,
+                            undirected,
+                            cfg.device,
+                            cfg.data.split_index[1],
+                            cfg.data.split_index[2],
+                            cfg.data.include_negatives,
+                            cfg.data.split_labels
+                            )
     return splits, text, data
 
 # TEST CODE
