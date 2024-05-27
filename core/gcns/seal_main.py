@@ -20,6 +20,7 @@ from torch_geometric.data import InMemoryDataset, Dataset
 from data_utils.load_data_nc import load_graph_cora, load_graph_pubmed, load_tag_arxiv23, load_graph_ogbn_arxiv
 import scipy.sparse as ssp
 
+from data_utils.load import load_data_lp
 
 def parse_args() -> argparse.Namespace:
     r"""Parses the command line arguments."""
@@ -70,10 +71,7 @@ class SEALDataset(InMemoryDataset):
         return [name]
 
     def process(self):
-        pos_edge, neg_edge = get_pos_neg_edges(self.split, self.split_edge,
-                                               self.data.edge_index,
-                                               self.data.num_nodes,
-                                               self.percent)
+        pos_edge, neg_edge = self.split_edge[self.split]['pos_edge_label_index'], self.split_edge[self.split]['neg_edge_label_index']
         if 'edge_weight' in self.data:
             edge_weight = self.data.edge_weight.view(-1)
         else:
@@ -175,18 +173,8 @@ if __name__ == "__main__":
             cfg.seed = seed
             cfg.run_id = run_id
             seed_everything(cfg.seed)
-            if cfg.data.name == 'pubmed':
-                data = load_graph_pubmed(False)
-            elif cfg.data.name == 'cora':
-                data, _ = load_graph_cora(False)
-            elif cfg.data.name == 'arxiv_2023':
-                data, _ = load_tag_arxiv23()
-            elif cfg.data.name == 'ogbn-arxiv':
-                data = load_graph_ogbn_arxiv(False)
-            # i am not sure your split shares the same format with mine please visualize it and redo for the old split
-            splits = do_edge_split(copy.deepcopy(data), cfg.data.val_pct, cfg.data.test_pct)
-            
-            # TODO visualize
+            splits, text, data = load_data_lp[cfg.data.name](cfg)
+
             path = f'{os.path.dirname(__file__)}/seal_{cfg.data.name}'
             dataset = {}
 
