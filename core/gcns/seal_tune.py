@@ -219,7 +219,6 @@ def project_main():
                                    run_id,
                                    args.repeat,
                                    loggers,
-                                   print_logger,
                                    batch_size)
 
             trainer.train()
