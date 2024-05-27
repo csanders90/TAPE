@@ -10,8 +10,9 @@ import torch_geometric.transforms as T
 from torch_geometric.utils import to_torch_coo_tensor
 from ogb.nodeproppred import NodePropPredDataset
 from scipy.sparse import csc_array
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from data_utils.load import load_data_nc
+from core.data_utils.load import load_data_nc
 
 import matplotlib.pyplot as plt
 from scipy.sparse import coo_matrix
