@@ -67,6 +67,14 @@ class Trainer_SEAL(Trainer):
         self.repeat = repeat
         self.results_rank = {}
 
+        self.device = device
+        self.model = model.to(self.device)
+        self.emb = emb
+
+
+        self.name_tag = cfg.wandb.name_tag
+        self.run_result = {}
+
     def _train_seal(self):
         self.model.train()
         total_loss = 0
@@ -89,7 +97,7 @@ class Trainer_SEAL(Trainer):
         for epoch in range(1, self.epochs + 1):
             loss = self._train_seal()
 
-            if epoch % 1 == 0:
+            if epoch % 10 == 0:
                 results_rank = self.merge_result_rank()
                 print(results_rank)
 
