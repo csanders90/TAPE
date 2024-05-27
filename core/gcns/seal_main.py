@@ -173,8 +173,7 @@ if __name__ == "__main__":
             cfg.seed = seed
             cfg.run_id = run_id
             seed_everything(cfg.seed)
-            splits, text, data = load_data_lp[cfg.data.name](cfg.data)
-            data.edge_index = splits['train']['pos_edge_label_index']
+            splits, text, data = load_data_lp[cfg.data.name](cfg)
 
             path = f'{os.path.dirname(__file__)}/seal_{cfg.data.name}'
             dataset = {}
