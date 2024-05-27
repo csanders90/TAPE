@@ -7,7 +7,6 @@ import math
 from torch.nn import (ModuleList, Linear, Conv1d, MaxPool1d, Embedding)
 from torch.nn import BatchNorm1d as BN
 from torch_geometric.nn import global_sort_pool
-from custom_gnn import GAE, VGAE
 from torch_geometric.utils import negative_sampling
 from torch.nn import Module
 

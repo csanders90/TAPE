@@ -2,6 +2,7 @@ import os
 import sys
 import os
 import sys
+import time
 from os.path import abspath, dirname, join
 
 from torch.nn import BCEWithLogitsLoss
@@ -19,9 +20,10 @@ from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
 from embedding.tune_utils import param_tune_acc_mrr
 from heuristic.eval import get_metric_score
-from core.graphgps.utiliity.utils import config_device
+from graphgps.utility.utils import config_device, Logger
 from typing import Dict, Tuple
-from core.graphgps.utiliity.utils import Logger
+from graphgps.train.opt_train import (Trainer)
+
 
 class Trainer_SEAL(Trainer):
     def __init__(self,
@@ -34,8 +36,7 @@ class Trainer_SEAL(Trainer):
                  repeat,
                  loggers,
                  batch_size=None,):
-        self.device = config_device(cfg)
-
+        self.device = config_device(cfg).device
         self.model = model.to(self.device)
 
         self.model_name = cfg.model.type
@@ -138,6 +139,7 @@ class Trainer_SEAL(Trainer):
         y_pred, y_true = y_pred.cpu(), y_true.cpu()
 
         hard_thres = (y_pred.max() + y_pred.min()) / 2
+        self.save_pred(y_pred, y_true, eval_data)
 
         pos_pred, neg_pred = y_pred[y_true == 1].cpu(), y_pred[y_true == 0].cpu()
         y_pred = torch.where(y_pred >= hard_thres, torch.tensor(1), torch.tensor(0))
@@ -152,3 +154,21 @@ class Trainer_SEAL(Trainer):
         result_mrr.update({'acc': round(acc.tolist(), 5)})
 
         return result_mrr
+
+    def save_pred(self, pred, true, data):
+        root = os.path.join(self.FILE_PATH, cfg.out_dir, 'pred_record')
+        os.makedirs(root, exist_ok=True)
+        timestamp = time.strftime('%Y%m%d_%H%M%S', time.localtime(time.time()))
+        file_path = os.path.join(root, f'{cfg.dataset.name}_{timestamp}.txt')
+
+        with open(file_path, 'w') as f:
+            for idx, subgraph in enumerate(data):
+                indices = torch.where(subgraph['z'] == 1)[0]
+                if len(indices) < 2:
+                    continue
+                corresponding_node_ids = subgraph['node_id'][indices]
+                pred_value = pred[idx]
+                true_value = true[idx]
+                f.write(f"{corresponding_node_ids[0].item()} {corresponding_node_ids[1].item()} {pred_value} {true_value}\n")
+
+
