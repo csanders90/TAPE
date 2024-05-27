@@ -35,6 +35,7 @@ class Trainer_SEAL(Trainer):
                  run,
                  repeat,
                  loggers,
+                 print_logger: None,
                  batch_size=None,):
         self.device = config_device(cfg).device
         self.model = model.to(self.device)
@@ -47,6 +48,7 @@ class Trainer_SEAL(Trainer):
         self.run = run
         self.repeat = repeat
         self.loggers = loggers
+        self.print_logger = print_logger
         self.batch_size = batch_size
 
         self.test_data = splits['test']

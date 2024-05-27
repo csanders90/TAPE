@@ -247,6 +247,7 @@ if __name__ == "__main__":
                                    run_id,
                                    args.repeat,
                                    loggers,
+                                   print_logger = None,
                                    batch_size=batch_size)
 
             start = time.time()
