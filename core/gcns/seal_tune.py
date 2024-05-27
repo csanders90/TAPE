@@ -25,6 +25,7 @@ from graphgps.config import (dump_cfg, dump_run_cfg)
 from graphgps.train.seal_train import Trainer_SEAL
 from graphgps.network.heart_gnn import DGCNN
 
+from data_utils.load import load_data_lp
 
 FILE_PATH = f'{get_git_repo_root_path()}/'
 
@@ -54,10 +55,9 @@ class SEALDataset(InMemoryDataset):
         return [name]
 
     def process(self):
-        pos_edge, neg_edge = get_pos_neg_edges(self.split, self.split_edge,
-                                               self.data.edge_index,
-                                               self.data.num_nodes,
-                                               self.percent)
+        pos_edge, neg_edge = self.split_edge[self.split]['pos_edge_label_index'], self.split_edge[self.split][
+            'neg_edge_label_index']
+
         if 'edge_weight' in self.data:
             edge_weight = self.data.edge_weight.view(-1)
         else:
@@ -142,15 +142,7 @@ def project_main():
 
         cfg = config_device(cfg)
 
-        if cfg.data.name == 'pubmed':
-            data = load_graph_pubmed(False)
-        elif cfg.data.name == 'cora':
-            data, _ = load_graph_cora(False)
-        elif cfg.data.name == 'arxiv_2023':
-            data, _ = load_tag_arxiv23()
-        elif cfg.data.name == 'ogbn-arxiv':
-            data = load_graph_ogbn_arxiv(False)
-        splits = do_edge_split(copy.deepcopy(data), cfg.data.val_pct, cfg.data.test_pct)
+        splits, text, data = load_data_lp[cfg.data.name](cfg)
         path = os.path.dirname(__file__) + '/seal_{}'.format(cfg.data.name)
         dataset = {}
 
