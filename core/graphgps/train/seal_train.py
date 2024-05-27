@@ -67,11 +67,6 @@ class Trainer_SEAL(Trainer):
         self.repeat = repeat
         self.results_rank = {}
 
-        self.device = device
-        self.model = model.to(self.device)
-        self.emb = emb
-
-
         self.name_tag = cfg.wandb.name_tag
         self.run_result = {}
 
