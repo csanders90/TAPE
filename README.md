@@ -65,6 +65,8 @@ pip install ipython
 pip install yacs
 pip install sentence-transformers
 pip install wandb
+pip install python-dotenv
+pip install sentencepiece
 ```
 
 ## 1. Download/Test TAG datasets 

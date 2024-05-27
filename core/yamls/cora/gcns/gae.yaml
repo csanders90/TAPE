@@ -48,3 +48,9 @@ optimizer:
   type: adam
   base_lr: 0.01
   weight_decay: 0.0005
+  
+llm:
+  llm_embedding: True
+  batch_size: 4
+  model_type: shallow_embedding
+  model_name: tfidf
