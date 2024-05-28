@@ -15,8 +15,8 @@ data:
 llm:
   batch_size: 4
   llm_embedding: true
-  model_name: text-embedding-3-large
-  model_type: closed_source
+  model_name: TAPE/core/embeddings/models
+  model_type: fine_tuned_embedding
 metric_best: acc
 model:
   in_channels: 1433

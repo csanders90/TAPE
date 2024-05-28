@@ -761,6 +761,9 @@ def use_pretrained_llm_embeddings(model_type: str, model_name: str, data: List[s
     elif model_type == "shallow_embedding":
         embeddings = shallow_embedding_generation(model_name, data)
         
+    elif model_type == "fine_tuned_embedding":
+        embeddings = custom_model_embedding_generation(model_name, data)
+        
     return embeddings
             
 def sentence_transformer_embedding_generation(model_name: str, data: List[str]) -> torch.Tensor:
@@ -824,7 +827,13 @@ def shallow_embedding_generation(model_name: str, data: List[str]) -> torch.Tens
         vectorizer = TfidfVectorizer()
         embeddings = torch.tensor(vectorizer.fit_transform(data).toarray(), dtype=torch.float32)
     return embeddings
-        
+
+def custom_model_embedding_generation(model_path: str, data: List[str]) -> torch.Tensor:
+    embedding_model = SentenceTransformer(model_path)
+    print("Start sentence embedding generation")
+    embeddings = torch.tensor(embedding_model.encode(data))
+    print("Embedding sentence generation completed")
+    return embeddings
 
 def mean_pooling(model_output, attention_mask):
     token_embeddings = model_output[0] #First element of model_output contains all token embeddings

@@ -86,3 +86,4 @@ dataset.tar.gz
 /results
 
 .env
+/core/embedding_finetuning/models/
