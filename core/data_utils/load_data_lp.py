@@ -54,7 +54,6 @@ def load_taglp_cora(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
     text = load_text_cora(data_citeid)
     undirected = data.is_directed()
 
-    cfg = config_device(cfg)
 
     splits = get_edge_split(data, 
                        undirected,
@@ -134,7 +133,6 @@ def load_taglp_pubmed(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
     text = load_text_pubmed()
     undirected = data.is_directed()
     
-    cfg = config_device(cfg)
 
     splits = get_edge_split(data, 
                        undirected,

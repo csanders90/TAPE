@@ -22,7 +22,7 @@ from typing import Dict, Tuple
 
 report_step = {
     'cora': 100,
-    'pubmed': 1,
+    'pubmed': 10,
     'arxiv_2023': 100,
     'ogbn-arxiv': 1,
     'ogbn-products': 1,
@@ -64,10 +64,10 @@ class Trainer():
         self.loggers = loggers
         self.print_logger = print_logger
         self.report_step = report_step[cfg.data.name]
-        model_types = ['VGAE', 'GAE', 'GAT', 'GraphSage']
-        self.train_func = {model_type: self._train_gae if model_type in ['GAE', 'GAT', 'GraphSage', 'GNNStack'] else self._train_vgae for model_type in model_types}
+        model_types = ['VGAE', 'GAE', 'GAT', 'GraphSage', 'GAT_Variant']
+        self.train_func = {model_type: self._train_gae if model_type in ['GAE', 'GAT', 'GraphSage', 'GAT_Variant'] else self._train_vgae for model_type in model_types}
         self.test_func = {model_type: self._test for model_type in model_types}
-        self.evaluate_func = {model_type: self._evaluate if model_type in ['GAE', 'GAT', 'GraphSage', 'GNNStack'] else self._evaluate_vgae for model_type in model_types}
+        self.evaluate_func = {model_type: self._evaluate if model_type in ['GAE', 'GAT', 'GraphSage', 'GAE_forall'] else self._evaluate_vgae for model_type in model_types}
         self.evaluator_hit = Evaluator(name='ogbl-collab')
         self.evaluator_mrr = Evaluator(name='ogbl-citation2')
         
@@ -131,26 +131,39 @@ class Trainer():
         z = self.model.encoder(data.x, data.edge_index)
         pos_pred = self.model.decoder(z, pos_edge_index)
         neg_pred = self.model.decoder(z, neg_edge_index)
-        y_pred = torch.cat([pos_pred, neg_pred], dim=0)
         
         # add a visualization of the threshold
-        hard_thres = (y_pred.max() + y_pred.min())/2
 
-        pos_y = z.new_ones(pos_edge_index.size(1))
-        neg_y = z.new_zeros(neg_edge_index.size(1)) 
-        y = torch.cat([pos_y, neg_y], dim=0)
-        
-        y_pred[y_pred >= hard_thres] = 1
-        y_pred[y_pred < hard_thres] = 0
-
-        acc = torch.sum(y == y_pred)/len(y)
+        acc = self._acc(pos_pred, neg_pred)
         
         pos_pred, neg_pred = pos_pred.cpu(), neg_pred.cpu()
         result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_pred, neg_pred)
-        result_mrr.update({'acc': round(acc.tolist(), 5)})
+        result_mrr.update({'ACC': round(acc.tolist(), 5)})
     
         return result_mrr
     
+    def _acc(self, pos_pred, neg_pred):
+        hard_thres = (max(torch.max(pos_pred).item(), torch.max(neg_pred).item()) + min(torch.min(pos_pred).item(), torch.min(neg_pred).item())) / 2
+
+        # Initialize predictions with zeros and set ones where condition is met
+        y_pred = torch.zeros_like(pos_pred)
+        y_pred[pos_pred >= hard_thres] = 1
+
+        # Do the same for negative predictions
+        neg_y_pred = torch.ones_like(neg_pred)
+        neg_y_pred[neg_pred <= hard_thres] = 0
+
+        # Concatenate the positive and negative predictions
+        y_pred = torch.cat([y_pred, neg_y_pred], dim=0)
+
+        # Initialize ground truth labels
+        pos_y = torch.ones_like(pos_pred)
+        neg_y = torch.zeros_like(neg_pred)
+        y = torch.cat([pos_y, neg_y], dim=0)
+
+        # Calculate accuracy
+        return (y == y_pred).float().mean().item()
+
     @torch.no_grad()
     def _evaluate_vgae(self, data: Data):
        
@@ -176,7 +189,7 @@ class Trainer():
         
         pos_pred, neg_pred = pos_pred.cpu(), neg_pred.cpu()
         result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_pred, neg_pred)
-        result_mrr.update({'acc': round(acc.tolist(), 5)})
+        result_mrr.update({'ACC': round(acc.tolist(), 5)})
     
         return result_mrr
     
@@ -213,9 +226,10 @@ class Trainer():
                     self.print_logger.info(
                         f'Run: {self.run + 1:02d}, Key: {key}, '
                         f'Epoch: {epoch:02d}, Loss: {loss:.4f}, Train: {100 * train_hits:.2f}, Valid: {100 * valid_hits:.2f}, Test: {100 * test_hits:.2f}%')
-                    wandb.log({f"Metrics/train_{key}": train_hits})
-                    wandb.log({f"Metrics/valid_{key}": valid_hits})
-                    wandb.log({f"Metrics/test_{key}": test_hits})
+                    if self.if_wandb:
+                        wandb.log({f"Metrics/train_{key}": train_hits})
+                        wandb.log({f"Metrics/valid_{key}": valid_hits})
+                        wandb.log({f"Metrics/test_{key}": test_hits})
                     
                 self.print_logger.info('---')
 

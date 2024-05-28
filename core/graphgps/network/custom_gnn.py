@@ -6,15 +6,12 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 # Standard library imports
 import torch
 import torch_scatter
-import torch_geometric
-
 import torch.nn.functional as F 
 import wandb
 from torch import nn
 from torch_geometric.nn import GCNConv, MessagePassing
 from torch_geometric.utils import softmax
 from graphgps.loss.custom_loss import InnerProductDecoder
-from graphgps.network.heart_gnn import GAT
 from torch_geometric.utils import negative_sampling
 
 class GraphSage(MessagePassing):
@@ -57,14 +54,15 @@ class GraphSage(MessagePassing):
 
 class GAT(MessagePassing):
                         
-    def __init__(self, cfg, **kwargs):
+    def __init__(self, in_channels, out_channels, heads, negative_slope, dropout, 
+                 **kwargs):
         super(GAT, self).__init__(node_dim=0, **kwargs)
 
-        self.in_channels = cfg.model.in_channels
-        self.out_channels = cfg.model.out_channels
-        self.heads = cfg.model.heads
-        self.negative_slope = cfg.model.negative_slope
-        self.dropout = cfg.model.dropout
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.heads = heads
+        self.negative_slope = negative_slope
+        self.dropout = dropout
         
         self.H, self.C = self.heads, self.out_channels
         assert self.C % self.H == 0, "Fatal error: hidden size must be divisible by number of heads."

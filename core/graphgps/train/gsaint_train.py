@@ -158,7 +158,7 @@ class Trainer_Saint(Trainer):
 
             pos_pred, neg_pred = pos_pred.cpu(), neg_pred.cpu()
             result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_pred, neg_pred)
-            result_mrr.update({'acc': round(acc.item(), 5)})
+            result_mrr.update({'ACC': round(acc.item(), 5)})
             accumulated_metrics.append(result_mrr)
 
         # Aggregate results from accumulated_metrics
@@ -203,7 +203,7 @@ class Trainer_Saint(Trainer):
             
             pos_pred, neg_pred = pos_pred.cpu(), neg_pred.cpu()
             result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_pred, neg_pred)
-            result_mrr.update({'acc': round(acc.item(), 5)})
+            result_mrr.update({'ACC': round(acc.item(), 5)})
             accumulated_metrics.append(result_mrr)
 
         # Aggregate results from accumulated_metrics

@@ -14,10 +14,10 @@ from torch_geometric.graphgym.config import cfg
 from torch_geometric import seed_everything
 from torch_geometric.nn import GCNConv, SAGEConv, GINConv, GATConv
 from ogb.linkproppred import Evaluator
-from graphgps.network.heart_gnn import (GCN, GAT, SAGE, mlp_score)
+from graphgps.network.heart_gnn import (GCN_Variant, GAT_Variant, SAGE_Variant, mlp_model, mlp_score, GIN_Variant, DGCNN, GAE_forall)
 from data_utils.load import load_data_lp
-from core.graphgps.utility.utils import Logger, save_emb, get_root_dir, get_logger, config_device, set_cfg, get_git_repo_root_path
-from core.graphgps.train.heart_train import train, test, test_edge
+from graphgps.utility.utils import Logger, save_emb, get_root_dir, get_logger, config_device, set_cfg, get_git_repo_root_path
+from graphgps.train.heart_train import train, test, test_edge
 
 
 def get_config_dir():
@@ -37,15 +37,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
                         default='core/yamls/cora/gat_sp1.yaml',
                         help='The configuration file path.')
-    parser.add_argument('--data', dest='data', type=str, required=True,
+    parser.add_argument('--data', dest='data', type=str, required=False,
                         default='cora',
                         help='data name')
     parser.add_argument('--batch_size', dest='bs', type=int, required=False,
                         default=2**15,
                         help='data name')
-    parser.add_argument('--device', dest='device', required=True, 
+    parser.add_argument('--device', dest='device', required=False, default='cpu', 
                         help='device id')
-    parser.add_argument('--epochs', dest='epoch', type=int, required=True,
+    parser.add_argument('--epochs', dest='epoch', type=int, required=False,
                         default=300,
                         help='data name')
     parser.add_argument('--repeat', type=int, default=1,
@@ -61,9 +61,7 @@ def parse_args() -> argparse.Namespace:
 
 def data_preprocess(cfg):
 
-    device = cfg.train.device
-    dataset, data_cited, splits = load_data_lp[cfg.data.name](cfg)
-    data = dataset._data
+    splits, text, data = load_data_lp[cfg.data.name](cfg.data)
 
     edge_index = data.edge_index
     emb = None # here is your embedding
@@ -102,7 +100,7 @@ def data_preprocess(cfg):
 
     if emb != None:
         torch.nn.init.xavier_uniform_(emb.weight)
-    return dataset, splits, emb, cfg, train_edge_weight
+    return data, splits, emb, cfg, train_edge_weight
 
 
 if __name__ == "__main__":
@@ -111,30 +109,33 @@ if __name__ == "__main__":
 
     args = parse_args()
     # Load args file
-    
+
     cfg = set_cfg(FILE_PATH, args.cfg_file)
     cfg.merge_from_list(args.opts)
 
     # Set Pytorch environment
     torch.set_num_threads(cfg.num_threads)
 
-    device = config_device(cfg)
+    cfg = config_device(cfg)
 
-    cfg.train.device = device
-    print(f"device {device}")
-    
-    dataset, splits, emb, cfg, train_edge_weight = data_preprocess(cfg)
+    print(f"device {cfg.device}")
+
+    data, splits, emb, cfg, train_edge_weight = data_preprocess(cfg)
 
     pprint(cfg)
-    model = eval(cfg.model.type)(cfg.model.input_channels, cfg.model.hidden_channels,
-                                 cfg.model.hidden_channels, cfg.model.num_layers, 
-                                 cfg.model.dropout).to(device)
-    
-    score_func = eval(cfg.score_model.name)(cfg.score_model.hidden_channels, 
-                                            cfg.score_model.hidden_channels,
+    cfg_model = eval(f'cfg.model.{cfg.model.type}')
+    cfg_model.input_channels = data.x.size(1)
+    cfg_score = eval(f'cfg.score.{cfg.score.type}')
+    model = eval(cfg.model.type)(cfg_model.input_channels, cfg_model.hidden_channels,
+                                 cfg_model.hidden_channels, cfg_model.num_layers, 
+                                 cfg_model.dropout).to(cfg.device)
+
+    score_func = eval(cfg.score.type)(cfg_score.hidden_channels, 
+                                            cfg_score.hidden_channels,
                                             1, 
-                                            cfg.score_model.num_layers_predictor, 
-                                            cfg.score_model.dropout).to(device)
+                                            cfg_score.num_layers_predictor, 
+                                            cfg_score.dropout,
+                                            'inner' ).to(cfg.device)
 
     # train_pos = data['train_pos'].to(x.device)
 
@@ -145,8 +146,8 @@ if __name__ == "__main__":
     # config reset parameters 
     model.reset_parameters()
     score_func.reset_parameters()
-    
-    if cfg.model.emb is True:
+
+    if cfg_model.emb is True:
         optimizer = torch.optim.Adam(
             list(model.parameters()) + list(score_func.parameters()) + list(emb.parameters() ),lr=args.lr, weight_decay=args.l2)
     else:
@@ -160,13 +161,13 @@ if __name__ == "__main__":
 
     elif cfg.data.name =='ogbl-ppa':
         eval_metric = 'Hits@100'
-    
+
     elif cfg.data.name =='ogbl-citation2':
         eval_metric = 'MRR'
-        
+
     elif cfg.data.name in ['cora', 'pubmed', 'arxiv_2023']:
         eval_metric = 'Hits@100'
-        
+
     if cfg.data.name != 'ogbl-citation2':
         pos_train_edge = splits['train'].edge_index
 
@@ -174,7 +175,7 @@ if __name__ == "__main__":
         neg_valid_edge = splits['valid'].neg_edge_label_index
         pos_test_edge = splits['test'].pos_edge_label_index
         neg_test_edge = splits['test'].neg_edge_label_index
-    
+
     else:
         source_edge, target_edge = splits['train']['source_node'], splits['train']['target_node']
         pos_train_edge = torch.cat([source_edge.unsqueeze(0), target_edge.unsqueeze(0)], dim=0)
@@ -202,29 +203,26 @@ if __name__ == "__main__":
         'mrr_hit50':  Logger(cfg.train.runs),
         'mrr_hit100':  Logger(cfg.train.runs),
     }
-            
+
     idx = torch.randperm(pos_train_edge.size(0))[:pos_valid_edge.size(0)]
     train_val_edge = pos_train_edge[idx]
 
     evaluation_edges = [train_val_edge, pos_valid_edge, neg_valid_edge, pos_test_edge,  neg_test_edge]
-    
+
     for run in range(cfg.train.runs):
 
         print('#################################          ', run, '          #################################')
-        if cfg.train.runs == 1:
-            seed = args.seed
-        else:
-            seed = run
+        seed = args.seed if cfg.train.runs == 1 else run
         print('seed: ', seed)
 
         seed_everything(seed)
-        
+
         save_path = cfg.save.output_dir+'/lr'+str(cfg.train.lr) \
-            + '_drop' + str(cfg.model.dropout) + '_l2'+ \
-                str(cfg.train.l2) + '_numlayer' + str(cfg.model.num_layers)+ \
-                    '_numPredlay' + str(cfg.score_model.num_layers_predictor) +\
-                        '_numGinMlplayer' + str(cfg.score_model.gin_mlp_layer)+ \
-                            '_dim'+str(cfg.model.hidden_channels) + '_'+ 'best_run_'+str(seed)
+            + '_drop' + str(cfg_model.dropout) + '_l2'+ \
+                str(cfg.train.l2) + '_numlayer' + str(cfg_model.num_layers)+ \
+                    '_numPredlay' + str(cfg_score.num_layers_predictor) +\
+                        '_numGinMlplayer' + str(cfg_score.gin_mlp_layer)+ \
+                            '_dim'+str(cfg_model.hidden_channels) + '_'+ 'best_run_'+str(seed)
 
         if emb != None:
             torch.nn.init.xavier_uniform_(emb.weight)
@@ -240,21 +238,21 @@ if __name__ == "__main__":
                     list(model.parameters()) + list(score_func.parameters()),lr=cfg.train.lr, weight_decay=cfg.train.l2)
         best_valid = 0
         kill_cnt = 0
-        
+
         for epoch in range(1, 1 + cfg.train.epochs):
             loss = train(model, 
                          score_func, 
                          pos_train_edge, 
-                         dataset._data, 
+                         data, 
                          emb, 
                          optimizer, 
                          cfg.train.batch_size, 
                          train_edge_weight, 
-                         device)
+                         cfg.device)
 
             # for attention score   
             # print(model.convs[0].att_src[0][0][:10])
-            
+
             if epoch % 100 == 0:
                 results_rank, score_emb = test(model, 
                                                score_func,
@@ -266,16 +264,15 @@ if __name__ == "__main__":
                                                cfg.train.batch_size, 
                                                cfg.data.name, 
                                                cfg.train.use_valedges_as_input, 
-                                               device)
+                                               cfg.device)
 
 
                 for key, _ in loggers.items():
                     loggers[key].add_result(run, results_rank[key])
 
-                if epoch % 100 == 0:
-                    for key, result in results_rank.items():
-                        train_hits, valid_hits, test_hits = result
-                        
+                for key, result in results_rank.items():
+                    train_hits, valid_hits, test_hits = result
+
                 logging.info(
                     f'Run: {run + 1:02d}, '
                         f'Epoch: {epoch:02d}, '
@@ -283,25 +280,25 @@ if __name__ == "__main__":
                         f'Train: {100 * train_hits:.2f}%, '
                         f'Valid: {100 * valid_hits:.2f}%, '
                         f'Test: {100 * test_hits:.2f}%')
-                
+
                 r = torch.tensor(loggers[eval_metric].results[run])
                 best_valid_current = round(r[:, 1].max().item(),4)
                 best_test = round(r[r[:, 1].argmax(), 2].item(), 4)
 
                 print(eval_metric)
-                
+
                 logging.info(f'best valid: {100*best_valid_current:.2f}%, '
                                 f'best test: {100*best_test:.2f}%')
-                
+
                 if len(loggers['AUC'].results[run]) > 0:
                     r = torch.tensor(loggers['AUC'].results[run])
                     best_valid_auc = round(r[:, 1].max().item(), 4)
                     best_test_auc = round(r[r[:, 1].argmax(), 2].item(), 4)
-                    
+
                     print('AUC')
                     logging.info(f'best valid: {100*best_valid_auc:.2f}%, '
                                 f'best test: {100*best_test_auc:.2f}%')
-                
+
                 print('---')
 
                 if best_valid_current > best_valid:
@@ -310,19 +307,19 @@ if __name__ == "__main__":
                     if cfg.save: save_emb(score_emb, save_path)
                 else:
                     kill_cnt += 1
-                    
+
                     if kill_cnt > cfg.train.kill_cnt: 
                         print("Early Stopping!!")
                         break
-        
-        for key in loggers.keys():
+
+        for key in loggers:
             if len(loggers[key].results[0]) > 0:
                 print(key)
                 loggers[key].print_statistics( run)
                 print('\n')
-        
-      
-    
+
+
+
     result_all_run = {}
     for key in loggers.keys():
         if len(loggers[key].results[0]) > 0:
@@ -335,11 +332,11 @@ if __name__ == "__main__":
                 best_auc_valid_str = best_metric
                 # best_auc_metric = best_valid_mean
             result_all_run[key] = [mean_list, var_list]
-            
 
-        
+
+
     if cfg.train.runs == 1:
         print(str(best_valid_current) + ' ' + str(best_test) + ' ' + str(best_valid_auc) + ' ' + str(best_test_auc))
-    
+
     else:
         print(str(best_metric_valid_str) +' ' +str(best_auc_valid_str))

@@ -4,25 +4,69 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 
 import torch
+torch.cuda.empty_cache()
 import logging
 import itertools
 from tqdm import tqdm
 import time
 from torch_geometric import seed_everything
 from torch_geometric.graphgym.utils.comp_budget import params_count
+from torch_geometric.loader import NeighborLoader
 from torch_geometric.graphgym.cmd_args import parse_args
 import argparse
 import wandb
 
+
 from data_utils.load import load_data_lp
 from graphgps.train.heart_train import Trainer_Heart
-from graphgps.network.custom_gnn import create_model
-from graphgps.network.heart_gnn import create_heart_model
 from graphgps.config import (dump_cfg, dump_run_cfg)
 from graphgps.utility.utils import set_cfg, parse_args, get_git_repo_root_path, Logger, custom_set_out_dir \
     , custom_set_run_dir, set_printing, run_loop_settings, create_optimizer, config_device, \
         init_model_from_pretrained, create_logger
+
+from graphgps.score.custom_score import mlp_score, InnerProduct
+from graphgps.network.heart_gnn import GAT_Variant, GAE_forall
+from yacs.config import CfgNode as CN
 import pprint
+
+import os
+
+def create_GAE_model(cfg_model: CN, 
+                       cfg_score: CN,
+                       model_name: str):
+    if model_name in {'GAT', 'VGAE', 'GAE', 'GraphSage'}:
+        raise NotImplementedError('Current model does not exist')
+        # model = create_model(cfg_model)
+
+    elif model_name == 'GAT_Variant':
+        if cfg_score.product == 'dot':
+            decoder = mlp_score(cfg_model.out_channels,
+                                              cfg_score.score_hidden_channels, 
+                                              cfg_score.score_out_channels,
+                                              cfg_score.score_num_layers,
+                                              cfg_score.score_dropout,
+                                              cfg_score.product)
+        elif cfg_score.product == 'inner':
+            decoder = InnerProduct()
+        encoder = GAT_Variant(cfg_model.in_channels, 
+                                        cfg_model.hidden_channels, 
+                                        cfg_model.out_channels, 
+                                        cfg_model.num_layers,
+                                        cfg_model.dropout,
+                                        cfg_model.heads,
+                                        )
+        
+        
+        model = GAE_forall(encoder= encoder, 
+                           decoder= decoder)
+
+    else:
+        # Without this else I got: UnboundLocalError: local variable 'model' referenced before assignment
+        raise ValueError('Current model does not exist')
+    return model 
+
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
+
 
 FILE_PATH = f'{get_git_repo_root_path()}/'
 
@@ -44,8 +88,10 @@ def parse_args() -> argparse.Namespace:
                         default=400,
                         help='data name')
     parser.add_argument('--model', dest='model', type=str, required=True,
-                        default='GAE',
-                        help='data name')
+                        default='GCN_Variant',
+                        help='model name')
+    parser.add_argument('--score', dest='score', type=str, required=False, default='mlp_score',
+                        help='decoder name')
     parser.add_argument('--wandb', dest='wandb', required=True, action='store_true',
                         help='data name')
     
@@ -58,52 +104,33 @@ def parse_args() -> argparse.Namespace:
 
     return parser.parse_args()
 
-
-# hyperparameter_space = {
-#     'GAT': {'base_lr': [0.01], 
-#             'batch_size': [2**10],
-#             # 64,
-#             'out_channels': [2**5, 2**6, 2**7, 2**8], 
-#             'hidden_channels':  [2**5, 2**6, 2**7, 2**8],
-#             'heads': [2**2, 2, 2**3], 
-#             'negative_slope': [0.1, 0.2], 
-#             'dropout': [0, 0.1], 
-#             'num_layers': [5, 6, 7]},
-    
-#     'GAE': {'base_lr': [0.01, 0.015], 
-#             'batch_size': [2**10, 2**12, 2**13],
-#             'out_channels': [2**5, 2**6, 2**7, 2**8], 
-#             'hidden_channels': [2**5, 2**6, 2**7, 2**8]},
-    
-#     'VGAE': {'base_lr':[0.015, 0.01],  
-#              'batch_size': [2**10],
-#              'out_channels': [2**5, 2**6, 2**7, 2**8], 
-#              'hidden_channels': [2**5, 2**6, 2**7, 2**8]},
-    
-#     'GraphSage': {'base_lr': [0.015, 0.01], 
-#                   'batch_size': [2**10],
-#                   'out_channels': [2**5, 2**6, 2**7, 2**8], 
-#                   'hidden_channels': [2**5, 2**6, 2**7, 2**8]}
-# }
+product_space = {
+    '0': 'inner', 
+    '1': 'dot'    
+}
 
 hyperparameter_space = {
-    'GAT': {'out_channels': [2**7, 2**8], 'hidden_channels':  [2**8],
-                                'heads': [2**2, 2], 'negative_slope': [0.1], 'dropout': [0], 
-                                'num_layers': [5, 6, 7], 'base_lr': [0.015]},
-    'GAE': {'out_channels': [32], 'hidden_channels': [32], 'batch_size': [2**10]},
-    'VGAE': {'out_channels': [32], 'hidden_channels': [32], 'batch_size': [2**10]},
-    'GraphSage': {'out_channels': [2**8, 2**9], 'hidden_channels': [2**8, 2**9]}, 'base_lr': [0.015, 0.1, 0.01],
-    'GAT_Variant': {'out_channels': [2**5, 2**4], 'hidden_channels':  [2**5],
-                                'heads': [2**2, 2], 'negative_slope': [0.1], 'dropout': [0], 
-                                'num_layers': [2, 3, 4], 'base_lr': [0.015]},
+    'GAT_Variant': {'out_channels': [2**4, 2**5, 2**6], 'hidden_channels':  [2**5, 2*4],
+                                'heads': [2**2, 2, 2**3], 'negative_slope': [0.1], 'dropout': [0, 0.1], 
+                                'num_layers': [1, 2, 3], 
+                                'base_lr': [0.015],
+                                'score_num_layers_predictor': [1, 2, 3],
+                                'score_gin_mlp_layer': [2],
+                                'score_hidden_channels': [2**6, 2**5, 2**4], 
+                                'score_out_channels': [1], 
+                                'score_num_layers': [1, 2, 3], 
+                                'score_dropout': [0.1], 
+                                'product': [0, 1]},
+    
+    'GAE_Variant': {'out_channels': [32], 'hidden_channels': [32], 'batch_size': [2**10]},
+    'VGAE_Variant': {'out_channels': [32], 'hidden_channels': [32], 'batch_size': [2**10]},
+    'SAGE_Variant': {'out_channels': [2**8, 2**9], 'hidden_channels': [2**8, 2**9]}, 'base_lr': [0.015, 0.1, 0.01],
+    'GIN_Variant': {'out_channels': [2**8, 2**9], 'hidden_channels': [2**8, 2**9],
+                    'num_layers': [5, 6, 7], 'base_lr': [0.015, 0.1, 0.01]},
 }
 
 
 yaml_file = {   
-             'GAT': 'core/yamls/cora/gcns/gat.yaml',
-             'GAE': 'core/yamls/cora/gcns/gae.yaml',
-             'VGAE': 'core/yamls/cora/gcns/vgae.yaml',
-             'GraphSage': 'core/yamls/cora/gcns/graphsage.yaml',
              'GAT_Variant': 'core/yamls/cora/gcns/heart_gnn_models.yaml',
              'GIN_Variant': 'core/yamls/cora/gcns/heart_gnn_models.yaml',
              'GCN_Variant': 'core/yamls/cora/gcns/heart_gnn_models.yaml',
@@ -123,25 +150,26 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
     cfg.merge_from_list(args.opts)
 
     cfg.data.name = args.data
+    
     cfg.data.device = args.device
     cfg.model.device = args.device
     cfg.device = args.device
     cfg.train.epochs = args.epoch
+    cfg_model = eval(f'cfg.model.{args.model}')
+    cfg_score = eval(f'cfg.score.{args.score}')
     cfg.model.type = args.model
-
     # save params
     custom_set_out_dir(cfg, args.cfg_file, cfg.wandb.name_tag)
 
     torch.set_num_threads(20)
-
-    loggers = create_logger(args.repeat)
-
+    
+    
     for run_id, seed, split_index in zip(*run_loop_settings(cfg, args)):
         # Set configurations for each run TODO clean code here 
         if args.wandb:
             id = wandb.util.generate_id()
-            cfg.wandb.name_tag = f'{cfg.data.name}_run{id}_{cfg.model.type}'
-            
+            cfg.wandb.name_tag = f'{cfg.data.name}_run{id}_{args.model}'
+
         custom_set_run_dir(cfg, cfg.wandb.name_tag)
 
         cfg.seed = seed
@@ -149,10 +177,11 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
         seed_everything(cfg.seed)
 
         cfg = config_device(cfg)
-        cfg.data.name = args.data
 
         splits, _, data = load_data_lp[cfg.data.name](cfg.data)
-        cfg.model.in_channels = splits['train'].x.shape[1]
+        
+
+        cfg_model.in_channels = splits['train'].x.shape[1]
 
         print_logger = set_printing(cfg)
         print_logger.info(
@@ -163,20 +192,27 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
             f"Test:  {cfg['data']['split_index'][2]}% ({2 * splits['test']['pos_edge_label'].shape[0]} samples)"
         )
 
-        dump_cfg(cfg)    
-        hyperparameter_search = hyperparameter_space[cfg.model.type]
-        print_logger.info(f"hypersearch space: {hyperparameter_search}")
+        dump_cfg(cfg)
+        hyperparameter_gnn = hyperparameter_space[args.model]
+        print_logger.info(f"hypersearch space: {hyperparameter_gnn}")
 
-        keys = hyperparameter_search.keys()
+        keys = hyperparameter_gnn.keys()
         # Generate Cartesian product of the hyperparameter values
-        product = itertools.product(*hyperparameter_search.values())
+        product = itertools.product(*hyperparameter_gnn.values())
 
         for combination in tqdm(product):
             for key, value in zip(keys, combination):
-                if hasattr(cfg.model, key):
-                    print_logger.info(f"Object cfg.model has attribute '{key}' with value: {getattr(cfg.model, key)}")
-                    setattr(cfg.model, key, value)
-                    print_logger.info(f"Object cfg.model.{key} updated to {getattr(cfg.model, key)}")
+                if key == 'product':
+                    value = product_space[str(value)]
+                if hasattr(cfg_model, key):
+                    print_logger.info(f"Object cfg_model has attribute '{key}' with value: {getattr(cfg_model, key)}")
+                    setattr(cfg_model, key, value)
+                    print_logger.info(f"Object cfg_model.{key} updated to {getattr(cfg_model, key)}")
+                elif hasattr(cfg_score, key):
+                    print_logger.info(f"Object cfg_score has attribute '{key}' with value: {getattr(cfg_score, key)}")
+                    setattr(cfg_score, key, value)
+                    print_logger.info(f"Object cfg_score.{key} updated to {getattr(cfg_score, key)}")
+                    
                 elif hasattr(cfg.train, key):
                     print_logger.info(f"Object cfg.train has attribute '{key}' with values {getattr(cfg.train, key)}")
                     setattr(cfg.train, key, value)
@@ -185,24 +221,26 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
                     print_logger.info(f"Object cfg.train has attribute '{key}' with values {getattr(cfg.optimizer, key)}")
                     setattr(cfg.train, key, value)
                     print_logger.info(f"Object cfg.train.{key} updated to {getattr(cfg.optimizer, key)}")
+                
+                
+            if cfg_score.product == 'dot':
+                cfg_score.in_channels = cfg_model.out_channels
             
-            
-            print_logger.info(f"out : {cfg.model.out_channels}, hidden: {cfg.model.hidden_channels}")
+            print_logger.info(f"out : {eval(f'cfg.model.{args.model}.out_channels')}, hidden: {eval(f'cfg.model.{args.model}.hidden_channels')}")
             print_logger.info(f"bs : {cfg.train.batch_size}, lr: {cfg.optimizer.base_lr}")
-            print_logger.info(f"The model {cfg.model.type} is initialized.")
+            print_logger.info(f"The model {args.model} is initialized.")
 
             # model = create_model(cfg)
-            model = create_heart_model(cfg)
-            
+            model = create_GAE_model(cfg_model, cfg_score, args.model)
+
             print_logger.info(f"{model} on {next(model.parameters()).device}" )
             # print_logger.info(cfg)
 
             cfg.model.params = params_count(model)
             print_logger.info(f'Num parameters: {cfg.model.params}')
-            
+
             optimizer = create_optimizer(model, cfg)
 
-            # LLM: finetuning
             if cfg.train.finetune: 
                 model = init_model_from_pretrained(model, cfg.train.finetune,
                                                 cfg.train.freeze_pretrained)
@@ -210,30 +248,34 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
 
             if args.wandb:
                 hyper_id = wandb.util.generate_id()
-                cfg.wandb.name_tag = f'{cfg.data.name}_run{id}_{cfg.model.type}_hyper{hyper_id}'
-                wandb.init(id=id, config=cfg, settings=wandb.Settings(_service_wait=300), save_code=True)
+                cfg.wandb.name_tag = f'{cfg.data.name}_run{id}_{args.model}_hyper{hyper_id}'
+                wandb.init(project=f'GAE-sweep-{args.data}', id=cfg.wandb.name_tag, config=cfg, settings=wandb.Settings(_service_wait=300), save_code=True)
                 wandb.watch(model, log="all",log_freq=10)
-            
+
             custom_set_run_dir(cfg, cfg.wandb.name_tag)
 
             dump_run_cfg(cfg)
             print_logger.info(f"config saved into {cfg.run_dir}")
             print_logger.info(f'Run {run_id} with seed {seed} and split {split_index} on device {cfg.device}')
 
-            trainer = Trainer_Heart(FILE_PATH,
-                    cfg,
-                    model, 
-                    None, 
-                    data,
-                    optimizer,
-                    splits,
-                    run_id, 
-                    args.repeat,
-                    loggers, 
-                    print_logger,
-                    cfg.device, 
-                    True if args.wandb else False)
             
+            loggers = create_logger(args.repeat)
+            trainer = Trainer_Heart(
+                FILE_PATH,
+                cfg,
+                model,
+                None,
+                data,
+                optimizer,
+                splits,
+                run_id,
+                args.repeat,
+                loggers,
+                print_logger,
+                cfg.device,
+                bool(args.wandb),
+            )
+
             trainer.train()
 
             run_result = {}
@@ -242,10 +284,13 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
                 best_train, best_valid, train_bvalid, test_bvalid = trainer.loggers[key].calc_run_stats(run_id, True)
                 run_result[key] = test_bvalid
 
-    
-            for k in hyperparameter_search.keys():
-                if hasattr(cfg.model, k):
-                    run_result[k] = getattr(cfg.model, k)
+
+            # save params TODO if the updated params is saved.
+            for k in hyperparameter_gnn.keys():
+                if hasattr(cfg_model, k):
+                    run_result[k] = getattr(cfg_model, k)
+                if hasattr(cfg_score, k):
+                    run_result[k] = getattr(cfg_score, k)
                 elif hasattr(cfg.train, k):
                     run_result[k] = getattr(cfg.train, k)
                 elif hasattr(cfg.optimizer, k):
@@ -255,14 +300,18 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
             run_result['train_time'] = trainer.run_result['train_time']
             run_result['test_time'] = trainer.run_result['eval_time']
             run_result['params'] = cfg.model.params
-            
+
             print_logger.info(run_result)
-            to_file = f'{cfg.data.name}_{cfg.model.type}heart_tune_time_.csv'
+            to_file = f'{args.data}_{cfg.model.type}heart_tune_time_.csv'
             trainer.save_tune(run_result, to_file)
-            
+
+            print_logger.info(f"train time per epoch {run_result['train_time']}")
+            print_logger.info(f"test time per epoch {run_result['test_time']}")
             print_logger.info(f"train time per epoch {run_result['train_time']}")
             print_logger.info(f"test time per epoch {run_result['test_time']}")
             
+            if args.wandb:
+                wandb.finish()
         
 if __name__ == "__main__":
     project_main()

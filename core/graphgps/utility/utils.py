@@ -203,7 +203,7 @@ def config_device(cfg):
         cfg.device = cfg.train.device
     else:
         cfg.device = 0
-
+    
     return cfg
     
 
@@ -229,7 +229,8 @@ def init_cfg_test():
             'val_pct': 0.1,
             'test_pct': 0.1,
             'split_labels': True,
-            'device': 'cpu'
+            'device': 'cpu',
+            'split_index': [0.8, 0.15, 0.05]
             },
         'train':  {
                 'device': 'cpu'
@@ -255,7 +256,7 @@ def create_logger(repeat):
         'mrr_hit100': Logger(repeat),
         'AUC': Logger(repeat),
         'AP': Logger(repeat),
-        'acc': Logger(repeat)
+        'ACC': Logger(repeat)
     }
 
 
@@ -645,16 +646,14 @@ def custom_set_out_dir(cfg, cfg_fname, name_tag):
 
 
 
-def custom_set_run_dir(cfg, run_id):
+def custom_set_run_dir(cfg, wandb_tag):
     """Custom output directory naming for each experiment run.
 
     Args:
         cfg (CfgNode): Configuration node
         run_id (int): Main for-loop iter id (the random seed or dataset split)
     """
-    id = wandb.util.generate_id()
-    cfg.wandb.name_tag = f'{cfg.data.name}_run{id}_{cfg.model.type}' 
-    cfg.run_dir = os.path.join(cfg.out_dir, str(cfg.wandb.name_tag))
+    cfg.run_dir = os.path.join(cfg.out_dir, str(wandb_tag))
     # Make output directory
     if cfg.train.auto_resume:
         os.makedirs(cfg.run_dir, exist_ok=True)

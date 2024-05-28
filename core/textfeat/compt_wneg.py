@@ -226,7 +226,7 @@ class Trainer():
             predictions = torch.where(predictions >= threshold, 1, 0)
             
             accuracy = torch.sum(predictions == labels).float() / labels.shape[0]
-            mrr.update({'Acc': accuracy.tolist()})
+            mrr.update({'ACC': accuracy.tolist()})
             
             return accuracy, mrr
         

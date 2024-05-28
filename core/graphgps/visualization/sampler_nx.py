@@ -245,7 +245,7 @@ if __name__ == "__main__":
             _, _, _, valid_test, _, _ = trainer.loggers[key].calc_all_stats()
             result_dict.update({key: valid_test})
         # Log results
-        result_info = str({'Hits@100': result_dict['Hits@100'], 'AUC': result_dict['AUC'], 'ACC': result_dict['acc']})
+        result_info = str({'Hits@100': result_dict['Hits@100'], 'AUC': result_dict['AUC'], 'ACC': result_dict['ACC']})
         print(result_info)
         append_to_log(result_info, output_file)  # Log results to file
         

@@ -208,7 +208,7 @@ class Trainer_Heart(Trainer):
                     device)
         
         self.batch_size = cfg.train.batch_size
-        model_types = ['VGAE', 'GAE', 'GAT', 'GraphSage']
+        model_types = ['VGAE', 'GAE', 'GAT', 'GraphSage', 'GAT_Variant']
 
         self.train_func = {model_type: self._train_heart for model_type in model_types}
         self.test_func = {model_type: self._eval_heart  for model_type in model_types}
@@ -227,6 +227,7 @@ class Trainer_Heart(Trainer):
             iters = len(self.train_loader)
             step = self.epochs * iters
             best_loss = torch.inf
+            # TODO add learning scheduler
         
     def _train_heart(self):
 
@@ -274,7 +275,9 @@ class Trainer_Heart(Trainer):
             elif self.model_name in ['GAE', 'GAT', 'GraphSage']:
                 h = self.model.encoder(x, batch_edge_index)
                 loss = self.model.recon_loss(h, pos_edge)
-
+            elif self.model_name == 'GAT_Variant':
+                h = self.model.encoder(x, batch_edge_index)
+                loss = self.model.recon_loss(h, pos_edge)                
             loss.backward()
 
             if emb_update == 1: torch.nn.utils.clip_grad_norm_(x, 1.0)
@@ -293,7 +296,7 @@ class Trainer_Heart(Trainer):
         for perm  in DataLoader(range(edge_index.size(0)), self.batch_size):
             edge = edge_index[perm].t()
 
-            preds += [self.model.decoder(h, edge).cpu()]
+            preds += [self.model.decoder(h[edge[0]], h[edge[1]]).cpu()]
 
         return torch.cat(preds, dim=0)
 
@@ -306,29 +309,17 @@ class Trainer_Heart(Trainer):
 
         if self.model_name == 'VGAE':
             z = self.model(data.x, data.edge_index)
-        elif self.model_name in ['GAE', 'GAT', 'GraphSage']:
+        elif self.model_name in ['GAE', 'GAT', 'GraphSage', 'GAT_Variant']:
             z = self.model.encoder(data.x, data.edge_index)
         
         pos_pred = self.test_edge(z, pos_edge_index)
         neg_pred = self.test_edge(z, neg_edge_index)
-        y_pred = torch.cat([pos_pred, neg_pred], dim=0)
         
-        hard_thres = (y_pred.max() + y_pred.min())/2
-
-        pos_y = z.new_ones(pos_edge_index.size(1))
-        neg_y = z.new_zeros(neg_edge_index.size(1)) 
-        y = torch.cat([pos_y, neg_y], dim=0)
-        
-        y_pred[y_pred >= hard_thres] = 1
-        y_pred[y_pred < hard_thres] = 0
-
-        y = y.to(self.device)
-        y_pred = y_pred.to(self.device)
-        acc = torch.sum(y == y_pred)/len(y)
+        acc = self._acc(pos_pred, neg_pred)
         
         pos_pred, neg_pred = pos_pred.cpu(), neg_pred.cpu()
-        result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_pred, neg_pred)
-        result_mrr.update({'acc': round(acc.tolist(), 5)})
+        result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_pred.squeeze(), neg_pred.squeeze())
+        result_mrr.update({'ACC': round(acc, 5)})
     
         return result_mrr
     

@@ -167,9 +167,15 @@ def save_parmet_tune(name_tag, metrics, root):
     new_Data = pd.concat([Data, new_df])
     
     # best value
-    highest_values = new_Data.apply(lambda column: max(column, default=None))
+    highest_values = {}
+    for column in new_Data.columns:
+        try:
+            highest_values[column] = new_Data[column].max()
+        except:
+            highest_values[column] = None
+
     # concat and save
-    Best_list = ['Best'] + highest_values[1:].tolist()
+    Best_list = ['Best'] + pd.Series(highest_values).tolist()[1:]
     # print(Best_list)
     Best_df = pd.DataFrame([Best_list], columns=Data.columns)
 

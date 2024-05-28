@@ -19,9 +19,9 @@ from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
 from embedding.tune_utils import param_tune_acc_mrr
 from heuristic.eval import get_metric_score
-from core.graphgps.utiliity.utils import config_device
+from core.graphgps.utility.utils import config_device
 from typing import Dict, Tuple
-from core.graphgps.utiliity.utils import Logger
+from core.graphgps.utility.utils import Logger
 
 class Trainer_SEAL(Trainer):
     def __init__(self,
@@ -149,6 +149,6 @@ class Trainer_SEAL(Trainer):
 
 
         result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_pred, neg_pred)
-        result_mrr.update({'acc': round(acc.tolist(), 5)})
+        result_mrr.update({'ACC': round(acc.tolist(), 5)})
 
         return result_mrr

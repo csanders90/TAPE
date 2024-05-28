@@ -33,9 +33,9 @@
 				"--device",
 				"cpu",
 				"--epochs",
-				"100",
+				"400",
 				"--model",
-				"GAE",
+				"GAT_Variant",
 				"--wandb"
 			],
 		}
