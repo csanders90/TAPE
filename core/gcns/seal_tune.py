@@ -143,6 +143,8 @@ def project_main():
         cfg = config_device(cfg)
 
         splits, text, data = load_data_lp[cfg.data.name](cfg)
+        data.edge_index = splits['train']['pos_edge_label_index']
+
         path = os.path.dirname(__file__) + '/seal_{}'.format(cfg.data.name)
         dataset = {}
 
