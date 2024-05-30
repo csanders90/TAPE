@@ -45,6 +45,9 @@ def parse_args() -> argparse.Namespace:
                         help='data name')
     parser.add_argument('--device', dest='device', required=True,
                         help='device id')
+    parser.add_argument('--epochs', dest='epoch', type=int, required=False,
+                        default=100,
+                        help='data name')
     parser.add_argument('--repeat', type=int, default=2,
                         help='The number of repeated jobs.')
     parser.add_argument('--mark_done', action='store_true',
@@ -102,7 +105,7 @@ if __name__ == "__main__":
         cfg = config_device(cfg)
         splits, text, data = load_data_lp[cfg.data.name](cfg.data)
         data.edge_index = splits['train']['pos_edge_label_index']
-        data = ncn_dataset(data, splits)
+        data = ncn_dataset(data, splits).to(cfg.device)
         path = f'{os.path.dirname(__file__)}/seal_{cfg.data.name}'
         print_logger = set_printing(cfg)
         print_logger.info(
