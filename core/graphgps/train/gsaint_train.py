@@ -1,9 +1,11 @@
 import os
 import sys
 from os.path import abspath, dirname, join
-sys.path.insert(0, abspath(join(dirname(dirname(__file__)))))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 # standard library imports
 import torch
+from tqdm import tqdm 
 from torch_geometric.graphgym.config import cfg
 from yacs.config import CfgNode as CN
 
@@ -15,7 +17,7 @@ import torch.nn.functional as F
 # external 
 from embedding.tune_utils import param_tune_acc_mrr, mvari_str2csv, save_parmet_tune
 from heuristic.eval import get_metric_score
-from core.graphgps.utiliity.utils import config_device, savepred, Logger
+from graphgps.utility.utils import config_device, Logger
 from typing import Dict, Tuple
 
 # Understand, whu is it work
@@ -30,6 +32,7 @@ class Trainer_Saint(Trainer):
                  emb: torch.nn.Module,
                  data: Data,
                  optimizer: torch.optim.Optimizer, 
+                 scheduler: torch.optim.lr_scheduler,
                  splits: Dict[str, Data], 
                  run: int, 
                  repeat: int,
@@ -37,12 +40,20 @@ class Trainer_Saint(Trainer):
                  print_logger: None,  # Ensure this is correctly defined and passed
                  device: torch.device,
                  gsaint=None,
-                 batch_size_sampler=None, 
-                 walk_length=None, 
-                 num_steps=None, 
-                 sample_coverage=None):
+                 if_wandb=False):
         # Correctly pass all parameters expected by the superclass constructor
-        super().__init__(FILE_PATH, cfg, model, emb, data, optimizer, splits, run, repeat, loggers, print_logger, device)
+        super().__init__(FILE_PATH, 
+                         cfg, 
+                         model, 
+                         emb, 
+                         data, 
+                         optimizer, 
+                         splits, 
+                         run, 
+                         repeat, 
+                         loggers, 
+                         print_logger, 
+                         device)
         
         self.device = device 
         self.print_logger = print_logger                
@@ -54,7 +65,19 @@ class Trainer_Saint(Trainer):
         
         self.FILE_PATH = FILE_PATH 
         self.epochs = cfg.train.epochs
+        self.if_wandb = if_wandb
         
+        self.model_types = ['VGAE', 'GAE', 'GAT', 'GraphSage', 'GAT_Variant', 'GCN_Variant', 'SAGE_Variant', 'GIN_Variant']
+
+        self.train_func = {model_type: self._train_gae for model_type in self.model_types}
+        self.test_func = {model_type: self._evaluate for model_type in self.model_types}
+        self.evaluate_func = {model_type: self._evaluate   for model_type in self.model_types}
+        
+        batch_size_sampler=cfg.sampler.gsaint.sampler_batch_size
+        walk_length=cfg.sampler.gsaint.walk_length
+        num_steps=cfg.sampler.gsaint.num_steps
+        sample_coverage=cfg.sampler.gsaint.sample_coverage
+                    
         # GSAINT splitting
         if gsaint is not None:
             device_cpu = torch.device('cpu')
@@ -67,7 +90,8 @@ class Trainer_Saint(Trainer):
             self.valid_data = splits['valid'].to(self.device)
 
         self.optimizer  = optimizer
-    
+        self.scheduler = scheduler
+        
     def global_to_local(self, edge_label_index, node_idx):
 
         # Make dict where key: local indexes, value: global indexes
@@ -91,7 +115,7 @@ class Trainer_Saint(Trainer):
     def _train_gae(self):
         self.model.train()
         total_loss = total_examples = 0
-        for subgraph in self.train_data:
+        for subgraph in tqdm(self.train_data):
             self.optimizer.zero_grad()
             subgraph = subgraph.to(self.device)
 
@@ -142,8 +166,8 @@ class Trainer_Saint(Trainer):
             local_neg_indices = self.global_to_local(data.neg_edge_label_index, data.node_index)
             
             z = self.model.encoder(data.x, data.edge_index)
-            pos_pred = self.model.decoder(z, local_pos_indices)
-            neg_pred = self.model.decoder(z, local_neg_indices)
+            pos_pred = self.model.decoder(z[local_pos_indices[0]], z[local_pos_indices[1]])
+            neg_pred = self.model.decoder(z[local_neg_indices[0]], z[local_neg_indices[1]])
             y_pred = torch.cat([pos_pred, neg_pred], dim=0)
 
             hard_thres = (y_pred.max() + y_pred.min())/2

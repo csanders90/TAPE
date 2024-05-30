@@ -35,7 +35,9 @@ train:
 
 model:
   type: GCN_Variant
+  sampler: gsaint
 
+  batch_size_sampler: 1024
   GCN_Variant: 
     in_channels: None
     hidden_channels: 256
@@ -86,6 +88,13 @@ model:
     num_layers: 3
     mlp_layer: 2
 
+sampler:
+  type: gsaint
+  gsaint:
+    num_steps: 30
+    sample_coverage: 100
+    walk_length: 20
+    batch_size: 2048
 
 score:
   type: mlp_score
@@ -121,10 +130,11 @@ optimizer:
 
 
 sampler:
-  batch_size: 2048
-  walk_length: 20
-  num_steps: 30 
-  sample_coverage: 100
+  gsaint:
+    sampler_batch_size: 1024
+    walk_length: 10
+    num_steps: 10
+    sample_coverage: 100
 
 
 save:

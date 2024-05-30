@@ -33,7 +33,7 @@
 				"--device",
 				"cpu",
 				"--epochs",
-				"1000",
+				"100",
 				"--model",
 				"GIN_Variant"
 			],

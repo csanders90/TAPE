@@ -2,7 +2,7 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from gcns.heart_main import *
+from core.gcns.heart_main_example import *
 from gcns.gsaint_main import get_loader_RW
 import itertools
 from tqdm import tqdm
