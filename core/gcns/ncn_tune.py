@@ -43,7 +43,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--data', dest='data', type=str, required=False,
                         default='cora',
                         help='data name')
-
+    parser.add_argument('--device', dest='device', required=True,
+                        help='device id')
     parser.add_argument('--repeat', type=int, default=2,
                         help='The number of repeated jobs.')
     parser.add_argument('--mark_done', action='store_true',
@@ -78,6 +79,10 @@ if __name__ == "__main__":
     args = parse_args()
     cfg = set_cfg(FILE_PATH, args.cfg_file)
     cfg.merge_from_list(args.opts)
+    cfg.data.device = args.device
+    cfg.model.device = args.device
+    cfg.device = args.device
+    cfg.train.epochs = args.epoch
 
     torch.set_num_threads(cfg.num_threads)
     batch_sizes = [cfg.train.batch_size]
