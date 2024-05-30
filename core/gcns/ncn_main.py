@@ -97,7 +97,7 @@ if __name__ == "__main__":
             cfg = config_device(cfg)
             splits, text, data = load_data_lp[cfg.data.name](cfg.data)
             data.edge_index = splits['train']['pos_edge_label_index']
-            data = ncn_dataset(data, splits)
+            data = ncn_dataset(data, splits).to(cfg.device)
             path = f'{os.path.dirname(__file__)}/seal_{cfg.data.name}'
             dataset = {}
 
