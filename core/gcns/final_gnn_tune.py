@@ -1,35 +1,28 @@
 # modified from https://github.com/AndrewSpano/Stanford-CS224W-ML-with-Graphs/blob/main/CS224W_Colab_3.ipynb
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-
 import torch
 torch.cuda.empty_cache()
-import logging
 import itertools
 from tqdm import tqdm
-import time
 from torch_geometric import seed_everything
 from torch_geometric.graphgym.utils.comp_budget import params_count
-from torch_geometric.loader import NeighborLoader
 from torch_geometric.graphgym.cmd_args import parse_args
 import argparse
 import wandb
 
-
 from data_utils.load import load_data_lp
 from graphgps.train.heart_train import Trainer_Heart
 from graphgps.config import (dump_cfg, dump_run_cfg)
-from graphgps.utility.utils import set_cfg, parse_args, get_git_repo_root_path, Logger, custom_set_out_dir \
+from graphgps.utility.utils import set_cfg, parse_args, get_git_repo_root_path, custom_set_out_dir \
     , custom_set_run_dir, set_printing, run_loop_settings, create_optimizer, config_device, \
-        init_model_from_pretrained, create_logger
-
+        init_model_from_pretrained, create_logger, LinearDecayLR
 from graphgps.score.custom_score import mlp_score, InnerProduct
-from graphgps.network.heart_gnn import GAT_Variant, GAE_forall
+from graphgps.network.heart_gnn import GAT_Variant, GAE_forall, GCN_Variant, \
+                                SAGE_Variant, GIN_Variant, DGCNN
 from yacs.config import CfgNode as CN
-import pprint
-
 import os
+
 
 def create_GAE_model(cfg_model: CN, 
                        cfg_score: CN,
@@ -39,15 +32,6 @@ def create_GAE_model(cfg_model: CN,
         # model = create_model(cfg_model)
 
     elif model_name == 'GAT_Variant':
-        if cfg_score.product == 'dot':
-            decoder = mlp_score(cfg_model.out_channels,
-                                              cfg_score.score_hidden_channels, 
-                                              cfg_score.score_out_channels,
-                                              cfg_score.score_num_layers,
-                                              cfg_score.score_dropout,
-                                              cfg_score.product)
-        elif cfg_score.product == 'inner':
-            decoder = InnerProduct()
         encoder = GAT_Variant(cfg_model.in_channels, 
                                         cfg_model.hidden_channels, 
                                         cfg_model.out_channels, 
@@ -55,15 +39,44 @@ def create_GAE_model(cfg_model: CN,
                                         cfg_model.dropout,
                                         cfg_model.heads,
                                         )
-        
-        
-        model = GAE_forall(encoder= encoder, 
-                           decoder= decoder)
+    elif model_name == 'GCN_Variant':
+        encoder = GCN_Variant(cfg_model.in_channels, 
+                                        cfg_model.hidden_channels, 
+                                        cfg_model.out_channels, 
+                                        cfg_model.num_layers,
+                                        cfg_model.dropout,
+                                        )
+    elif model_name == 'SAGE_Variant':
+        encoder = SAGE_Variant(cfg_model.in_channels, 
+                                        cfg_model.hidden_channels, 
+                                        cfg_model.out_channels, 
+                                        cfg_model.num_layers,
+                                        cfg_model.dropout,
+                                        )
+    elif model_name == 'GIN_Variant':
+        encoder = GIN_Variant(cfg_model.in_channels, 
+                                        cfg_model.hidden_channels, 
+                                        cfg_model.out_channels, 
+                                        cfg_model.num_layers,
+                                        cfg_model.dropout,
+                                        cfg_model.mlp_layer
+                                        )
+                
+    if cfg_score.product == 'dot':
+        decoder = mlp_score(cfg_model.out_channels,
+                                            cfg_score.score_hidden_channels, 
+                                            cfg_score.score_out_channels,
+                                            cfg_score.score_num_layers,
+                                            cfg_score.score_dropout,
+                                            cfg_score.product)
+    elif cfg_score.product == 'inner':
+        decoder = InnerProduct()
 
     else:
         # Without this else I got: UnboundLocalError: local variable 'model' referenced before assignment
         raise ValueError('Current model does not exist')
-    return model 
+
+    return GAE_forall(encoder=encoder, decoder=decoder) 
 
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 
@@ -92,10 +105,9 @@ def parse_args() -> argparse.Namespace:
                         help='model name')
     parser.add_argument('--score', dest='score', type=str, required=False, default='mlp_score',
                         help='decoder name')
-    parser.add_argument('--wandb', dest='wandb', required=True, action='store_true',
+    parser.add_argument('--wandb', dest='wandb', required=False, 
                         help='data name')
-    
-    parser.add_argument('--repeat', type=int, default=1,
+    parser.add_argument('--repeat', type=int, default=3,
                         help='The number of repeated jobs.')
     parser.add_argument('--mark_done', action='store_true',
                         help='Mark yaml as done after a job has finished.')
@@ -122,16 +134,54 @@ hyperparameter_space = {
                                 'score_dropout': [0.1], 
                                 'product': [0, 1]},
     
-    'GAE_Variant': {'out_channels': [32], 'hidden_channels': [32], 'batch_size': [2**10]},
+    'GCN_Variant': {'out_channels': [2**4, 2**5, 2**6], 
+                    'hidden_channels': [2**4, 2**5, 2**6], 
+                    'batch_size': [2**10],
+                    'dropout': [0.1, 0],
+                    'num_layers': [1, 2, 3],
+                    'negative_slope': [0.1],
+                    'base_lr': [0.015, 0.001],
+                    'score_num_layers_predictor': [1, 2, 3],
+                    'score_gin_mlp_layer': [2],
+                    'score_hidden_channels': [2**6, 2**5, 2**4], 
+                    'score_out_channels': [1], 
+                    'score_num_layers': [1, 2, 3], 
+                    'score_dropout': [0.1], 
+                    'product': [0, 1]},
+                    
+
+    'SAGE_Variant': {'out_channels': [2**4, 2**5, 2**6, 2**7, 2**8, 2**9], 
+                     'hidden_channels': [2**4, 2**5, 2**6, 2**7, 2**8, 2**9], 
+                     'base_lr': [0.015, 0.1, 0.01],
+                    'score_num_layers_predictor': [1, 2, 3],
+                    'score_gin_mlp_layer': [2],
+                    'score_hidden_channels': [2**6, 2**5, 2**4], 
+                    'score_out_channels': [1], 
+                    'score_num_layers': [1, 2, 3], 
+                    'score_dropout': [0.1], 
+                    'product': [0, 1],
+                     },
+    
+    'GIN_Variant': {'out_channels': [2**4, 2**5, 2**6, 2**7, 2**8, 2**9], 
+                    'hidden_channels': [2**4, 2**5, 2**6, 2**7, 2**8, 2**9],
+                    'num_layers': [1, 2, 3, 4], 
+                    'base_lr': [0.015, 0.1, 0.01],
+                    'mlp_layer': [1, 2, 3],
+                    'score_num_layers_predictor': [1, 2, 3],
+                    'score_gin_mlp_layer': [2],
+                    'score_hidden_channels': [2**6, 2**5, 2**4], 
+                    'score_out_channels': [1], 
+                    'score_num_layers': [1, 2, 3], 
+                    'score_dropout': [0.1], 
+                    'product': [0, 1]},
+    
     'VGAE_Variant': {'out_channels': [32], 'hidden_channels': [32], 'batch_size': [2**10]},
-    'SAGE_Variant': {'out_channels': [2**8, 2**9], 'hidden_channels': [2**8, 2**9]}, 'base_lr': [0.015, 0.1, 0.01],
-    'GIN_Variant': {'out_channels': [2**8, 2**9], 'hidden_channels': [2**8, 2**9],
-                    'num_layers': [5, 6, 7], 'base_lr': [0.015, 0.1, 0.01]},
 }
 
 
 yaml_file = {   
              'GAT_Variant': 'core/yamls/cora/gcns/heart_gnn_models.yaml',
+             'GAE_Variant': 'core/yamls/cora/gcns/heart_gnn_models.yaml',
              'GIN_Variant': 'core/yamls/cora/gcns/heart_gnn_models.yaml',
              'GCN_Variant': 'core/yamls/cora/gcns/heart_gnn_models.yaml',
              'SAGE_Variant': 'core/yamls/cora/gcns/heart_gnn_models.yaml',
@@ -155,6 +205,7 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
     cfg.model.device = args.device
     cfg.device = args.device
     cfg.train.epochs = args.epoch
+    
     cfg_model = eval(f'cfg.model.{args.model}')
     cfg_score = eval(f'cfg.score.{args.score}')
     cfg.model.type = args.model
@@ -163,7 +214,7 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
 
     torch.set_num_threads(20)
     
-    
+    loggers = create_logger(args.repeat)
     for run_id, seed, split_index in zip(*run_loop_settings(cfg, args)):
         # Set configurations for each run TODO clean code here 
         if args.wandb:
@@ -179,8 +230,6 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
         cfg = config_device(cfg)
 
         splits, _, data = load_data_lp[cfg.data.name](cfg.data)
-        
-
         cfg_model.in_channels = splits['train'].x.shape[1]
 
         print_logger = set_printing(cfg)
@@ -230,16 +279,16 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
             print_logger.info(f"bs : {cfg.train.batch_size}, lr: {cfg.optimizer.base_lr}")
             print_logger.info(f"The model {args.model} is initialized.")
 
-            # model = create_model(cfg)
-            model = create_GAE_model(cfg_model, cfg_score, args.model)
 
+            model = create_GAE_model(cfg_model, cfg_score, args.model)
+            model.to(cfg.device)
             print_logger.info(f"{model} on {next(model.parameters()).device}" )
-            # print_logger.info(cfg)
 
             cfg.model.params = params_count(model)
             print_logger.info(f'Num parameters: {cfg.model.params}')
 
             optimizer = create_optimizer(model, cfg)
+            scheduler = LinearDecayLR(optimizer, start_lr=0.01, end_lr=0.001, num_epochs=10000)
 
             if cfg.train.finetune: 
                 model = init_model_from_pretrained(model, cfg.train.finetune,
@@ -252,14 +301,10 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
                 wandb.init(project=f'GAE-sweep-{args.data}', id=cfg.wandb.name_tag, config=cfg, settings=wandb.Settings(_service_wait=300), save_code=True)
                 wandb.watch(model, log="all",log_freq=10)
 
-            custom_set_run_dir(cfg, cfg.wandb.name_tag)
-
             dump_run_cfg(cfg)
             print_logger.info(f"config saved into {cfg.run_dir}")
             print_logger.info(f'Run {run_id} with seed {seed} and split {split_index} on device {cfg.device}')
 
-            
-            loggers = create_logger(args.repeat)
             trainer = Trainer_Heart(
                 FILE_PATH,
                 cfg,
@@ -267,6 +312,7 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
                 None,
                 data,
                 optimizer,
+                scheduler, 
                 splits,
                 run_id,
                 args.repeat,
@@ -276,14 +322,16 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
                 bool(args.wandb),
             )
 
+            assert not args.epoch < trainer.report_step or args.epoch % trainer.report_step, "Epochs should be divisible by report_step"
+            
             trainer.train()
-
+            trainer.finalize()
+            
             run_result = {}
             for key in trainer.loggers.keys():
                 print(key)
-                best_train, best_valid, train_bvalid, test_bvalid = trainer.loggers[key].calc_run_stats(run_id, True)
+                _, _, _, test_bvalid = trainer.loggers[key].calc_run_stats(run_id, True)
                 run_result[key] = test_bvalid
-
 
             # save params TODO if the updated params is saved.
             for k in hyperparameter_gnn.keys():

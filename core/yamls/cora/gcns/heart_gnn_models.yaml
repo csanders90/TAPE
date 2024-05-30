@@ -10,7 +10,7 @@ accelerator: auto
 wandb:
   use: True
   project: gtblueprint
-  name_tag: gae-cora-origin # Without this tag I got Attribute error
+  name_tag: Tune  # tune or train
 
 run:
   seed: 0
@@ -21,7 +21,7 @@ run:
 
 train:
   mode: custom
-  batch_size: 256
+  batch_size: 1024
   eval_period: 1
   epochs: 500
   device: 0
@@ -37,11 +37,11 @@ model:
   type: GCN_Variant
 
   GCN_Variant: 
+    in_channels: None
     hidden_channels: 256
+    out_channels: 128
     negative_slope: 0.2
     dropout: 0
-    num_layers: 3
-    emb: False # load generated embedding or not
     num_layers: 3
 
   GAT_Variant:
@@ -63,7 +63,9 @@ model:
     num_layers_predictor: 3
 
   SAGE_Variant:
+    in_channels: None
     hidden_channels: 256
+    out_channels: 128
     num_layers: 3
     dropout: 0.1
     emb: False
@@ -76,11 +78,13 @@ model:
     num_layers: 3
     
   GIN_Variant:
+    out_channels: 128
     hidden_channels: 256
     num_layers: 3
     dropout: 0.1
     emb: False
     num_layers: 3
+    mlp_layer: 2
 
 
 score:

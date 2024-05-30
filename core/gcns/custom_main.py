@@ -139,7 +139,6 @@ def project_main():
         trainer.save_result(run_result)
 
     if args.repeat > 1:
-        
         print('All runs:')
         result_dict = {}
         for key in loggers:

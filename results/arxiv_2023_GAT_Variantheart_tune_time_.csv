@@ -1,0 +1,4 @@
+Metric,Hits@1,Hits@3,Hits@10,Hits@20,Hits@50,Hits@100,MRR,mrr_hit1,mrr_hit3,mrr_hit10,mrr_hit20,mrr_hit50,mrr_hit100,AUC,AP,ACC,out_channels,hidden_channels,heads,negative_slope,dropout,num_layers,base_lr,score_num_layers_predictor,score_gin_mlp_layer,score_hidden_channels,score_out_channels,score_num_layers,score_dropout,product,epochs,train_time,test_time,params
+Tune,7.76,17.04,25.56,41.08,58.62,64.45,13.56,7.76,17.04,25.56,41.08,58.62,64.45,90.2,91.01,76.78,16,32,4,0.1,0,1,0.015,1,2,64,1,1,0.1,inner,2000,1.1157031059265137,1.1561000347137451,4848
+Tune,7.76,17.04,25.56,41.08,58.62,64.45,13.56,7.76,17.04,25.56,41.08,58.62,64.45,90.2,91.01,76.78,16,32,4,0.1,0,1,0.015,1,2,64,1,1,0.1,inner,2000,0.9894769191741943,1.0097014904022217,4848
+Best,7.76,17.04,25.56,41.08,58.62,64.45,13.56,7.76,17.04,25.56,41.08,58.62,64.45,90.2,91.01,76.78,16,32,4,0.1,0,1,0.015,1,2,64,1,1,0.1,inner,2000,1.1157031059265137,1.1561000347137451,4848
