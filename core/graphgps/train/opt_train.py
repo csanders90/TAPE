@@ -22,7 +22,7 @@ from typing import Dict, Tuple
 
 report_step = {
     'cora': 100,
-    'pubmed': 10,
+    'pubmed': 100,
     'arxiv_2023': 100,
     'ogbn-arxiv': 1,
     'ogbn-products': 1,
@@ -64,10 +64,12 @@ class Trainer():
         self.loggers = loggers
         self.print_logger = print_logger
         self.report_step = report_step[cfg.data.name]
-        model_types = ['VGAE', 'GAE', 'GAT', 'GraphSage', 'GAT_Variant']
-        self.train_func = {model_type: self._train_gae if model_type in ['GAE', 'GAT', 'GraphSage', 'GAT_Variant'] else self._train_vgae for model_type in model_types}
-        self.test_func = {model_type: self._test for model_type in model_types}
-        self.evaluate_func = {model_type: self._evaluate if model_type in ['GAE', 'GAT', 'GraphSage', 'GAE_forall'] else self._evaluate_vgae for model_type in model_types}
+        
+        self.model_types = ['VGAE', 'GAE', 'GAT', 'GraphSage']
+        
+        self.train_func = {model_type: self._train_gae if model_type in ['GAE', 'GAT', 'GraphSage'] else self._train_vgae for model_type in self.model_types}
+        self.test_func = {model_type: self._test for model_type in self.model_types}
+        self.evaluate_func = {model_type: self._evaluate if model_type in ['GAE', 'GAT', 'GraphSage'] else self._evaluate_vgae for model_type in self.model_types}
         self.evaluator_hit = Evaluator(name='ogbl-collab')
         self.evaluator_mrr = Evaluator(name='ogbl-citation2')
         
@@ -160,9 +162,10 @@ class Trainer():
         pos_y = torch.ones_like(pos_pred)
         neg_y = torch.zeros_like(neg_pred)
         y = torch.cat([pos_y, neg_y], dim=0)
-
-        # Calculate accuracy
+        y_logits = torch.cat([pos_pred, neg_pred], dim=0)
+        # Calculate accuracy    
         return (y == y_pred).float().mean().item()
+
 
     @torch.no_grad()
     def _evaluate_vgae(self, data: Data):
@@ -193,6 +196,7 @@ class Trainer():
     
         return result_mrr
     
+
     def merge_result_rank(self):
         result_test = self.evaluate_func[self.model_name](self.test_data)
         result_valid = self.evaluate_func[self.model_name](self.valid_data)
@@ -205,7 +209,6 @@ class Trainer():
     
     
     def train(self):  
-        
         for epoch in range(1, self.epochs + 1):
             loss = self.train_func[self.model_name]()
             
@@ -226,6 +229,7 @@ class Trainer():
                     self.print_logger.info(
                         f'Run: {self.run + 1:02d}, Key: {key}, '
                         f'Epoch: {epoch:02d}, Loss: {loss:.4f}, Train: {100 * train_hits:.2f}, Valid: {100 * valid_hits:.2f}, Test: {100 * test_hits:.2f}%')
+                    
                     if self.if_wandb:
                         wandb.log({f"Metrics/train_{key}": train_hits})
                         wandb.log({f"Metrics/valid_{key}": valid_hits})
@@ -272,7 +276,7 @@ class Trainer():
         mvari_str2csv(self.name_tag, results_dict, acc_file)
 
 
-    def save_tune(self, results_dict: Dict[str, float], to_file):  # sourcery skip: avoid-builtin-shadow
+    def save_tune(self, results_dict: Dict[str, float], to_file: str):  # sourcery skip: avoid-builtin-shadow
         
         root = os.path.join(self.FILE_PATH, cfg.out_dir)
         acc_file = os.path.join(root, to_file)

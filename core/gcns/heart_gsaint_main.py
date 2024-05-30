@@ -87,9 +87,6 @@ if __name__ == "__main__":
             train_data = splits['train']
             valid_data = splits['valid']
         
-        test_data = splits['test'].to(self.device)
-        self.train_data = splits['train'].to(self.device)
-        self.valid_data = splits['valid'].to(self.device)
 
         if cfg.data.name =='ogbl-collab':
             eval_metric = 'Hits@50'

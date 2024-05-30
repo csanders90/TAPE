@@ -18,8 +18,6 @@ from core.embedding.tune_utils import (
     parse_args, 
     get_git_repo_root_path
 )
-from gcns_gerrman.models.models import GraphSage, GAT, LinkPredModel, GCNEncoder, GAE, VGAE, VariationalGCNEncoder
-from gcns_gerrman.models.models import set_cfg, Trainer
 from data_utils.load import data_loader
 from yacs.config import CfgNode as CN
 

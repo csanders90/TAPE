@@ -19,8 +19,13 @@ from yacs.config import CfgNode as CN
 
 
 class GCN_Variant(torch.nn.Module):
-    def __init__(self, in_channels, hidden_channels, out_channels, num_layers,
-                 dropout, data_name=None):
+    def __init__(self, 
+                 in_channels, 
+                 hidden_channels, 
+                 out_channels, 
+                 num_layers,
+                 dropout, 
+                 data_name=None):
         super(GCN_Variant, self).__init__()
 
         self.convs = torch.nn.ModuleList()
@@ -134,7 +139,11 @@ class GAT_Variant(torch.nn.Module):
 
 
 class SAGE_Variant(torch.nn.Module):
-    def __init__(self, in_channels, hidden_channels, out_channels, num_layers,
+    def __init__(self, 
+                 in_channels, 
+                 hidden_channels, 
+                 out_channels, 
+                 num_layers,
                  dropout,  mlp_layer=None,  head=None, node_num=None,  cat_node_feat_mf=False,  data_name=None):
         super(SAGE_Variant, self).__init__()
 
@@ -209,8 +218,13 @@ class mlp_model(torch.nn.Module):
 
 
 class GIN_Variant(torch.nn.Module):
-    def __init__(self, in_channels, hidden_channels, out_channels, num_layers,
-                 dropout,  mlp_layer=None,  data_name=None):
+    def __init__(self, 
+                 in_channels, 
+                 hidden_channels, 
+                 out_channels, 
+                 num_layers,
+                 dropout,  
+                 mlp_layer=None,  data_name=None):
         super(GIN_Variant, self).__init__()
 
         # self.mlp1= mlp_model( in_channels, hidden_channels, hidden_channels, gin_mlp_layer, dropout)

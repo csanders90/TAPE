@@ -14,7 +14,7 @@ from torch_geometric.graphgym.config import cfg
 from torch_geometric import seed_everything
 from torch_geometric.nn import GCNConv, SAGEConv, GINConv, GATConv
 from ogb.linkproppred import Evaluator
-from graphgps.network.heart_gnn import (GCN_Variant, GAT_Variant, SAGE_Variant, mlp_model, mlp_score, GIN_Variant, DGCNN, GAE_forall)
+from graphgps.network.heart_gnn import (GCN_Variant, GAT_Variant, SAGE_Variant, mlp_model, GIN_Variant, DGCNN, GAE_forall)
 from data_utils.load import load_data_lp
 from graphgps.utility.utils import Logger, save_emb, get_root_dir, get_logger, config_device, set_cfg, get_git_repo_root_path
 from graphgps.train.heart_train import train, test, test_edge

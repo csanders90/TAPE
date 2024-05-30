@@ -5,13 +5,11 @@ import numpy as np
 import time
 import datetime
 import pytz
-import logging
 import torch
 import git
 import subprocess
 import pandas as pd
 import argparse
-import wandb
 import torch.optim as optim
 from torch_scatter import scatter
 from yacs.config import CfgNode as CN
@@ -19,6 +17,9 @@ from torch_geometric.graphgym.config import (cfg,
                                              makedirs_rm_exist)
 from torch_geometric.utils import remove_self_loops
 from typing import Tuple, List, Dict
+import logging
+from yacs.config import CfgNode
+import torch 
 
 set_float = lambda result: float(result.split(' ± ')[0])
 
@@ -630,6 +631,37 @@ def build_optimizer(args, params):
 
 
 
+class LinearDecayLR:
+    def __init__(self, optimizer, start_lr, end_lr, num_epochs):
+        """
+        Initialize the LinearDecayLR scheduler.
+        
+        Args:
+            optimizer (Optimizer): Wrapped optimizer.
+            start_lr (float): Initial learning rate.
+            end_lr (float): Final learning rate.
+            num_epochs (int): Number of epochs over which to linearly decay the learning rate.
+        """
+        self.optimizer = optimizer
+        self.start_lr = start_lr
+        self.end_lr = end_lr
+        self.num_epochs = num_epochs
+        self.step_count = 0
+
+    def step(self):
+        """Update the learning rate for the current step."""
+        self.step_count += 1
+        lr = self.start_lr + (self.end_lr - self.start_lr) * (self.step_count / self.num_epochs)
+        
+        for param_group in self.optimizer.param_groups:
+            param_group['lr'] = lr
+
+    def get_lr(self):
+        """Get the current learning rate."""
+        return [param_group['lr'] for param_group in self.optimizer.param_groups]
+
+
+
 def custom_set_out_dir(cfg, cfg_fname, name_tag):
     """Set custom main output directory path to cfg.
     Include the config filename and name_tag in the new :obj:`cfg.out_dir`.
@@ -766,30 +798,6 @@ def init_model_from_pretrained(model, pretrained_dir, freeze_pretrained=False) -
     Return 
     """
 
-def savepred(cfg, FILE_PATH, pred, true, data):
-    root = os.path.join(FILE_PATH, cfg.out_dir, 'pred_record')
-    os.makedirs(root, exist_ok=True)
-    timestamp = time.strftime('%Y%m%d%H%M%S', time.localtime(time.time()))
-    file_path = os.path.join(root, f'{cfg.data.name}_{cfg.model.type}_{timestamp}.txt')
-    print(file_path)
-    with open(file_path, 'w') as f:
-        for idx, subgraph in enumerate(data):
-            edges = subgraph.edge_index.t().numpy()
-            pred_idx = pred[idx].numpy()
-            true_idx = true[idx].numpy()
-            
-            lines = [f"{edge[0]} {edge[1]} {p.item()} {t.item()}\n"
-                     for edge, p, t in zip(edges, pred_idx, true_idx)]
-            f.writelines(lines)
-            
-            
-import logging
-
-import torch
-from torch_geometric.utils import remove_self_loops
-from torch_scatter import scatter
-
-from yacs.config import CfgNode
 
 
 def negate_edge_index(edge_index, batch=None):
@@ -915,26 +923,3 @@ def make_wandb_name(cfg):
     name = f"{dataset_name}.{model_name}.r{cfg.run_id}"
     return name
 
-# def config_device(cfg):
-    # # device 
-    # try:
-    #     if cfg.device is not None:
-    #         return cfg.device
-    #     elif cfg.train.device is not None:
-    #         return cfg.train.device
-    #     elif cfg.data.device is not None:
-    #         return cfg.data.device
-    # except:
-    #     num_cuda_devices = 0
-    #     if torch.cuda.is_available():
-    #         # Get the number of available CUDA devices
-    #         num_cuda_devices = torch.cuda.device_count()
-
-    #     if num_cuda_devices > 0:
-    #         # Set the first CUDA device as the active device
-    #         torch.cuda.set_device(0)
-    #         device = cfg.train.device
-    #     else:
-    #         device = 'cpu'
-        
-    # return device
