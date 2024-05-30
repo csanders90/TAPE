@@ -6,6 +6,7 @@ import time
 from os.path import abspath, dirname, join
 
 from torch.nn import BCEWithLogitsLoss
+from torch_sparse import SparseTensor
 
 sys.path.insert(0, abspath(join(dirname(dirname(__file__)))))
 
@@ -15,7 +16,8 @@ from ogb.linkproppred import Evaluator
 from torch_geometric.graphgym.config import cfg
 from sklearn.metrics import roc_auc_score, average_precision_score, roc_curve, auc
 from yacs.config import CfgNode as CN
-
+import torch.nn.functional as F
+import numpy as np
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
 from embedding.tune_utils import param_tune_acc_mrr
@@ -23,14 +25,17 @@ from heuristic.eval import get_metric_score
 from graphgps.utility.utils import config_device, Logger
 from typing import Dict, Tuple
 from graphgps.train.opt_train import (Trainer)
+from graphgps.encoder.ncn import PermIterator
 
 
-class Trainer_SEAL(Trainer):
+class Trainer_NCN(Trainer):
     def __init__(self,
                  FILE_PATH,
                  cfg,
                  model,
+                 predictor,
                  optimizer,
+                 data,
                  splits,
                  run,
                  repeat,
@@ -39,6 +44,7 @@ class Trainer_SEAL(Trainer):
                  batch_size=None,):
         self.device = config_device(cfg).device
         self.model = model.to(self.device)
+        self.predictor = predictor.to(self.device)
 
         self.model_name = cfg.model.type
         self.data_name = cfg.data.name
@@ -50,13 +56,14 @@ class Trainer_SEAL(Trainer):
         self.loggers = loggers
         self.print_logger = print_logger
         self.batch_size = batch_size
+        self.data = data
 
         self.test_data = splits['test']
         self.train_data = splits['train']
         self.valid_data = splits['valid']
         self.optimizer = optimizer
-        self.train_func = self._train_seal
-        model_types = ['VGAE', 'GAE', 'GAT', 'GraphSage', 'GNNStack', 'SEAL']
+        self.train_func = self._train_ncn
+        model_types = ['NCN', 'NCNC']
         self.test_func = {model_type: self._test for model_type in model_types}
         self.evaluate_func = {model_type: self._evaluate for model_type in model_types}
 
@@ -70,27 +77,40 @@ class Trainer_SEAL(Trainer):
         self.name_tag = cfg.wandb.name_tag
         self.run_result = {}
 
-    def _train_seal(self):
+    def _train_ncn(self):
         self.model.train()
         total_loss = 0
-        train_loader = DataLoader(self.train_data, batch_size=self.batch_size, shuffle=True)
-        for idx, data in enumerate(train_loader):
-            data = data.to(self.device)
+        self.predictor.train()
+
+        pos_train_edge = self.train_data['pos_edge_label_index'].to(self.device)
+        adjmask = torch.ones_like(pos_train_edge[0], dtype=torch.bool)
+        negedge = self.train_data['neg_edge_label_index'].to(self.device)
+        for perm in PermIterator(adjmask.device, adjmask.shape[0], self.batch_size):
             self.optimizer.zero_grad()
-            x = data.x
-            edge_weight = data.edge_weight
-            node_id = data.node_id
-            logits = self.model(data.z, data.edge_index, data.batch, x, edge_weight, node_id)
-            loss = BCEWithLogitsLoss()(logits.view(-1), data.y.to(torch.float))
+            adjmask[perm] = 0
+            tei = pos_train_edge[:, adjmask]
+            adj = SparseTensor.from_edge_index(tei, sparse_sizes=(self.data.num_nodes, self.data.num_nodes)).to_device(
+                pos_train_edge.device, non_blocking=True)
+            adjmask[perm] = 1
+            adj = adj.to_symmetric()
+            h = self.model(self.data.x, adj)
+            edge = pos_train_edge[:, perm]
+            pos_outs = self.predictor.multidomainforward(h, adj, edge)
+            pos_losss = -F.logsigmoid(pos_outs).mean()
+            edge = negedge[:, perm]
+            neg_outs = self.predictor.multidomainforward(h, adj, edge)
+            neg_losss = -F.logsigmoid(-neg_outs).mean()
+            loss = neg_losss + pos_losss
             loss.backward()
             self.optimizer.step()
-            total_loss += loss.item() * data.num_graphs
 
-        return total_loss / len(self.train_data)
+            total_loss += loss.item()
+        return total_loss
+
     def train(self):
         best_auc, best_hits, best_hit100 = 0, 0, 0
         for epoch in range(1, self.epochs + 1):
-            loss = self._train_seal()
+            loss = self._train_ncn()
 
             if epoch % 10 == 0:
                 results_rank = self.merge_result_rank()
@@ -107,17 +127,34 @@ class Trainer_SEAL(Trainer):
     @torch.no_grad()
     def _test(self, data: Data):
         self.model.eval()
-        test_loader = DataLoader(self.test_data, batch_size=self.batch_size, shuffle=False)
-        y_pred, y_true = [], []
-        for data in test_loader:
-            data = data.to(self.device)
-            self.optimizer.zero_grad()
-            x = data.x
-            edge_weight = data.edge_weight
-            node_id = data.node_id
-            logits = self.model(data.z, data.edge_index, data.batch, x, edge_weight, node_id)
-            y_pred.append(logits.view(-1).cpu())
-            y_true.append(data.y.view(-1).cpu().to(torch.float))
+        self.predictor.eval()
+        pos_edge = data['pos_edge_label_index'].to(self.device)
+        neg_edge = data['neg_edge_label_index'].to(self.device)
+        if data == self.test_data:
+            adj = self.data.full_adj_t
+            h = self.model(self.data.x, adj)
+        else:
+            adj = self.data.adj_t
+            h = self.model(self.data.x, adj)
+        pos_pred = torch.cat([self.predictor(h, adj, pos_edge[perm]).squeeze().cpu()
+                              for perm in PermIterator(pos_edge.device, pos_edge.shape[0], self.batch_size, False)],
+                             dim=0)
+
+        neg_pred = torch.cat([self.predictor(h, adj, neg_edge[perm]).squeeze().cpu()
+                              for perm in PermIterator(neg_edge.device, neg_edge.shape[0], self.batch_size, False)],
+                             dim=0)
+
+        y_pred = torch.cat([pos_pred, neg_pred], dim=0)
+        hard_thres = (y_pred.max() + y_pred.min()) / 2
+        pos_y = torch.ones(pos_edge.size(1))
+        neg_y = torch.zeros(neg_edge.size(1))
+        y_true = torch.cat([pos_y, neg_y], dim=0)
+        '''self.save_pred(y_pred, y_true, data)'''
+
+        y_pred = torch.where(y_pred >= hard_thres, torch.tensor(1), torch.tensor(0))
+
+        y_true = y_true.clone().detach()
+        y_pred = y_pred.clone().detach()
 
         y_pred, y_true = y_pred.detach().cpu().numpy(), y_true.detach().cpu().numpy()
         fpr, tpr, thresholds = roc_curve(y_true, y_pred, pos_label=1)
@@ -127,24 +164,27 @@ class Trainer_SEAL(Trainer):
     def _evaluate(self, eval_data: Data):
 
         self.model.eval()
-        data_loader = DataLoader(eval_data, batch_size=self.batch_size, shuffle=False)
-        y_pred, y_true = [], []
-        for data in data_loader:
-            data = data.to(self.device)
-            self.optimizer.zero_grad()
-            x = data.x
-            edge_weight = data.edge_weight
-            node_id = data.node_id
-            logits = self.model(data.z, data.edge_index, data.batch, x, edge_weight, node_id)
-            y_pred.append(logits.view(-1).cpu())
-            y_true.append(data.y.view(-1).cpu().to(torch.float))
+        self.predictor.eval()
+        pos_edge = eval_data['pos_edge_label_index'].to(self.device)
+        neg_edge = eval_data['neg_edge_label_index'].to(self.device)
+        if eval_data == self.test_data:
+            adj = self.data.full_adj_t
+            h = self.model(self.data.x, adj)
+        else:
+            adj = self.data.adj_t
+            h = self.model(self.data.x, adj)
+        pos_pred = torch.cat([self.predictor(h, adj, pos_edge[perm]).squeeze().cpu()
+            for perm in PermIterator(pos_edge.device, pos_edge.shape[0], self.batch_size, False)],dim=0)
 
-        y_pred = torch.cat(y_pred, dim=0)
-        y_true = torch.cat(y_true, dim=0)
-        y_pred, y_true = y_pred.cpu(), y_true.cpu()
+        neg_pred = torch.cat([self.predictor(h, adj, neg_edge[perm]).squeeze().cpu()
+            for perm in PermIterator(neg_edge.device, neg_edge.shape[0], self.batch_size, False)],dim=0)
 
+        y_pred = torch.cat([pos_pred, neg_pred], dim=0)
         hard_thres = (y_pred.max() + y_pred.min()) / 2
-        self.save_pred(y_pred, y_true, eval_data)
+        pos_y = torch.ones(pos_edge.size(1))
+        neg_y = torch.zeros(neg_edge.size(1))
+        y_true = torch.cat([pos_y, neg_y], dim=0)
+        '''self.save_pred(y_pred, y_true, eval_data)'''
 
         pos_pred, neg_pred = y_pred[y_true == 1].cpu(), y_pred[y_true == 0].cpu()
         y_pred = torch.where(y_pred >= hard_thres, torch.tensor(1), torch.tensor(0))
@@ -153,7 +193,6 @@ class Trainer_SEAL(Trainer):
         y_pred = y_pred.clone().detach()
 
         acc = torch.sum(y_true == y_pred) / len(y_true)
-
 
         result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_pred, neg_pred)
         result_mrr.update({'ACC': round(acc.tolist(), 5)})
