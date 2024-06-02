@@ -15,17 +15,16 @@ from functools import partial
 from torch_geometric.graphgym.utils.comp_budget import params_count
 from torch_geometric import seed_everything
 from torch_geometric.graphgym.utils.device import auto_select_device
-from graphgps.utility.utils import set_cfg, get_git_repo_root_path, custom_set_run_dir, set_printing, run_loop_settings, \
-    create_optimizer, config_device, \
-    create_logger
+from graphgps.utility.utils import set_cfg, parse_args, get_git_repo_root_path, custom_set_run_dir, set_printing, run_loop_settings, \
+          create_optimizer, config_device,  create_logger, custom_set_out_dir
 
 from torch_geometric.data import InMemoryDataset, Dataset
 from data_utils.load_data_nc import load_graph_cora, load_graph_pubmed, load_tag_arxiv23, load_graph_ogbn_arxiv
 import scipy.sparse as ssp
 from graphgps.config import (dump_cfg, dump_run_cfg)
 
-from graphgps.encoder.ncn import PermIterator
-from graphgps.network.ncn import predictor_dict, convdict, GCN
+from graphgps.utility.ncn import PermIterator
+from graphgps.network.ncn import predictor_dict, GCN
 from data_utils.load import load_data_lp
 from graphgps.train.ncn_train import Trainer_NCN
 
@@ -86,6 +85,7 @@ if __name__ == "__main__":
     cfg.model.device = args.device
     cfg.device = args.device
     cfg.train.epochs = args.epoch
+    custom_set_out_dir(cfg, args.cfg_file, cfg.wandb.name_tag)
 
     torch.set_num_threads(cfg.num_threads)
     batch_sizes = [cfg.train.batch_size]
@@ -97,6 +97,7 @@ if __name__ == "__main__":
 
     for run_id, seed, split_index in zip(
                 *run_loop_settings(cfg, args)):
+        id = wandb.util.generate_id()
         custom_set_run_dir(cfg, run_id)
         set_printing(cfg)
         cfg.seed = seed

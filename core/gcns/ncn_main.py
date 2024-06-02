@@ -19,7 +19,7 @@ from torch_geometric.data import InMemoryDataset, Dataset
 from data_utils.load_data_nc import load_graph_cora, load_graph_pubmed, load_tag_arxiv23, load_graph_ogbn_arxiv
 import scipy.sparse as ssp
 
-from graphgps.encoder.ncn import PermIterator
+from graphgps.utility.ncn import PermIterator
 from graphgps.network.ncn import predictor_dict, convdict, GCN
 from data_utils.load import load_data_lp
 from graphgps.train.ncn_train import Trainer_NCN
