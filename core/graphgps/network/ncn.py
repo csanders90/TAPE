@@ -10,7 +10,7 @@ from torch_scatter import scatter_add
 from typing import Iterable, Final
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from graphgps.encoder.ncn import adjoverlap
+from graphgps.utility.ncn import adjoverlap
 
 
 # a vanilla message passing layer
@@ -77,8 +77,8 @@ class DropAdj(nn.Module):
     def __init__(self, dp: float = 0.0, doscale=True) -> None:
         super().__init__()
         self.dp = dp
-        self.register_buffer("ratio", torch.tensor(1 / (1 - dp)))
-        self.doscale = doscale
+        self.register_buffer("ratio", torch.tensor(1 / (1 - dp))) # rescale ratio
+        self.doscale = doscale # whether to rescale edge weight
 
     def forward(self, adj: SparseTensor) -> SparseTensor:
         if self.dp < 1e-6 or not self.training:
@@ -95,26 +95,23 @@ class DropAdj(nn.Module):
 
 # Vanilla MPNN composed of several layers.
 class GCN(nn.Module):
-
     def __init__(self,
-                 in_channels,
-                 hidden_channels,
-                 out_channels,
+                 in_channels, # input feature dimension
+                 hidden_channels, # hidden feature dimension
+                 out_channels,  # output feature dimension
                  num_layers,
                  dropout,
-                 ln=False,
-                 res=False,
-                 max_x=-1,
-                 conv_fn="gcn",
-                 jk=False,
-                 edrop=0.0,
-                 xdropout=0.0,
-                 taildropout=0.0,
-                 noinputlin=False):
+                 ln=False, # whether to use layer normalization
+                 res=False, # whether to use residual connection
+                 max_x=-1, # maximum feature index
+                 conv_fn="gcn", # convolution function
+                 jk=False, # whether to use JumpingKnowledge
+                 edrop=0.0, # edge dropout rate
+                 xdropout=0.0, # input feature dropout rate
+                 taildropout=0.0, # dropout rate for the last layer
+                 noinputlin=False): # whether to use linear transformation for input features
         super().__init__()
-
         self.adjdrop = DropAdj(edrop)
-
         if max_x >= 0:
             tmp = nn.Embedding(max_x + 1, hidden_channels)
             nn.init.orthogonal_(tmp.weight)
@@ -125,7 +122,6 @@ class GCN(nn.Module):
             if not noinputlin and ("pure" in conv_fn or num_layers == 0):
                 self.xemb.append(nn.Linear(in_channels, hidden_channels))
                 self.xemb.append(nn.Dropout(dropout, inplace=True) if dropout > 1e-6 else nn.Identity())
-
         self.res = res
         self.jk = jk
         if jk:
@@ -196,19 +192,18 @@ class CNLinkPredictor(nn.Module):
                  hidden_channels,
                  out_channels,
                  num_layers,
-                 dropout,
-                 edrop=0.0,
-                 ln=False,
-                 cndeg=-1,
-                 use_xlin=True,
-                 tailact=True,
-                 twolayerlin=False,
-                 beta=1.0):
+                 dropout, # dropout rate
+                 edrop=0.0, # edge dropout rate
+                 ln=False, # whether to use layer normalization
+                 cndeg=-1, # degree of common neighbors
+                 use_xlin=True, # whether to use linear transformation for input features
+                 tailact=True, # whether to use linear transformation for the last layer
+                 twolayerlin=False, # whether to use two-layer linear transformation
+                 beta=1.0): # weight for common neighbors
         super().__init__()
-
-        self.register_parameter("beta", nn.Parameter(beta * torch.ones((1))))
-        self.dropadj = DropAdj(edrop)
-        lnfn = lambda dim, ln: nn.LayerNorm(dim) if ln else nn.Identity()
+        self.register_parameter("beta", nn.Parameter(beta * torch.ones((1)))) # weight for common neighbors
+        self.dropadj = DropAdj(edrop) # edge dropout
+        lnfn = lambda dim, ln: nn.LayerNorm(dim) if ln else nn.Identity() # layer normalization
 
         self.xlin = nn.Sequential(nn.Linear(hidden_channels, hidden_channels),
                                   nn.Dropout(dropout, inplace=True), nn.ReLU(inplace=True),
@@ -238,17 +233,17 @@ class CNLinkPredictor(nn.Module):
         self.cndeg = cndeg
 
     def multidomainforward(self,
-                           x,
-                           adj,
-                           tar_ei,
-                           filled1: bool = False,
-                           cndropprobs: Iterable[float] = []):
+                           x, # input features
+                           adj, # adjacency matrix
+                           tar_ei, # target edge index
+                           filled1: bool = False, # whether to fill the target edge
+                           cndropprobs: Iterable[float] = []): # common neighbor dropout rate
         adj = self.dropadj(adj)
-        xi = x[tar_ei[0]]
-        xj = x[tar_ei[1]]
+        xi = x[tar_ei[0]] # input features for the source node
+        xj = x[tar_ei[1]] # input features for the target node
         x = x + self.xlin(x)
-        cn = adjoverlap(adj, adj, tar_ei, filled1, cnsampledeg=self.cndeg)
-        xcns = [spmm_add(cn, x)]
+        cn = adjoverlap(adj, adj, tar_ei, filled1, cnsampledeg=self.cndeg) # common neighbors
+        xcns = [spmm_add(cn, x)] # common neighbor features
         xij = self.xijlin(xi * xj)
 
         xs = torch.cat(

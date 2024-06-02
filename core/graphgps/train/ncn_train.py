@@ -25,21 +25,21 @@ from heuristic.eval import get_metric_score
 from graphgps.utility.utils import config_device, Logger
 from typing import Dict, Tuple
 from graphgps.train.opt_train import (Trainer)
-from graphgps.encoder.ncn import PermIterator
+from graphgps.utility.ncn import PermIterator
 
 
 class Trainer_NCN(Trainer):
     def __init__(self,
-                 FILE_PATH,
-                 cfg,
-                 model,
-                 predictor,
-                 optimizer,
-                 data,
-                 splits,
-                 run,
-                 repeat,
-                 loggers,
+                 FILE_PATH: str,
+                 cfg: CN,
+                 model: torch.nn.Module,
+                 predictor: torch.nn.Module,
+                 optimizer: torch.optim.Optimizer,
+                 data: Data,
+                 splits: Dict[str, Data],
+                 run: int,
+                 repeat: int,
+                 loggers: Dict[str, Logger],
                  print_logger: None,
                  batch_size=None,):
         self.device = config_device(cfg).device
@@ -83,19 +83,22 @@ class Trainer_NCN(Trainer):
         self.predictor.train()
 
         pos_train_edge = self.train_data['pos_edge_label_index'].to(self.device)
-        adjmask = torch.ones_like(pos_train_edge[0], dtype=torch.bool)
+        adjmask = torch.ones_like(pos_train_edge[0], dtype=torch.bool) # mask for adj
         negedge = self.train_data['neg_edge_label_index'].to(self.device)
+        # permute the edges
         for perm in PermIterator(adjmask.device, adjmask.shape[0], self.batch_size):
             self.optimizer.zero_grad()
+            # mask input edges (target link removal)
             adjmask[perm] = 0
-            tei = pos_train_edge[:, adjmask]
+            tei = pos_train_edge[:, adjmask] # get the target edge index
+            # get the adj matrix
             adj = SparseTensor.from_edge_index(tei, sparse_sizes=(self.data.num_nodes, self.data.num_nodes)).to_device(
                 pos_train_edge.device, non_blocking=True)
             adjmask[perm] = 1
             adj = adj.to_symmetric()
-            h = self.model(self.data.x, adj)
+            h = self.model(self.data.x, adj) # get the node embeddings
             edge = pos_train_edge[:, perm]
-            pos_outs = self.predictor.multidomainforward(h, adj, edge)
+            pos_outs = self.predictor.multidomainforward(h, adj, edge) # get the prediction
             pos_losss = -F.logsigmoid(pos_outs).mean()
             edge = negedge[:, perm]
             neg_outs = self.predictor.multidomainforward(h, adj, edge)
@@ -111,7 +114,6 @@ class Trainer_NCN(Trainer):
         best_auc, best_hits, best_hit100 = 0, 0, 0
         for epoch in range(1, self.epochs + 1):
             loss = self._train_ncn()
-
             if epoch % 10 == 0:
                 results_rank = self.merge_result_rank()
                 print(results_rank)

@@ -8,7 +8,6 @@ class PermIterator:
     '''
     Iterator of a permutation
     '''
-
     def __init__(self, device, size, bs, training=True) -> None:
         self.bs = bs
         self.training = training
@@ -149,21 +148,21 @@ def spmoverlap_notoverlap_(
 
 def adjoverlap(adj1: SparseTensor,
                adj2: SparseTensor,
-               tarei: Tensor,
+               tarei: Tensor, # target edge index
                filled1: bool = False,
-               calresadj: bool = False,
-               cnsampledeg: int = -1,
-               ressampledeg: int = -1):
+               calresadj: bool = False, # calculate residual adj
+               cnsampledeg: int = -1, # common neighbor sample degree
+               ressampledeg: int = -1): # residual sample degree
     # a wrapper for functions above.
     adj1 = adj1[tarei[0]]
     adj2 = adj2[tarei[1]]
     if calresadj:
-        adjoverlap, adjres1, adjres2 = spmoverlap_notoverlap_(adj1, adj2)
+        adjoverlap, adjres1, adjres2 = spmoverlap_notoverlap_(adj1, adj2) # overlap, adj1 - adj2, adj2 - adj1
         if cnsampledeg > 0:
-            adjoverlap = sparsesample_reweight(adjoverlap, cnsampledeg)
+            adjoverlap = sparsesample_reweight(adjoverlap, cnsampledeg) # sample common neighbor
         if ressampledeg > 0:
-            adjres1 = sparsesample_reweight(adjres1, ressampledeg)
-            adjres2 = sparsesample_reweight(adjres2, ressampledeg)
+            adjres1 = sparsesample_reweight(adjres1, ressampledeg) # sample residual nodes
+            adjres2 = sparsesample_reweight(adjres2, ressampledeg) # sample residual nodes
         return adjoverlap, adjres1, adjres2
     else:
         adjoverlap = spmoverlap_(adj1, adj2)
