@@ -115,82 +115,153 @@ if __name__ == "__main__":
             f"\n Valid: {2 * splits['train']['pos_edge_label'].shape[0]} samples,"
             f"\n Test: {2 * splits['test']['pos_edge_label'].shape[0]} samples")
         dump_cfg(cfg)
-
-        hyperparameter_search = {'hiddim': [64, 128, 256], "gnndp": [0.0, 0.05, 0.1, 0.2, 0.3, 0.5],
+        if cfg.model.type == 'NCN':
+            hyperparameter_search = {'hiddim': [64, 128, 256], "gnndp": [0.0, 0.05, 0.1, 0.2, 0.3, 0.5],
                                  "xdp": [0.0, 0.05, 0.1, 0.2, 0.3, 0.5, 0.75], "tdp": [0.0, 0.05, 0.1, 0.2, 0.3],
                                  "gnnedp": [0.0, 0.1, 0.2], "predp": [0.0, 0.05, 0.1, 0.2, 0.3, 0.5], "preedp": [0.0, 0.1, 0.2],
                                  "batch_size": [256, 512, 1024, 2048], "gnnlr": [0.001, 0.0001], "prelr": [0.001, 0.0001]}
+            print_logger.info(f"hypersearch space: {hyperparameter_search}")
+            for hiddim, gnndp, xdp, tdp, gnnedp, predp, preedp, batch_size, gnnlr, prelr in tqdm(
+                    itertools.product(*hyperparameter_search.values())):
+                cfg.model.hiddim = hiddim
+                cfg.train.batch_size = batch_size
+                cfg.optimizer.gnnlr = gnnlr
+                cfg.optimizer.prelr = prelr
+                cfg.model.gnndp = gnndp
+                cfg.model.xdp = xdp
+                cfg.model.tdp = tdp
+                cfg.model.gnnedp = gnnedp
+                cfg.model.predp = predp
+                cfg.model.preedp = preedp
+                print_logger.info(f"hidden: {hiddim}")
+                print_logger.info(f"bs : {cfg.train.batch_size}")
+                print_logger.info(
+                    f"gnndp: {gnndp}, xdp: {xdp}, tdp: {tdp}, gnnedp: {gnnedp}, predp: {predp}, preedp: {preedp}, gnnlr: {gnnlr}, prelr: {prelr}")
+                start_time = time.time()
+                model = GCN(data.num_features, cfg.model.hiddim, cfg.model.hiddim, cfg.model.mplayers,
+                            cfg.model.gnndp, cfg.model.ln, cfg.model.res, cfg.data.max_x,
+                            cfg.model.model, cfg.model.jk, cfg.model.gnnedp, xdropout=cfg.model.xdp,
+                            taildropout=cfg.model.tdp,
+                            noinputlin=False)
+                predfn = predictor_dict[cfg.model.type]
+                if cfg.model.type == 'NCN':
+                    predfn = partial(predfn)
+                if cfg.model.type == 'NCNC':
+                    predfn = partial(predfn, scale=cfg.model.probscale, offset=cfg.model.proboffset, pt=cfg.model.pt)
+                predictor = predfn(cfg.model.hiddim, cfg.model.hiddim, 1, cfg.model.nnlayers,
+                                   cfg.model.predp, cfg.model.preedp, cfg.model.lnnn)
 
-        print_logger.info(f"hypersearch space: {hyperparameter_search}")
-        for hiddim, gnndp, xdp, tdp, gnnedp, predp, preedp, batch_size, gnnlr, prelr in tqdm(itertools.product(*hyperparameter_search.values())):
-            cfg.model.hiddim = hiddim
-            cfg.train.batch_size = batch_size
-            cfg.optimizer.gnnlr = gnnlr
-            cfg.optimizer.prelr = prelr
-            cfg.model.gnndp = gnndp
-            cfg.model.xdp = xdp
-            cfg.model.tdp = tdp
-            cfg.model.gnnedp = gnnedp
-            cfg.model.predp = predp
-            cfg.model.preedp = preedp
-            print_logger.info(f"hidden: {hiddim}")
-            print_logger.info(f"bs : {cfg.train.batch_size}")
-            print_logger.info(f"gnndp: {gnndp}, xdp: {xdp}, tdp: {tdp}, gnnedp: {gnnedp}, predp: {predp}, preedp: {preedp}, gnnlr: {gnnlr}, prelr: {prelr}")
-            start_time = time.time()
-            model = GCN(data.num_features, cfg.model.hiddim, cfg.model.hiddim, cfg.model.mplayers,
-                        cfg.model.gnndp, cfg.model.ln, cfg.model.res, cfg.data.max_x,
-                        cfg.model.model, cfg.model.jk, cfg.model.gnnedp, xdropout=cfg.model.xdp, taildropout=cfg.model.tdp,
-                        noinputlin=False)
-            predfn = predictor_dict[cfg.model.type]
-            if cfg.model.type == 'NCN':
-                predfn = partial(predfn)
-            if cfg.model.type == 'NCNC':
-                predfn = partial(predfn, scale=cfg.model.probscale, offset=cfg.model.proboffset, pt=cfg.model.pt)
-            predictor = predfn(cfg.model.hiddim, cfg.model.hiddim, 1, cfg.model.nnlayers,
-                               cfg.model.predp, cfg.model.preedp, cfg.model.lnnn)
+                optimizer = torch.optim.Adam([{'params': model.parameters(), "lr": cfg.optimizer.gnnlr},
+                                              {'params': predictor.parameters(), 'lr': cfg.optimizer.prelr}])
+                logging.info(f"{model} on {next(model.parameters()).device}")
+                logging.info(cfg)
+                cfg.params = params_count(model)
+                logging.info(f'Num parameters: {cfg.params}')
 
-            optimizer = torch.optim.Adam([{'params': model.parameters(), "lr": cfg.optimizer.gnnlr},
-                                          {'params': predictor.parameters(), 'lr': cfg.optimizer.prelr}])
-            logging.info(f"{model} on {next(model.parameters()).device}")
-            logging.info(cfg)
-            cfg.params = params_count(model)
-            logging.info(f'Num parameters: {cfg.params}')
+                hyper_id = wandb.util.generate_id()
+                cfg.wandb.name_tag = f'{cfg.data.name}_run{id}_{cfg.model.type}_hyper{hyper_id}'
+                custom_set_run_dir(cfg, cfg.wandb.name_tag)
 
-            hyper_id = wandb.util.generate_id()
-            cfg.wandb.name_tag = f'{cfg.data.name}_run{id}_{cfg.model.type}_hyper{hyper_id}'
-            custom_set_run_dir(cfg, cfg.wandb.name_tag)
+                dump_run_cfg(cfg)
+                print_logger.info(f"config saved into {cfg.run_dir}")
+                print_logger.info(f'Run {run_id} with seed {seed} and split {split_index} on device {cfg.device}')
 
-            dump_run_cfg(cfg)
-            print_logger.info(f"config saved into {cfg.run_dir}")
-            print_logger.info(f'Run {run_id} with seed {seed} and split {split_index} on device {cfg.device}')
+                # Execute experiment
+                trainer = Trainer_NCN(FILE_PATH,
+                                      cfg,
+                                      model,
+                                      predictor,
+                                      optimizer,
+                                      data,
+                                      splits,
+                                      run_id,
+                                      args.repeat,
+                                      loggers,
+                                      print_logger=print_logger,
+                                      batch_size=batch_size)
 
-            # Execute experiment
-            trainer = Trainer_NCN(FILE_PATH,
-                                   cfg,
-                                   model,
-                                   predictor,
-                                   optimizer,
-                                   data,
-                                   splits,
-                                   run_id,
-                                   args.repeat,
-                                   loggers,
-                                   print_logger=print_logger,
-                                   batch_size=batch_size)
+                trainer.train()
 
-            trainer.train()
+                run_result = {}
+                for key in trainer.loggers.keys():
+                    # refer to calc_run_stats in Logger class
+                    _, _, _, test_bvalid = trainer.loggers[key].calc_run_stats(run_id)
+                    run_result[key] = test_bvalid
 
-            run_result = {}
-            for key in trainer.loggers.keys():
-                # refer to calc_run_stats in Logger class
-                _, _, _, test_bvalid = trainer.loggers[key].calc_run_stats(run_id)
-                run_result[key] = test_bvalid
+                run_result.update(
+                    {"gnndp": gnndp, "xdp": xdp, "tdp": tdp, "gnnedp": gnnedp, "predp": predp, "preedp": preedp,
+                     "gnnlr": gnnlr, "prelr": prelr})
+                run_result.update({"hiddim": hiddim, "batch_size": batch_size})
+                print_logger.info(run_result)
 
-            run_result.update({"gnndp": gnndp, "xdp": xdp, "tdp": tdp, "gnnedp": gnnedp, "predp": predp, "preedp": preedp, "gnnlr": gnnlr, "prelr": prelr})
-            run_result.update({"hiddim": hiddim, "batch_size": batch_size})
-            print_logger.info(run_result)
+                to_file = f'{cfg.data.name}_{cfg.model.type}_tune_result.csv'
+                trainer.save_tune(run_result, to_file)
 
-            to_file = f'{cfg.data.name}_{cfg.model.type}_tune_result.csv'
-            trainer.save_tune(run_result, to_file)
+                print_logger.info(f"runing time {time.time() - start_time}")
+        elif cfg.model.type == 'NCNC':
+            hyperparameter_search = {'probscale': [1.0, 2.0, 3.0, 4,0, 4.3, 5,0, 5.3], 'proboffset': [0.5, 1.0, 2.0, 2.8, 3.0, 4,0, 5,0], 'pt':[0.0, 0.1, 0.3, 0.5, 0.75]}
+            print_logger.info(f"hypersearch space: {hyperparameter_search}")
+            for probscale, proboffset, pt in tqdm(itertools.product(*hyperparameter_search.values())):
+                cfg.model.probscale = probscale
+                cfg.model.proboffset = proboffset
+                cfg.model.pt = pt
+                print_logger.info(f"bs : {cfg.train.batch_size}")
+                print_logger.info(f"probscale: {probscale}, pt: {pt}, proboffset: {proboffset}")
+                start_time = time.time()
+                model = GCN(data.num_features, cfg.model.hiddim, cfg.model.hiddim, cfg.model.mplayers,
+                            cfg.model.gnndp, cfg.model.ln, cfg.model.res, cfg.data.max_x,
+                            cfg.model.model, cfg.model.jk, cfg.model.gnnedp, xdropout=cfg.model.xdp, taildropout=cfg.model.tdp,
+                            noinputlin=False)
+                predfn = predictor_dict[cfg.model.type]
+                if cfg.model.type == 'NCN':
+                    predfn = partial(predfn)
+                if cfg.model.type == 'NCNC':
+                    predfn = partial(predfn, scale=cfg.model.probscale, offset=cfg.model.proboffset, pt=cfg.model.pt)
+                predictor = predfn(cfg.model.hiddim, cfg.model.hiddim, 1, cfg.model.nnlayers,
+                                   cfg.model.predp, cfg.model.preedp, cfg.model.lnnn)
 
-            print_logger.info(f"runing time {time.time() - start_time}")
+                optimizer = torch.optim.Adam([{'params': model.parameters(), "lr": cfg.optimizer.gnnlr},
+                                              {'params': predictor.parameters(), 'lr': cfg.optimizer.prelr}])
+                logging.info(f"{model} on {next(model.parameters()).device}")
+                logging.info(cfg)
+                cfg.params = params_count(model)
+                logging.info(f'Num parameters: {cfg.params}')
+
+                hyper_id = wandb.util.generate_id()
+                cfg.wandb.name_tag = f'{cfg.data.name}_run{id}_{cfg.model.type}_hyper{hyper_id}'
+                custom_set_run_dir(cfg, cfg.wandb.name_tag)
+
+                dump_run_cfg(cfg)
+                print_logger.info(f"config saved into {cfg.run_dir}")
+                print_logger.info(f'Run {run_id} with seed {seed} and split {split_index} on device {cfg.device}')
+
+                # Execute experiment
+                trainer = Trainer_NCN(FILE_PATH,
+                                       cfg,
+                                       model,
+                                       predictor,
+                                       optimizer,
+                                       data,
+                                       splits,
+                                       run_id,
+                                       args.repeat,
+                                       loggers,
+                                       print_logger=print_logger,
+                                       batch_size=cfg.train.batch_size)
+
+                trainer.train()
+
+                run_result = {}
+                for key in trainer.loggers.keys():
+                    # refer to calc_run_stats in Logger class
+                    _, _, _, test_bvalid = trainer.loggers[key].calc_run_stats(run_id)
+                    run_result[key] = test_bvalid
+
+                run_result.update({"probscale": probscale, "pt": pt, "proboffset": proboffset})
+                run_result.update({"batch_size": cfg.train.batch_size})
+                print_logger.info(run_result)
+
+                to_file = f'{cfg.data.name}_{cfg.model.type}_tune_result.csv'
+                trainer.save_tune(run_result, to_file)
+
+                print_logger.info(f"runing time {time.time() - start_time}")

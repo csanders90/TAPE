@@ -1,6 +1,6 @@
 out_dir: results
 metric_best: acc
-cfg_dest: ncn.yaml
+cfg_dest: ncnc.yaml
 print: file
 seed: 0
 
@@ -23,7 +23,7 @@ train:
 
 model:
   model: puregcn
-  type: NCN
+  type: NCNC
   out_channels: 32
   in_channels: 1433
   hidden_channels: 256
@@ -52,7 +52,7 @@ num_threads: 11
 wandb:
   use: True
   project: gtblueprint
-  name_tag: ncn-pubmed
+  name_tag: ncnc-pubmed
 
 
 data:
