@@ -253,7 +253,7 @@ if __name__ == "__main__":
 
                 run_result = {}
                 for key in trainer.loggers.keys():
-                    if trainer.loggers[key].info == None:
+                    if trainer.loggers[key].results == [[], []]:
                         run_result[key] = None
                     else:
                         # refer to calc_run_stats in Logger class
