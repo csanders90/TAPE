@@ -199,7 +199,7 @@ if __name__ == "__main__":
 
                 print_logger.info(f"runing time {time.time() - start_time}")
         elif cfg.model.type == 'NCNC':
-            hyperparameter_search = {'probscale': [1.0, 2.0, 3.0, 4,0, 4.3, 5,0, 5.3], 'proboffset': [0.5, 1.0, 2.0, 2.8, 3.0, 4,0, 5,0], 'pt':[0.0, 0.1, 0.3, 0.5, 0.75]}
+            hyperparameter_search = {'probscale': [1.0, 2.0, 3.0, 4,0, 4.3, 5,0, 5.3], 'proboffset': [0.0, 1.0, 2.0, 2.8, 3.0, 4,0, 5,0], 'pt':[0.0, 0.1, 0.3, 0.5, 0.75]}
             print_logger.info(f"hypersearch space: {hyperparameter_search}")
             for probscale, proboffset, pt in tqdm(itertools.product(*hyperparameter_search.values())):
                 cfg.model.probscale = probscale
@@ -253,9 +253,12 @@ if __name__ == "__main__":
 
                 run_result = {}
                 for key in trainer.loggers.keys():
-                    # refer to calc_run_stats in Logger class
-                    _, _, _, test_bvalid = trainer.loggers[key].calc_run_stats(run_id)
-                    run_result[key] = test_bvalid
+                    if trainer.loggers[key].info == None:
+                        run_result[key] = None
+                    else:
+                        # refer to calc_run_stats in Logger class
+                        _, _, _, test_bvalid = trainer.loggers[key].calc_run_stats(run_id)
+                        run_result[key] = test_bvalid
 
                 run_result.update({"probscale": probscale, "pt": pt, "proboffset": proboffset})
                 run_result.update({"batch_size": cfg.train.batch_size})

@@ -114,6 +114,9 @@ class Trainer_NCN(Trainer):
         best_auc, best_hits, best_hit100 = 0, 0, 0
         for epoch in range(1, self.epochs + 1):
             loss = self._train_ncn()
+            if torch.isnan(torch.tensor(loss)):
+                print('Loss is nan')
+                break
             if epoch % 10 == 0:
                 results_rank = self.merge_result_rank()
                 print(results_rank)
