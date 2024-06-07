@@ -55,9 +55,9 @@ def eval_cora_mrr() -> None:
     evaluator_mrr = Evaluator(name='ogbl-citation2')
 
     result_dict = {}
-    # for use_heuristic in ['CN', 'AA', 'RA', 'InverseRA']:
-    #     pos_test_pred, _ = eval(use_heuristic)(full_A, pos_test_index)
-    #     neg_test_pred, _ = eval(use_heuristic)(full_A, neg_test_index)
+    for use_heuristic in ['CN', 'AA', 'RA', 'InverseRA']:
+        pos_test_pred, _ = eval(use_heuristic)(full_A, pos_test_index)
+        neg_test_pred, _ = eval(use_heuristic)(full_A, neg_test_index)
 
     #     result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
     #     result_dict.update({f'{use_heuristic}': result})

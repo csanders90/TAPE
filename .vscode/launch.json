@@ -27,15 +27,16 @@
 			"request": "launch",
 			"program": "${file}",
 			"console": "integratedTerminal",
+			"justMyCode": false,
 			"args": [
-				"--data",
-				"cora",
-				"--device",
-				"cpu",
-				"--epochs",
-				"100",
-				"--model",
-				"GIN_Variant"
+				// "--data",
+				// "cora",
+				// "--device",
+				// "cpu",
+				// "--epochs",
+				// "1",
+				// "--model",
+				// "GCN_Variant"
 			],
 		}
 	]

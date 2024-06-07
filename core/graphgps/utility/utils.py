@@ -923,3 +923,34 @@ def make_wandb_name(cfg):
     name = f"{dataset_name}.{model_name}.r{cfg.run_id}"
     return name
 
+import pandas as pd
+
+def analyse_hyper(file_path: str):
+    # Load the CSV file
+    file_path = 'path_to_your_file.csv'
+    df = pd.read_csv(file_path)
+
+    # Define the column representing the main performance metric
+    performance_metric = 'Metric'
+
+    # Identify the best combination of hyperparameters based on the performance metric
+    best_row = df.loc[df[performance_metric].idxmax()]
+
+    # Extract relevant columns and their values
+    best_combination = best_row[['out_channels', 'hidden_channels', 'base_lr', 'score_num_layers_predictor',
+                                'score_gin_mlp_layer', 'score_hidden_channels', 'score_out_channels',
+                                'score_num_layers', 'score_dropout', 'product', 'epochs', 'train_time',
+                                'test_time', 'params']]
+
+    # Print the best combination and its performance metrics
+    print("Best Hyperparameter Combination:")
+    print(best_combination)
+    print("\nPerformance Metrics:")
+    print(best_row[['Hits@1', 'Hits@3', 'Hits@10', 'Hits@20', 'Hits@50', 'Hits@100',
+                    'MRR', 'mrr_hit1', 'mrr_hit3', 'mrr_hit10', 'mrr_hit20', 'mrr_hit50', 
+                    'mrr_hit100', 'AUC', 'AP', 'ACC']])
+
+    # Example of saving the best combination to a new CSV file
+    best_combination_df = pd.DataFrame(best_combination).transpose()
+    best_combination_df.to_csv('best_hyperparameter_combination.csv', index=False)
+    return 

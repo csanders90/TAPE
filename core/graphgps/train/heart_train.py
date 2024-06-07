@@ -358,7 +358,13 @@ class Trainer_Heart(Trainer):
         self._acc_error_save(pos_pred, pos_edge_index, neg_pred, neg_edge_index, mode)
 
     
-    def _acc_error_save(self, pos_pred, pos_edge_index, neg_pred, neg_edge_index, mode):
+    def _acc_error_save(self, 
+                        pos_pred: torch.tensor, 
+                        pos_edge_index: torch.tensor, 
+                        neg_pred: torch.tensor, 
+                        neg_edge_index: torch.tensor, 
+                        mode: str) -> None:
+        
         hard_thres = (max(torch.max(pos_pred).item(), torch.max(neg_pred).item()) + min(torch.min(pos_pred).item(), torch.min(neg_pred).item())) / 2
 
         y_pred = torch.zeros_like(pos_pred)

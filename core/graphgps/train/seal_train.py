@@ -17,24 +17,37 @@ from yacs.config import CfgNode as CN
 
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
-from embedding.tune_utils import param_tune_acc_mrr
 from heuristic.eval import get_metric_score
-from core.graphgps.utility.utils import config_device
-from typing import Dict, Tuple
-from core.graphgps.utility.utils import Logger
+from graphgps.train.opt_train import Trainer
+from typing import Any, List, Optional, Sequence, Union
 
 class Trainer_SEAL(Trainer):
-    def __init__(self,
-                 FILE_PATH,
-                 cfg,
-                 model,
-                 optimizer,
-                 splits,
-                 run,
-                 repeat,
-                 loggers,
-                 batch_size=None,):
-        self.device = config_device(cfg)
+    def __init__(self, FILE_PATH,
+                 cfg: CN,
+                 model: torch.nn.Module,
+                 emb: None,
+                 optimizer: torch.optim.Optimizer,
+                 splits: Optional[Data],
+                 run: int,
+                 repeat: int,
+                 loggers: None,
+                 print_logger: None,
+                 device,
+                 if_wandb=False):
+        super().__init__(FILE_PATH,
+            cfg,
+            model, 
+            emb,
+            splits,
+            optimizer,
+            splits,
+            run, 
+            repeat, 
+            loggers,
+            print_logger,
+            device)
+                
+        self.device = cfg.device
 
         self.model = model.to(self.device)
 
@@ -46,7 +59,7 @@ class Trainer_SEAL(Trainer):
         self.run = run
         self.repeat = repeat
         self.loggers = loggers
-        self.batch_size = batch_size
+        self.batch_size = cfg.train.batch_size
 
         self.test_data = splits['test']
         self.train_data = splits['train']
@@ -64,40 +77,62 @@ class Trainer_SEAL(Trainer):
         self.repeat = repeat
         self.results_rank = {}
 
+        self.if_wandb = if_wandb
+        
     def _train_seal(self):
         self.model.train()
         total_loss = 0
         train_loader = DataLoader(self.train_data, batch_size=self.batch_size, shuffle=True)
-        for idx, data in enumerate(train_loader):
-            data = data.to(self.device)
+        for subgraph in train_loader:
+            data = subgraph.to(self.device)
             self.optimizer.zero_grad()
-            x = data.x
-            edge_weight = data.edge_weight
-            node_id = data.node_id
-            logits = self.model(data.z, data.edge_index, data.batch, x, edge_weight, node_id)
-            loss = BCEWithLogitsLoss()(logits.view(-1), data.y.to(torch.float))
+            x = subgraph.x
+            edge_weight = subgraph.edge_weight
+            node_id = subgraph.node_id
+            logits = self.model(subgraph.z, subgraph.edge_index, subgraph.batch, x, edge_weight, node_id)
+            loss = BCEWithLogitsLoss()(logits.view(-1), subgraph.y.to(torch.float))
             loss.backward()
             self.optimizer.step()
             total_loss += loss.item() * data.num_graphs
 
         return total_loss / len(self.train_data)
-    def train(self):
-        best_auc, best_hits, best_hit100 = 0, 0, 0
+    
+
+    def train(self):  
         for epoch in range(1, self.epochs + 1):
             loss = self._train_seal()
+            
+            if self.if_wandb:
+                wandb.log({"Epoch": epoch}, step=self.step)
+                wandb.log({'loss': loss}, step=self.step) 
+                wandb.log({"lr": self.scheduler.get_lr()}, step=self.step)
+                
+            if epoch % int(self.report_step) == 0:
 
-            if epoch % 1 == 0:
-                results_rank = self.merge_result_rank()
-                print(results_rank)
-
-                for key, result in results_rank.items():
-                    print(key, result)
+                self.results_rank = self.merge_result_rank()
+                
+                self.print_logger.info(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {self.results_rank["AUC"][0]:.4f}, AP: {self.results_rank["AP"][0]:.4f}, MRR: {self.results_rank["MRR"][0]:.4f}, Hit@10 {self.results_rank["Hits@10"][0]:.4f}')
+                self.print_logger.info(f'Epoch: {epoch:03d}, Loss_valid: {loss:.4f}, AUC: {self.results_rank["AUC"][1]:.4f}, AP: {self.results_rank["AP"][1]:.4f}, MRR: {self.results_rank["MRR"][1]:.4f}, Hit@10 {self.results_rank["Hits@10"][1]:.4f}')               
+                self.print_logger.info(f'Epoch: {epoch:03d}, Loss_test: {loss:.4f}, AUC: {self.results_rank["AUC"][2]:.4f}, AP: {self.results_rank["AP"][2]:.4f}, MRR: {self.results_rank["MRR"][2]:.4f}, Hit@10 {self.results_rank["Hits@10"][2]:.4f}')               
+                    
+                for key, result in self.results_rank.items():
                     self.loggers[key].add_result(self.run, result)
-                    print(self.run)
-                    print(result)
-
-        return best_auc, best_hits
-
+                    
+                    train_hits, valid_hits, test_hits = result
+                    self.print_logger.info(
+                        f'Run: {self.run + 1:02d}, Key: {key}, '
+                        f'Epoch: {epoch:02d}, Loss: {loss:.4f}, Train: {100 * train_hits:.2f}, Valid: {100 * valid_hits:.2f}, Test: {100 * test_hits:.2f}%')
+                    
+                    if self.if_wandb:
+                        wandb.log({f"Metrics/train_{key}": train_hits}, step=self.step)
+                        wandb.log({f"Metrics/valid_{key}": valid_hits}, step=self.step)
+                        wandb.log({f"Metrics/test_{key}": test_hits}, step=self.step)
+                    
+                self.print_logger.info('---')
+                
+            if self.if_wandb:
+                self.step += 1
+                
     @torch.no_grad()
     def _test(self, data: Data):
         self.model.eval()
@@ -116,6 +151,7 @@ class Trainer_SEAL(Trainer):
         y_pred, y_true = y_pred.detach().cpu().numpy(), y_true.detach().cpu().numpy()
         fpr, tpr, thresholds = roc_curve(y_true, y_pred, pos_label=1)
         return roc_auc_score(y_true, y_pred), average_precision_score(y_true, y_pred), auc(fpr, tpr)
+
 
     @torch.no_grad()
     def _evaluate(self, eval_data: Data):

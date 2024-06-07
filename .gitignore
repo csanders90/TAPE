@@ -87,3 +87,4 @@ core/dataset
 */dataset
 core/gcns/results
 gcns/results
+results/

@@ -292,7 +292,8 @@ class DGCNN(torch.nn.Module):
                 k = num_nodes[int(math.ceil(k * len(num_nodes))) - 1]
                 k = max(10, k)
         self.k = int(k)
-
+        
+        # embedding for DRNL?
         self.max_z = max_z
         self.z_embedding = Embedding(self.max_z, hidden_channels)
 
@@ -345,7 +346,6 @@ class DGCNN(torch.nn.Module):
         x = self.maxpool1d(x)
         x = F.relu(self.conv2(x))
         x = x.view(x.size(0), -1)  # [num_graphs, dense_dim]
-        emb = x
 
         # MLP.
         x = F.relu(self.lin1(x))
