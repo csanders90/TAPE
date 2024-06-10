@@ -403,8 +403,8 @@ def plot_spath_citation2_dist(A, split_edge, dataset):
     G = nx.from_scipy_sparse_array(A)
 
     # create edge_index from source and target node
-    pos_edge_index  = torch.stack([split_edge['train']['source_node'][:len], split_edge['train']['target_node'][:len]])
-    edge_index  = {'source_node': split_edge['train']['source_node'][:len], 'target_node': split_edge['train']['target_node'][:len]}
+    pos_edge_index  = torch.stack([split_edge['train']['source_node'], split_edge['train']['target_node']])
+    edge_index  = {'source_node': split_edge['train']['source_node'], 'target_node': split_edge['train']['target_node']}
     pos_train_pred  =  shortest_path_citation2(G, edge_index)
     neg_edge_index = negative_sampling(
     pos_edge_index, num_nodes=num_nodes,
@@ -422,7 +422,7 @@ def plot_spath_citation2_dist(A, split_edge, dataset):
     target_neg = split_edge['valid']['target_node_neg'].view(-1)
 
     # TODO remove :10 for whole test
-    valid_neg_edge = {'source_node': source[:len], 'target_node': target_neg[:len]}
+    valid_neg_edge = {'source_node': source, 'target_node': target_neg}
     neg_valid_pred = shortest_path_citation2(G, valid_neg_edge)
 
     pos_test_pred = shortest_path_citation2(G, split_edge['test'])
@@ -430,7 +430,7 @@ def plot_spath_citation2_dist(A, split_edge, dataset):
     source = split_edge['test']['source_node'].view(-1, 1).repeat(1, 1000).view(-1)
     target_neg = split_edge['test']['target_node_neg'].view(-1)
 
-    test_neg_edge = {'source_node': source[:len], 'target_node': target_neg[:len]}
+    test_neg_edge = {'source_node': source, 'target_node': target_neg}
     neg_test_pred = shortest_path_citation2(G, test_neg_edge)
     
     bin_edges = [0, 1, 3, 10, 25, float('inf')]
