@@ -111,7 +111,7 @@ def CN(A, edge_index, batch_size=100000):
     :return: FloatTensor [edges] of scores, pyg edge_index
     """
     edge_index = edge_index.t()
-    link_loader = DataLoader(range(edge_index.size(1)), batch_size)
+    link_loader = DataLoader(range(edge_index.size(1)), batch_size, num_workers=4)
     scores = []
     for ind in tqdm(link_loader):
         src, dst = edge_index[0, ind], edge_index[1, ind]
@@ -133,7 +133,7 @@ def CN_citation2(A, edge_index: Dict, batch_size=100000):
     """
     
 
-    link_loader = DataLoader(range(edge_index['source_node'].shape[0]), batch_size)
+    link_loader = DataLoader(range(edge_index['source_node'].shape[0]), batch_size, num_workers=4)
     scores = []
     for ind in tqdm(link_loader):
         src, dst = edge_index['source_node'][ind], edge_index['target_node'][ind]
@@ -418,11 +418,11 @@ def plot_spath_citation2_dist(A, split_edge, dataset):
     neg_train_pred = shortest_path_citation2(G, neg_train_index)
     
     pos_valid_pred = shortest_path_citation2(G, split_edge['valid'])
+    # 1000 copies last 300 hours, please optimize 
     source = split_edge['valid']['source_node'].view(-1, 1).repeat(1, 1000).view(-1)
     target_neg = split_edge['valid']['target_node_neg'].view(-1)
 
-    # TODO remove :10 for whole test
-    valid_neg_edge = {'source_node': source, 'target_node': target_neg}
+    valid_neg_edge = {'source_node': source[:86596], 'target_node': target_neg[:86596]}
     neg_valid_pred = shortest_path_citation2(G, valid_neg_edge)
 
     pos_test_pred = shortest_path_citation2(G, split_edge['test'])
@@ -490,28 +490,32 @@ if __name__ == '__main__':
     color_list = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', 
                 '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', 
                 '#bcbd22', '#17becf', '#ff9896']
-    # 'Cora', 'CiteSeer', 'PubMed', 'custom-cora', 'custom-arxiv_2023', 
-    #            'custom-pubmed', 'custom-ogbn_arxiv', #TODO error 'ogbl-citation2',  'ogbl-wikikg2', 'ogbl-biokg',
-    # tested 'ogbl-ppa', 'ogbl-collab', 'ogbl-ddi',
-    #            'ogbl-vessel', 'ogbl-citation2',
-    # , 'ogbl-ppa', 'ogbl-collab', 'ogbl-ddi',
-                # 'ogbl-vessel', 'ogbl-citation2', 'Cora', 'CiteSeer', 'PubMed', 
-                # 'custom-cora', 'custom-arxiv_2023', 
-                # 'custom-pubmed', 'custom-ogbn_arxiv',
+    # data_list = [
+    #             'ogbl-citation2',
+    #             'Cora', 'CiteSeer', 'PubMed', 'custom-cora', 'custom-arxiv_2023', 
+    #             'custom-pubmed', 'custom-ogbn_arxiv', 
+    #             'ogbl-ppa', 'ogbl-collab', 'ogbl-ddi',
+    #             'ogbl-vessel', 
+    #         # 'Cora', 
+    # ]
 
-    data_list = [
-            'ogbl-citation2'
-            # , 'CiteSeer', 'PubMed', 'custom-cora', 'custom-arxiv_2023', 
-            #    'custom-pubmed', 'custom-ogbn_arxiv', #TODO 'ogbl-wikikg2', 'ogbl-biokg',
-            # 'ogbl-ppa', 'ogbl-collab', 'ogbl-ddi',
-            #    'ogbl-vessel', 'Cora', 
-    ]
+    import argparse
+    parser = argparse.ArgumentParser(description='Description of your program')
+    parser.add_argument('--data', dest='data', nargs='+', choices=['Cora', 'CiteSeer', 'PubMed', 'custom-cora', 'custom-arxiv_2023', 
+                                                            'custom-pubmed', 'custom-ogbn_arxiv',
+                                                            'ogbl-ppa', 'ogbl-collab', 'ogbl-ddi',
+                                                            'ogbl-vessel'],
+                                    #default='ogbl-ppa',
+        help='List of datasets')
+
+    args = parser.parse_args()
 
     plot_degree = False
     plot_clustering = False
     plot_CN_dist_link = False
     plot_shortest_path_link = True
     
+    data_list = args.data
     plt.figure(figsize=(8, 6))
     fast_split = True
 
