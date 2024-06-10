@@ -10,7 +10,7 @@
 			"request": "launch",
 			"program": "${file}",
 			"console": "integratedTerminal",
-			"justMyCode": false,
+			"justMyCode": true,
 			// "args": ["--cfg", "core/configs/arxiv_2023/struc2vec.yaml", "--sweep", "core/configs/arxiv_2023/struc2vec_sp1.yaml"],
 			// "args": [
 			// 	"--data",
