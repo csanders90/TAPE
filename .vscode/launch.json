@@ -29,14 +29,14 @@
 			"console": "integratedTerminal",
 			"justMyCode": false,
 			"args": [
-				// "--data",
-				// "cora",
-				// "--device",
-				// "cpu",
-				// "--epochs",
-				// "1",
-				// "--model",
-				// "GCN_Variant"
+				"--data",
+				"cora",
+				"--device",
+				"cpu",
+				"--epochs",
+				"1",
+				"--model",
+				"GCN_Variant"
 			],
 		}
 	]

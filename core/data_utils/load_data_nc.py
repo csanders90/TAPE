@@ -145,7 +145,7 @@ def load_graph_cora(use_mask) -> Data:
 
 
 def load_tag_cora()  -> Tuple[Data, List[str]]:
-    data, data_citeid = load_graph_cora()
+    data, data_citeid = load_graph_cora(use_mask=False) # nc True, lp False
     text = load_text_cora(data_citeid)
     return data, text
 
