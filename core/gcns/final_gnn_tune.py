@@ -113,7 +113,6 @@ def parse_args() -> argparse.Namespace:
                         help='Mark yaml as done after a job has finished.')
     parser.add_argument('opts', default=None, nargs=argparse.REMAINDER,
                         help='See graphgym/config.py for remaining options.')
-
     return parser.parse_args()
 
 product_space = {

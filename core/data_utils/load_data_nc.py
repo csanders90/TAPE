@@ -13,7 +13,7 @@ from sklearn.preprocessing import normalize
 from torch_geometric.data import Data
 from torch_geometric.datasets import Planetoid
 from torch_geometric.transforms import RandomLinkSplit
-from graphgps.utility.utils import get_git_repo_root_path, time_logger
+from graphgps.utility.utils import get_git_repo_root_path # type: ignore
 from typing import Tuple, List, Dict, Set, Any 
 
 FILE = 'core/dataset/ogbn_products_orig/ogbn-products.csv'
