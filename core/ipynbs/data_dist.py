@@ -176,6 +176,7 @@ def shortest_path_citation2(G, edge_index, remove=False):
     print('remove: ', remove)
     
     for i in tqdm(range(edge_index['source_node'].size(0))):
+        
         s = edge_index['source_node'][i].item()
         t = edge_index['target_node'][i].item()
         if s == t:
@@ -402,10 +403,11 @@ def plot_spath_citation2_dist(A, split_edge, dataset):
     G = nx.from_scipy_sparse_array(A)
 
     # create edge_index from source and target node
-    edge_index  = torch.stack([split_edge['train']['source_node'][:len], split_edge['train']['target_node'][:len]])
-    pos_train_pred,_  =  shortest_path_citation2(G, edge_index)
+    pos_edge_index  = torch.stack([split_edge['train']['source_node'][:len], split_edge['train']['target_node'][:len]])
+    edge_index  = {'source_node': split_edge['train']['source_node'][:len], 'target_node': split_edge['train']['target_node'][:len]}
+    pos_train_pred  =  shortest_path_citation2(G, edge_index)
     neg_edge_index = negative_sampling(
-    edge_index, num_nodes=num_nodes,
+    pos_edge_index, num_nodes=num_nodes,
     num_neg_samples=100)
     
     neg_train_index = {
@@ -414,7 +416,7 @@ def plot_spath_citation2_dist(A, split_edge, dataset):
     }
 
     neg_train_pred = shortest_path_citation2(G, neg_train_index)
-
+    
     pos_valid_pred = shortest_path_citation2(G, split_edge['valid'])
     source = split_edge['valid']['source_node'].view(-1, 1).repeat(1, 1000).view(-1)
     target_neg = split_edge['valid']['target_node_neg'].view(-1)
@@ -443,7 +445,7 @@ def plot_spath_citation2_dist(A, split_edge, dataset):
     colors = sns.color_palette("husl", 3)
 
     bar_width = 0.25
-    indices = np.arange(len(hist_train))
+    indices = np.arange(hist_train.size)
     hist_train = hist_train / hist_train.max()
     hist_valid = hist_valid / hist_valid.max()
     hist_test = hist_test / hist_test.max()
