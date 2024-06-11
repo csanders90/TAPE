@@ -19,10 +19,9 @@ from torch_geometric.data import InMemoryDataset, Dataset
 from data_utils.load_data_nc import load_graph_cora, load_graph_pubmed, load_tag_arxiv23, load_graph_ogbn_arxiv
 import scipy.sparse as ssp
 
-from graphgps.utility.ncn import PermIterator
-from graphgps.network.ncn import predictor_dict, convdict, GCN
+from graphgps.network.neognn import NeoGNN, LinkPredictor
 from data_utils.load import load_data_lp
-from graphgps.train.ncn_train import Trainer_NCN
+from graphgps.train.neognn_train import Trainer_NeoGNN
 
 
 def parse_args() -> argparse.Namespace:
@@ -48,21 +47,15 @@ def parse_args() -> argparse.Namespace:
 
     return parser.parse_args()
 
-def ncn_dataset(data, splits):
+def ngnn_dataset(data, splits):
     edge_index = data.edge_index
     data.num_nodes = data.x.shape[0]
     data.edge_weight = None
     data.adj_t = SparseTensor.from_edge_index(edge_index, sparse_sizes=(data.num_nodes, data.num_nodes))
-    data.adj_t = data.adj_t.to_symmetric().coalesce()
-    data.max_x = -1
-    # Use training + validation edges for inference on test set.
-    if cfg.data.use_valedges_as_input:
-        val_edge_index = splits['valid']['pos_edge_label_index']
-        full_edge_index = torch.cat([edge_index, val_edge_index], dim=-1)
-        data.full_adj_t = SparseTensor.from_edge_index(full_edge_index, sparse_sizes=(data.num_nodes, data.num_nodes)).coalesce()
-        data.full_adj_t = data.full_adj_t.to_symmetric()
-    else:
-        data.full_adj_t = data.adj_t
+    data.emb = torch.nn.Embedding(data.num_nodes, cfg.model.hidden_channels)
+    edge_weight = torch.ones(edge_index.size(1), dtype=float)
+    data.A = ssp.csr_matrix((edge_weight, (edge_index[0], edge_index[1])),
+                       shape=(data.num_nodes, data.num_nodes))
     return data
 
 
@@ -81,11 +74,6 @@ if __name__ == "__main__":
     best_params = {}
     loggers = create_logger(args.repeat)
 
-    predfn = predictor_dict[cfg.model.type]
-    if cfg.model.type == 'NCN':
-        predfn = partial(predfn)
-    if cfg.model.type == 'NCNC':
-        predfn = partial(predfn, scale=cfg.model.probscale, offset=cfg.model.proboffset, pt=cfg.model.pt)
     for batch_size in batch_sizes:
         for run_id, seed, split_index in zip(
                 *run_loop_settings(cfg, args)):
@@ -97,23 +85,23 @@ if __name__ == "__main__":
             cfg = config_device(cfg)
             splits, text, data = load_data_lp[cfg.data.name](cfg.data)
             data.edge_index = splits['train']['pos_edge_label_index']
-            data = ncn_dataset(data, splits).to(cfg.device)
-            path = f'{os.path.dirname(__file__)}/ncn_{cfg.data.name}'
+            data = ngnn_dataset(data, splits).to(cfg.device)
+            path = f'{os.path.dirname(__file__)}/neognn_{cfg.data.name}'
             dataset = {}
 
-            model = GCN(data.num_features, cfg.model.hiddim, cfg.model.hiddim, cfg.model.mplayers,
-                        cfg.model.gnndp, cfg.model.ln, cfg.model.res, cfg.data.max_x,
-                        cfg.model.model, cfg.model.jk, cfg.model.gnnedp, xdropout=cfg.model.xdp, taildropout=cfg.model.tdp,
-                        noinputlin=False)
+            model = NeoGNN(cfg.model.hidden_channels, cfg.model.hidden_channels,
+                           cfg.model.hidden_channels, cfg.model.num_layers,
+                           cfg.model.dropout, args=cfg.model)
 
-            predictor = predfn(cfg.model.hiddim, cfg.model.hiddim, 1, cfg.model.nnlayers,
-                               cfg.model.predp, cfg.model.preedp, cfg.model.lnnn)
+            predictor = LinkPredictor(cfg.model.hidden_channels, cfg.model.hidden_channels, 1,
+                                      cfg.model.num_layers, cfg.model.dropout)
 
-            optimizer = torch.optim.Adam([{'params': model.parameters(), "lr": cfg.optimizer.gnnlr},
-                                          {'params': predictor.parameters(), 'lr': cfg.optimizer.prelr}])
+            optimizer = torch.optim.Adam(
+                list(model.parameters()) + list(data.emb.parameters()) +
+                list(predictor.parameters()), lr=cfg.optimizer.lr, weight_decay=cfg.optimizer.weight_decay)
 
             # Execute experiment
-            trainer = Trainer_NCN(FILE_PATH,
+            trainer = Trainer_NeoGNN(FILE_PATH,
                                    cfg,
                                    model,
                                    predictor,
