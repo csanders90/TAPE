@@ -107,7 +107,7 @@ if __name__ == "__main__":
         splits, text, data = load_data_lp[cfg.data.name](cfg.data)
         data.edge_index = splits['train']['pos_edge_label_index']
         data = ncn_dataset(data, splits).to(cfg.device)
-        path = f'{os.path.dirname(__file__)}/seal_{cfg.data.name}'
+        path = f'{os.path.dirname(__file__)}/ncn_{cfg.data.name}'
         print_logger = set_printing(cfg)
         print_logger.info(
             f"The {cfg['data']['name']} graph {splits['train']['x'].shape} is loaded on {splits['train']['x'].device},"
