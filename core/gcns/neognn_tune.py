@@ -63,6 +63,8 @@ def ngnn_dataset(data, splits):
     data.adj_t = SparseTensor.from_edge_index(edge_index, sparse_sizes=(data.num_nodes, data.num_nodes))
     data.emb = torch.nn.Embedding(data.num_nodes, cfg.model.hidden_channels)
     edge_weight = torch.ones(edge_index.size(1), dtype=float)
+    edge_index = edge_index.cpu()
+    edge_weight = edge_weight.cpu()
     data.A = ssp.csr_matrix((edge_weight, (edge_index[0], edge_index[1])),
                        shape=(data.num_nodes, data.num_nodes))
     return data
@@ -170,9 +172,12 @@ if __name__ == "__main__":
 
             run_result = {}
             for key in trainer.loggers.keys():
+                if trainer.loggers[key].results == [[], []]:
+                    run_result[key] = None
+                else:
                 # refer to calc_run_stats in Logger class
-                _, _, _, test_bvalid = trainer.loggers[key].calc_run_stats(run_id)
-                run_result[key] = test_bvalid
+                    _, _, _, test_bvalid = trainer.loggers[key].calc_run_stats(run_id)
+                    run_result[key] = test_bvalid
 
             run_result.update(
                 {'hidden_channels': hidden_channels,' num_layers': num_layers, 'f_node_dim': f_node_dim,

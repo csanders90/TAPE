@@ -54,6 +54,8 @@ def ngnn_dataset(data, splits):
     data.adj_t = SparseTensor.from_edge_index(edge_index, sparse_sizes=(data.num_nodes, data.num_nodes))
     data.emb = torch.nn.Embedding(data.num_nodes, cfg.model.hidden_channels)
     edge_weight = torch.ones(edge_index.size(1), dtype=float)
+    edge_index = edge_index.cpu()
+    edge_weight = edge_weight.cpu()
     data.A = ssp.csr_matrix((edge_weight, (edge_index[0], edge_index[1])),
                        shape=(data.num_nodes, data.num_nodes))
     return data
