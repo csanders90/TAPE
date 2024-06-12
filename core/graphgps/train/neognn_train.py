@@ -83,8 +83,6 @@ class Trainer_NeoGNN(Trainer):
         self.model.train()
         total_loss = 0
         self.predictor.train()
-        row, col, _ = self.data.adj_t.coo()
-        edge_index = torch.stack([col, row], dim=0)
         pos_train_edge = self.train_data['pos_edge_label_index'].to(self.device).T
         neg_train_edge = self.train_data['neg_edge_label_index'].to(self.device).T
         # permute the edges
@@ -199,8 +197,10 @@ class Trainer_NeoGNN(Trainer):
         pos_pred, neg_pred = y_pred[y_true == 1].cpu(), y_pred[y_true == 0].cpu()
         y_pred = torch.where(y_pred >= hard_thres, torch.tensor(1), torch.tensor(0))
 
-        y_true = y_true.clone().detach()
-        y_pred = y_pred.clone().detach()
+        y_true = y_true.clone().detach().cpu()
+        y_pred = y_pred.clone().detach().cpu()
+
+
 
         acc = torch.sum(y_true == y_pred) / len(y_true)
 
