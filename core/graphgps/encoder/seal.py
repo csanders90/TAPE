@@ -6,14 +6,22 @@ import numpy as np
 import scipy.sparse as ssp
 from scipy.sparse.csgraph import shortest_path
 import torch
+import timeit
 from torch_geometric.data import Data
 from torch_geometric.utils import (negative_sampling, add_self_loops,
                                    train_test_split_edges)
+from scipy.sparse import csr_matrix
 
-
-def extract_enclosing_subgraphs(link_index, A, x, y, num_hops, node_label='drnl',
-                                ratio_per_hop=1.0, max_nodes_per_hop=None,
-                                directed=False, A_csc=None):
+def extract_enclosing_subgraphs(link_index: torch.Tensor, 
+                                A: ssp.csr_matrix, 
+                                x: torch.Tensor, 
+                                y: int, 
+                                num_hops: int, 
+                                node_label: str ='drnl',
+                                ratio_per_hop=1.0, 
+                                max_nodes_per_hop=None,
+                                directed=False, 
+                                A_csc=None):
     # Extract enclosing subgraphs from A for all links in link_index.
     data_list = []
     for src, dst in tqdm(link_index.t().tolist()):
@@ -29,10 +37,15 @@ def k_hop_subgraph(src, dst, num_hops, A, sample_ratio=1.0,
                    max_nodes_per_hop=None, node_features=None,
                    y=1, directed=False, A_csc=None):
     # Extract the k-hop enclosing subgraph around link (src, dst) from A.
+    """ please analyse this code for me 
+    "def k_hop_subgraph(src, dst, num_hops, A, sample_ratio=1.0,
+                   max_nodes_per_hop=None, node_features=None,
+                   y=1, directed=False, A_csc=None):
+    # Extract the k-hop enclosing subgraph around link (src, dst) from A.
     nodes = [src, dst]
     dists = [0, 0]
-    visited = set([src, dst])
-    fringe = set([src, dst])
+    visited = {src, dst}
+    fringe = {src, dst}
     for dist in range(1, num_hops + 1):
         if not directed:
             fringe = neighbors(fringe, A)
@@ -40,8 +53,92 @@ def k_hop_subgraph(src, dst, num_hops, A, sample_ratio=1.0,
             out_neighbors = neighbors(fringe, A)
             in_neighbors = neighbors(fringe, A_csc, False)
             fringe = out_neighbors.union(in_neighbors)
+        print(fringe)
         fringe = fringe - visited
         visited = visited.union(fringe)
+        print(visited)
+        if sample_ratio < 1.0:
+            fringe = random.sample(fringe, int(sample_ratio * len(fringe)))
+        if max_nodes_per_hop is not None:
+            if max_nodes_per_hop < len(fringe):
+                fringe = random.sample(fringe, max_nodes_per_hop)
+        if len(fringe) == 0:
+            break
+        nodes = nodes + list(fringe)
+        dists = dists + [dist] * len(fringe)
+    subgraph = A[nodes, :][:, nodes]
+
+    # Remove target link between the subgraph.
+    subgraph[0, 1] = 0
+    subgraph[1, 0] = 0
+
+    if node_features is not None:
+        node_features = node_features[nodes]
+
+    return nodes, subgraph, dists, node_features, y"
+
+    ### Function Signature and Parameters
+    ```python
+    def k_hop_subgraph(src, dst, num_hops, A, sample_ratio=1.0,
+                    max_nodes_per_hop=None, node_features=None,
+                    y=1, directed=False, A_csc=None):
+    ```
+    - **src**: Source node of the link.
+    - **dst**: Destination node of the link.
+    - **num_hops**: Number of hops to consider for the subgraph.
+    - **A**: Adjacency matrix representing the graph.
+    - **sample_ratio**: Ratio of nodes to sample at each hop (default is 1.0, meaning no sampling).
+    - **max_nodes_per_hop**: Maximum number of nodes to sample per hop.
+    - **node_features**: Feature matrix for nodes.
+    - **y**: Label or target value associated with the link (default is 1).
+    - **directed**: Boolean indicating whether the graph is directed.
+    - **A_csc**: Adjacency matrix in Compressed Sparse Column (CSC) format, used for directed graphs to get in-neighbors.
+
+    ### Function Body
+
+    1. **Initialization**:
+        - **nodes**: List to store nodes in the subgraph, initialized with `src` and `dst`.
+        - **dists**: List to store distances from the source node, initialized with 0 for both `src` and `dst`.
+        - **visited**: Set to track visited nodes, initialized with `src` and `dst`.
+        - **fringe**: Set to store the current fringe of nodes to be explored, initialized with `src` and `dst`.
+
+    2. **Breadth-First Search (BFS) Loop**:
+        - For each distance from 1 to `num_hops`:
+            - If the graph is not directed, get the neighbors of the current fringe using the `neighbors` function.
+            - If directed, get both out-neighbors and in-neighbors using `A` and `A_csc` respectively.
+            - Update the fringe by removing already visited nodes and adding new ones.
+            - Optionally sample nodes from the fringe if `sample_ratio` is less than 1.0.
+            - Limit the number of nodes in the fringe if `max_nodes_per_hop` is set.
+            - If the fringe is empty, break out of the loop.
+            - Add the nodes in the current fringe to the `nodes` list and their distances to the `dists` list.
+
+    3. **Subgraph Extraction**:
+        - Create the subgraph adjacency matrix by slicing `A` to include only the nodes in `nodes`.
+
+    4. **Remove Target Link**:
+        - Set the link between `src` and `dst` in the subgraph to 0 (both directions if undirected).
+
+    5. **Node Features**:
+        - If `node_features` is provided, slice it to include only the nodes in the subgraph.
+
+    6. **Return Values**:
+        - Return the list of nodes, the subgraph adjacency matrix, distances from `src`, possibly sliced node features, and the label `y`
+        """
+    nodes = [src, dst]
+    dists = [0, 0]
+    visited = {src, dst}
+    fringe = {src, dst}
+    for dist in range(1, num_hops + 1):
+        if not directed:
+            fringe = neighbors(fringe, A)
+        else:
+            out_neighbors = neighbors(fringe, A)
+            in_neighbors = neighbors(fringe, A_csc, False)
+            fringe = out_neighbors.union(in_neighbors)
+        
+        fringe = fringe - visited
+        visited = visited.union(fringe)
+        
         if sample_ratio < 1.0:
             fringe = random.sample(fringe, int(sample_ratio * len(fringe)))
         if max_nodes_per_hop is not None:
@@ -94,9 +191,11 @@ def construct_pyg_graph(node_ids, adj, dists, node_features, y, node_label='drnl
         num_nodes=num_nodes,
     )
 
+from scipy.sparse import csr_matrix
 
-
-def drnl_node_labeling(adj, src, dst):
+def drnl_node_labeling(adj: csr_matrix, 
+                       src: int, 
+                       dst: int):
     # Double Radius Node Labeling (DRNL).
     src, dst = (dst, src) if src > dst else (src, dst)
 
@@ -169,6 +268,48 @@ def do_edge_split(data, val_ratio, test_ratio):
     return split_edge
 
 
+def do_ogb_edge_split(data, fast_split=False, val_ratio=0.05, test_ratio=0.1):
+    if not fast_split:
+        data = train_test_split_edges(data, val_ratio, test_ratio)
+        # setattr(data, edge_index, edge_index_val)
+        edge_index, _ = add_self_loops(data.train_pos_edge_index)
+        data.train_neg_edge_index = negative_sampling(
+            edge_index, num_nodes=data.num_nodes,
+            num_neg_samples=data.train_pos_edge_index.size(1))
+    else:
+        num_nodes = data.num_nodes
+        row, col = data.edge_index
+        # Return upper triangular portion.
+        mask = row < col
+        row, col = row[mask], col[mask]
+        n_v = int(math.floor(val_ratio * row.size(0)))
+        n_t = int(math.floor(test_ratio * row.size(0)))
+        # Positive edges.
+        perm = torch.randperm(row.size(0))
+        row, col = row[perm], col[perm]
+        r, c = row[:n_v], col[:n_v]
+        data.val_pos_edge_index = torch.stack([r, c], dim=0)
+        r, c = row[n_v:n_v + n_t], col[n_v:n_v + n_t]
+        data.test_pos_edge_index = torch.stack([r, c], dim=0)
+        r, c = row[n_v + n_t:], col[n_v + n_t:]
+        data.train_pos_edge_index = torch.stack([r, c], dim=0)
+        # Negative edges (cannot guarantee (i,j) and (j,i) won't both appear)
+        neg_edge_index = negative_sampling(
+            data.edge_index, num_nodes=num_nodes,
+            num_neg_samples=row.size(0))
+        data.val_neg_edge_index = neg_edge_index[:, :n_v]
+        data.test_neg_edge_index = neg_edge_index[:, n_v:n_v + n_t]
+        data.train_neg_edge_index = neg_edge_index[:, n_v + n_t:]
+
+    split_edge = {'train': {}, 'valid': {}, 'test': {}}
+    split_edge['train']['edge'] = data.train_pos_edge_index.t()
+    split_edge['train']['edge_neg'] = data.train_neg_edge_index.t()
+    split_edge['valid']['edge'] = data.val_pos_edge_index.t()
+    split_edge['valid']['edge_neg'] = data.val_neg_edge_index.t()
+    split_edge['test']['edge'] = data.test_pos_edge_index.t()
+    split_edge['test']['edge_neg'] = data.test_neg_edge_index.t()
+    return split_edge
+
 def get_pos_neg_edges(split, split_edge, edge_index, num_nodes, percent=100):
     if 'edge' in split_edge['train']:
         pos_edge = split_edge[split]['edge'].t()
@@ -182,14 +323,14 @@ def get_pos_neg_edges(split, split_edge, edge_index, num_nodes, percent=100):
                 new_edge_index, num_nodes=num_nodes,
                 num_neg_samples=pos_edge.size(1))
 
-        # subsample for pos_edge
-        np.random.seed(123)
+        # shuffle pos_edge
+        # np.random.seed(123)
         num_pos = pos_edge.size(1)
         perm = np.random.permutation(num_pos)
         perm = perm[:int(percent / 100 * num_pos)]
         pos_edge = pos_edge[:, perm]
-        # subsample for neg_edge
-        np.random.seed(123)
+        # shuffle neg_edge
+        # np.random.seed(123)
         num_neg = neg_edge.size(1)
         perm = np.random.permutation(num_neg)
         perm = perm[:int(percent / 100 * num_neg)]
@@ -214,3 +355,58 @@ def get_pos_neg_edges(split, split_edge, edge_index, num_nodes, percent=100):
         neg_edge = torch.stack([source.repeat_interleave(neg_per_target),
                                 target_neg.view(-1)])
     return pos_edge, neg_edge
+
+
+# def get_largest_connected_component(dataset: InMemoryDataset) -> np.ndarray:
+#   row, col = dataset._data.edge_index.numpy()
+#   assert(len(row) == len(col))
+
+#   num_nodes = dataset._data.num_nodes # NOTE: there is maybe a better way to get the number of nodes?
+#   adjacencyList = [[] for x in range(num_nodes)] # one list for every node containing the neighbors
+#   for i in range(len(row)):
+#     adjacencyList[row[i]].append(col[i]) # fill the lists with the neighbors
+
+#   remaining_nodes = set(range(dataset._data.x.shape[0]))
+#   comps = []
+#   total_size = 0
+#   while remaining_nodes:
+#     start = min(remaining_nodes)
+#     comp = get_component(adjacencyList, start)
+#     total_size += len(comp)
+#     print("Total size of visited nodes", total_size)
+
+#     comps.append(comp)
+#     remaining_nodes = remaining_nodes.difference(comp)
+
+#   comps_size = [len(c) for c in comps]
+#   print(comps_size)
+#   result = np.array(list(comps[np.argmax(list(map(len, comps)))]))
+#   return result
+
+
+
+def de_plus_node_labeling(adj, src, dst, max_dist=100):
+    # Distance Encoding Plus. When computing distance to src, temporarily mask dst;
+    # when computing distance to dst, temporarily mask src. Essentially the same as DRNL.
+    src, dst = (dst, src) if src > dst else (src, dst)
+
+    idx = list(range(src)) + list(range(src + 1, adj.shape[0]))
+    adj_wo_src = adj[idx, :][:, idx]
+
+    idx = list(range(dst)) + list(range(dst + 1, adj.shape[0]))
+    adj_wo_dst = adj[idx, :][:, idx]
+
+    dist2src = shortest_path(adj_wo_dst, directed=False, unweighted=True, indices=src)
+    dist2src = np.insert(dist2src, dst, 0, axis=0)
+    dist2src = torch.from_numpy(dist2src)
+
+    dist2dst = shortest_path(adj_wo_src, directed=False, unweighted=True, indices=dst-1)
+    dist2dst = np.insert(dist2dst, src, 0, axis=0)
+    dist2dst = torch.from_numpy(dist2dst)
+
+    dist = torch.cat([dist2src.view(-1, 1), dist2dst.view(-1, 1)], 1)
+    dist[dist > max_dist] = max_dist
+    dist[torch.isnan(dist)] = max_dist + 1
+
+    return dist.to(torch.long)
+

@@ -10,7 +10,7 @@
 			"request": "launch",
 			"program": "${file}",
 			"console": "integratedTerminal",
-			"justMyCode": false,
+			"justMyCode": true,
 			// "args": ["--cfg", "core/configs/arxiv_2023/struc2vec.yaml", "--sweep", "core/configs/arxiv_2023/struc2vec_sp1.yaml"],
 			// "args": [
 			// 	"--data",
@@ -27,15 +27,16 @@
 			"request": "launch",
 			"program": "${file}",
 			"console": "integratedTerminal",
+			"justMyCode": false,
 			"args": [
 				"--data",
 				"cora",
 				"--device",
 				"cpu",
 				"--epochs",
-				"100",
+				"1",
 				"--model",
-				"GIN_Variant"
+				"GCN_Variant"
 			],
 		}
 	]

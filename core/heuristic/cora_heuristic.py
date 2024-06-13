@@ -55,9 +55,9 @@ def eval_cora_mrr() -> None:
     evaluator_mrr = Evaluator(name='ogbl-citation2')
 
     result_dict = {}
-    # for use_heuristic in ['CN', 'AA', 'RA', 'InverseRA']:
-    #     pos_test_pred, _ = eval(use_heuristic)(full_A, pos_test_index)
-    #     neg_test_pred, _ = eval(use_heuristic)(full_A, neg_test_index)
+    for use_heuristic in ['CN', 'AA', 'RA', 'InverseRA']:
+        pos_test_pred, _ = eval(use_heuristic)(full_A, pos_test_index)
+        neg_test_pred, _ = eval(use_heuristic)(full_A, neg_test_index)
 
     #     result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
     #     result_dict.update({f'{use_heuristic}': result})
@@ -95,18 +95,18 @@ def eval_cora_acc() -> None:
                                                 test_pct = 0.05,
                                                 split_labels = False
                                                 )
-    test_split = splits['test']
-    labels = test_split.edge_label
-    test_index = test_split.edge_label_index
+
+    labels = splits['test'].edge_label
+    test_index = splits['test'].edge_label_index
     
-    edge_index = splits['test'].edge_index
-    edge_weight = torch.ones(edge_index.size(1))
+    test_edge_index = splits['test'].edge_index
+    edge_weight = torch.ones(test_edge_index.size(1))
     num_nodes = dataset._data.num_nodes
 
-    m = construct_sparse_adj(edge_index)
+    m = construct_sparse_adj(test_edge_index)
     plot_coo_matrix(m, f'cora_test_edge_index.png')
     
-    A = ssp.csr_matrix((edge_weight.view(-1), (edge_index[0], edge_index[1])), shape=(num_nodes, num_nodes)) 
+    A = ssp.csr_matrix((edge_weight.view(-1), (test_edge_index[0], test_edge_index[1])), shape=(num_nodes, num_nodes)) 
 
     result_acc = {}
     for use_lsf in ['CN', 'AA', 'RA', 'InverseRA']:

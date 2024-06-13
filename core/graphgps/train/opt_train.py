@@ -20,13 +20,6 @@ from graphgps.utility.utils import config_device, Logger
 from typing import Dict, Tuple
 
 
-report_step = {
-    'cora': 100,
-    'pubmed': 100,
-    'arxiv_2023': 100,
-    'ogbn-arxiv': 1,
-    'ogbn-products': 1,
-}
 
 
 class Trainer():
@@ -56,13 +49,23 @@ class Trainer():
         self.epochs = cfg.train.epochs
         self.batch_size = cfg.train.batch_size
         
-        self.test_data = splits['test'].to(self.device)
-        self.train_data = splits['train'].to(self.device)
-        self.valid_data = splits['valid'].to(self.device)
+        self.train_data = splits['train']
+        self.test_data = splits['test']
+        
+        self.valid_data = splits['valid']
         self.data = data
         self.optimizer = optimizer
         self.loggers = loggers
         self.print_logger = print_logger
+        
+        report_step = {
+                'cora': 1,
+                'pubmed': 100,
+                'arxiv_2023': 100,
+                'ogbn-arxiv': 1,
+                'ogbn-products': 1,
+        }
+
         self.report_step = report_step[cfg.data.name]
         
         self.model_types = ['VGAE', 'GAE', 'GAT', 'GraphSage']

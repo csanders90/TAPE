@@ -113,7 +113,6 @@ def parse_args() -> argparse.Namespace:
                         help='Mark yaml as done after a job has finished.')
     parser.add_argument('opts', default=None, nargs=argparse.REMAINDER,
                         help='See graphgym/config.py for remaining options.')
-
     return parser.parse_args()
 
 product_space = {
@@ -122,56 +121,55 @@ product_space = {
 }
 
 hyperparameter_space = {
-    'GAT_Variant': {'out_channels': [2**4, 2**5, 2**6], 'hidden_channels':  [2**5, 2*4],
-                                'heads': [2**2, 2, 2**3], 'negative_slope': [0.1], 'dropout': [0, 0.1], 
+    'GAT_Variant': {'out_channels': [2**5, 2**6], 'hidden_channels':  [2**5, 2*4],
+                                'heads': [2**2, 2**3], 'negative_slope': [0.1], 'dropout': [0, 0.1], 
                                 'num_layers': [1, 2, 3], 
                                 'base_lr': [0.015],
-                                'score_num_layers_predictor': [1, 2, 3],
-                                'score_gin_mlp_layer': [2],
-                                'score_hidden_channels': [2**6, 2**5, 2**4], 
-                                'score_out_channels': [1], 
-                                'score_num_layers': [1, 2, 3], 
-                                'score_dropout': [0.1], 
-                                'product': [0, 1]},
+                    'score_num_layers_predictor': [3],
+                    'score_gin_mlp_layer': [2],
+                    'score_hidden_channels': [2**64], 
+                    'score_out_channels': [1], 
+                    'score_num_layers': [3], 
+                    'score_dropout': [0.1], 
+                    'product': [0, 1]},
     
-    'GCN_Variant': {'out_channels': [2**4, 2**5, 2**6], 
-                    'hidden_channels': [2**4, 2**5, 2**6], 
+    'GCN_Variant': {'out_channels': [2**5, 2**6], 
+                    'hidden_channels': [2**5, 2**6], 
                     'batch_size': [2**10],
-                    'dropout': [0.1, 0],
+                    'dropout': [0.1],
                     'num_layers': [1, 2, 3],
                     'negative_slope': [0.1],
-                    'base_lr': [0.015, 0.001],
-                    'score_num_layers_predictor': [1, 2, 3],
+                    'base_lr': [0.0089],
+                    'score_num_layers_predictor': [3],
                     'score_gin_mlp_layer': [2],
-                    'score_hidden_channels': [2**6, 2**5, 2**4], 
+                    'score_hidden_channels': [2**64], 
                     'score_out_channels': [1], 
-                    'score_num_layers': [1, 2, 3], 
+                    'score_num_layers': [3], 
                     'score_dropout': [0.1], 
                     'product': [0, 1]},
                     
 
-    'SAGE_Variant': {'out_channels': [2**4, 2**5, 2**6, 2**7, 2**8, 2**9], 
-                     'hidden_channels': [2**4, 2**5, 2**6, 2**7, 2**8, 2**9], 
-                     'base_lr': [0.015, 0.1, 0.01],
-                    'score_num_layers_predictor': [1, 2, 3],
+    'SAGE_Variant': {'out_channels': [2**7, 2**8], 
+                     'hidden_channels': [2**6, 2**7, 2**8], 
+                     'base_lr': [0.0089],
+                    'score_num_layers_predictor': [3],
                     'score_gin_mlp_layer': [2],
-                    'score_hidden_channels': [2**6, 2**5, 2**4], 
+                    'score_hidden_channels': [2**64], 
                     'score_out_channels': [1], 
-                    'score_num_layers': [1, 2, 3], 
+                    'score_num_layers': [3], 
                     'score_dropout': [0.1], 
-                    'product': [0, 1],
-                     },
+                    'product': [0, 1]},
     
-    'GIN_Variant': {'out_channels': [2**4, 2**5, 2**6, 2**7, 2**8, 2**9], 
-                    'hidden_channels': [2**4, 2**5, 2**6, 2**7, 2**8, 2**9],
-                    'num_layers': [1, 2, 3, 4], 
-                    'base_lr': [0.015, 0.1, 0.01],
+    'GIN_Variant': {'out_channels': [2**6, 2**7, 2**8], 
+                    'hidden_channels': [2**6, 2**7, 2**8],
+                    'num_layers': [1, 2, 3], 
+                    'base_lr': [0.0089],
                     'mlp_layer': [1, 2, 3],
-                    'score_num_layers_predictor': [1, 2, 3],
+                    'score_num_layers_predictor': [3],
                     'score_gin_mlp_layer': [2],
-                    'score_hidden_channels': [2**6, 2**5, 2**4], 
+                    'score_hidden_channels': [2**64], 
                     'score_out_channels': [1], 
-                    'score_num_layers': [1, 2, 3], 
+                    'score_num_layers': [3], 
                     'score_dropout': [0.1], 
                     'product': [0, 1]},
     
@@ -193,9 +191,7 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
     
     # process params
     args = parse_args()
-
     args.cfg_file = yaml_file[args.model]
-
     cfg = set_cfg(FILE_PATH, args.cfg_file)
     cfg.merge_from_list(args.opts)
 
@@ -293,8 +289,9 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
             if cfg.train.finetune: 
                 model = init_model_from_pretrained(model, cfg.train.finetune,
                                                 cfg.train.freeze_pretrained)
-
-
+                # load the pretrained model 
+                
+                
             if args.wandb:
                 hyper_id = wandb.util.generate_id()
                 cfg.wandb.name_tag = f'{cfg.data.name}_run{id}_{args.model}_hyper{hyper_id}'
