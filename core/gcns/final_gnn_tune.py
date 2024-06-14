@@ -64,11 +64,11 @@ def create_GAE_model(cfg_model: CN,
                 
     if cfg_score.product == 'dot':
         decoder = mlp_score(cfg_model.out_channels,
-                                            cfg_score.score_hidden_channels, 
-                                            cfg_score.score_out_channels,
-                                            cfg_score.score_num_layers,
-                                            cfg_score.score_dropout,
-                                            cfg_score.product)
+                            cfg_score.score_hidden_channels, 
+                            cfg_score.score_out_channels,
+                            cfg_score.score_num_layers,
+                            cfg_score.score_dropout,
+                            cfg_score.product)
     elif cfg_score.product == 'inner':
         decoder = InnerProduct()
 
@@ -127,7 +127,7 @@ hyperparameter_space = {
                                 'base_lr': [0.015],
                     'score_num_layers_predictor': [3],
                     'score_gin_mlp_layer': [2],
-                    'score_hidden_channels': [2**64], 
+                    'score_hidden_channels': [2**6], 
                     'score_out_channels': [1], 
                     'score_num_layers': [3], 
                     'score_dropout': [0.1], 
@@ -142,7 +142,7 @@ hyperparameter_space = {
                     'base_lr': [0.0089],
                     'score_num_layers_predictor': [3],
                     'score_gin_mlp_layer': [2],
-                    'score_hidden_channels': [2**64], 
+                    'score_hidden_channels': [2**6], 
                     'score_out_channels': [1], 
                     'score_num_layers': [3], 
                     'score_dropout': [0.1], 
@@ -154,7 +154,7 @@ hyperparameter_space = {
                      'base_lr': [0.0089],
                     'score_num_layers_predictor': [3],
                     'score_gin_mlp_layer': [2],
-                    'score_hidden_channels': [2**64], 
+                    'score_hidden_channels': [2**6], 
                     'score_out_channels': [1], 
                     'score_num_layers': [3], 
                     'score_dropout': [0.1], 
@@ -167,7 +167,7 @@ hyperparameter_space = {
                     'mlp_layer': [1, 2, 3],
                     'score_num_layers_predictor': [3],
                     'score_gin_mlp_layer': [2],
-                    'score_hidden_channels': [2**64], 
+                    'score_hidden_channels': [2**6], 
                     'score_out_channels': [1], 
                     'score_num_layers': [3], 
                     'score_dropout': [0.1], 
