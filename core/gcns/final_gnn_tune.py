@@ -107,7 +107,7 @@ def parse_args() -> argparse.Namespace:
                         help='decoder name')
     parser.add_argument('--wandb', dest='wandb', required=False, 
                         help='data name')
-    parser.add_argument('--repeat', type=int, default=3,
+    parser.add_argument('--repeat', type=int, default=1,
                         help='The number of repeated jobs.')
     parser.add_argument('--mark_done', action='store_true',
                         help='Mark yaml as done after a job has finished.')
@@ -127,7 +127,7 @@ hyperparameter_space = {
                                 'base_lr': [0.015],
                     'score_num_layers_predictor': [3],
                     'score_gin_mlp_layer': [2],
-                    'score_hidden_channels': [2**64], 
+                    'score_hidden_channels': [2**6], 
                     'score_out_channels': [1], 
                     'score_num_layers': [3], 
                     'score_dropout': [0.1], 
@@ -142,7 +142,7 @@ hyperparameter_space = {
                     'base_lr': [0.0089],
                     'score_num_layers_predictor': [3],
                     'score_gin_mlp_layer': [2],
-                    'score_hidden_channels': [2**64], 
+                    'score_hidden_channels': [2**6], 
                     'score_out_channels': [1], 
                     'score_num_layers': [3], 
                     'score_dropout': [0.1], 
@@ -154,7 +154,7 @@ hyperparameter_space = {
                      'base_lr': [0.0089],
                     'score_num_layers_predictor': [3],
                     'score_gin_mlp_layer': [2],
-                    'score_hidden_channels': [2**64], 
+                    'score_hidden_channels': [2**6], 
                     'score_out_channels': [1], 
                     'score_num_layers': [3], 
                     'score_dropout': [0.1], 
@@ -167,7 +167,7 @@ hyperparameter_space = {
                     'mlp_layer': [1, 2, 3],
                     'score_num_layers_predictor': [3],
                     'score_gin_mlp_layer': [2],
-                    'score_hidden_channels': [2**64], 
+                    'score_hidden_channels': [2**6], 
                     'score_out_channels': [1], 
                     'score_num_layers': [3], 
                     'score_dropout': [0.1], 
@@ -212,6 +212,7 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
     
     loggers = create_logger(args.repeat)
     for run_id, seed, split_index in zip(*run_loop_settings(cfg, args)):
+        print(f'run id : {run_id}')
         # Set configurations for each run TODO clean code here 
         if args.wandb:
             id = wandb.util.generate_id()
@@ -357,6 +358,7 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
             
             if args.wandb:
                 wandb.finish()
+    
         
 if __name__ == "__main__":
     project_main()
