@@ -58,11 +58,12 @@ class Trainer():
         self.loggers = loggers
         self.print_logger = print_logger
         
+        # TODO change before the submission
         report_step = {
-                'cora': 1,
+                'cora': 100,
                 'pubmed': 100,
                 'arxiv_2023': 100,
-                'ogbn-arxiv': 1,
+                'ogbn-arxiv': 100,
                 'ogbn-products': 1,
         }
 

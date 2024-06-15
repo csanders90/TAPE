@@ -25,6 +25,10 @@ from torch_geometric.utils import (negative_sampling, add_self_loops,
 from torch_geometric.loader import DataLoader
 from tqdm import tqdm 
 
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+
 def load_graph(dataset: str):
     if dataset == 'custom-pubmed':
         data = load_graph_pubmed(False)
@@ -499,6 +503,7 @@ if __name__ == '__main__':
     #         # 'Cora', 
     # ]
 
+
     import argparse
     parser = argparse.ArgumentParser(description='Description of your program')
     parser.add_argument('--data', dest='data', nargs='+', choices=['Cora', 'CiteSeer', 'PubMed', 'custom-cora', 'custom-arxiv_2023', 
@@ -509,6 +514,7 @@ if __name__ == '__main__':
         help='List of datasets')
 
     args = parser.parse_args()
+
 
     plot_degree = False
     plot_clustering = False
@@ -562,9 +568,6 @@ if __name__ == '__main__':
     # plt.savefig('gather_degree_distribution.pdf')
 
 
-import matplotlib.pyplot as plt
-import seaborn as sns
-import numpy as np
 
 def plot_CN_pos_neg_dist():
     # Example data: replace these with your actual CN distributions

@@ -53,4 +53,5 @@ done
 
 
 # python final_gnn_tune.py --device cuda:0 --data arxiv_2023 --model GIN_Variant --epochs 1000 --wandb True
-        
+
+# conda create --name ss-1 --clone ss

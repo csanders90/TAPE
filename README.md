@@ -20,7 +20,7 @@ pip install transformers
 pip install --upgrade accelerate
 ```
 
-## 0.1 Here is my install examples in horeka server
+## 0.1 Here is my install examples in horeka server with cuda113
 ```
 
 Currently Loaded Modules:
@@ -72,6 +72,38 @@ Build cuda_12.0.r12.0/compiler.32267302_0
 
 pip install pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-2.3.1+cu118.html
 pip install tqdm wandb pandas ogb yacs
+```
+
+## 0.1 Here is my install examples in horeka server cuda 118
+```
+Currently Loaded Modules:
+  1) devel/cmake/3.18   2) compiler/gnu/13   3) devel/cuda/11.8
+
+conda create --name TAPE3 python=3.10
+conda activate TAPE3
+# install pytorch 
+python -c "import torch; print(torch.__version__)"
+python -c "import torch; print(torch.version.cuda)"
+python -c "import torch; print(torch.cuda.is_available())"
+
+
+pip install pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-2.3.1+cu118.html
+conda install pytorch==2.3.0 torchvision==0.18.0 torchaudio==2.3.0 pytorch-cuda=11.8 -c pytorch -c nvidia
+
+
+pip install pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-2.3.1+cu118.html
+pip install torch_geometric
+pip install ogb yacs pandas wandb
+pip install fast-pagerank datasketch ogb
+pip install --upgrade accelerate
+
+# test your installed pytorch geometric 
+from torch_sparse import SparseTensor
+import torch_geometric.transforms as T
+from torch_geometric.utils import to_undirected
+from torch_geometric.graphgym.config import cfg
+from torch_geometric import seed_everything
+from torch_geometric.nn import GCNConv, SAGEConv, GINConv, GATConv
 ```
 
 ## 1. Download/Test TAG datasets 
