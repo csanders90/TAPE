@@ -213,9 +213,9 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
     loggers = create_logger(args.repeat)
     for run_id, seed, split_index in zip(*run_loop_settings(cfg, args)):
         # Set configurations for each run TODO clean code here 
-        if args.wandb:
-            id = wandb.util.generate_id()
-            cfg.wandb.name_tag = f'{cfg.data.name}_run{id}_{args.model}'
+        # if args.wandb:
+        id = wandb.util.generate_id()
+        cfg.wandb.name_tag = f'{cfg.data.name}_run{id}_{args.model}'
 
         custom_set_run_dir(cfg, cfg.wandb.name_tag)
 
@@ -242,7 +242,7 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
         print_logger.info(f"hypersearch space: {hyperparameter_gnn}")
 
         keys = hyperparameter_gnn.keys()
-        # Generate Cartesian product of the hyperparameter values
+
         product = itertools.product(*hyperparameter_gnn.values())
 
         for combination in tqdm(product):
@@ -289,8 +289,6 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
             if cfg.train.finetune: 
                 model = init_model_from_pretrained(model, cfg.train.finetune,
                                                 cfg.train.freeze_pretrained)
-                # load the pretrained model 
-                
                 
             if args.wandb:
                 hyper_id = wandb.util.generate_id()

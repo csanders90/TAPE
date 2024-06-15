@@ -30,11 +30,11 @@
 			"justMyCode": false,
 			"args": [
 				"--data",
-				"cora",
+				"arxiv_2023",
 				"--device",
 				"cpu",
 				"--epochs",
-				"1",
+				"100",
 				"--model",
 				"GCN_Variant"
 			],

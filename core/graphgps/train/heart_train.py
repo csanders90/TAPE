@@ -230,7 +230,6 @@ class Trainer_Heart(Trainer):
             self.step = 0
         
         self.scheduler = scheduler
-            # TODO add learning scheduler
         
     def _train_heart(self):
 
