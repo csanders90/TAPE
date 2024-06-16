@@ -56,11 +56,11 @@ class Trainer_Subgraph_Sketching(Trainer):
         self.loggers = loggers
         self.print_logger = print_logger
         self.batch_size = batch_size
-        self.data = data
+        self.data = data.to(self.device)
 
-        self.test_data = splits['test']
-        self.train_data = splits['train']
-        self.valid_data = splits['valid']
+        self.test_data = splits['test'].to(self.device)
+        self.train_data = splits['train'].to(self.device)
+        self.valid_data = splits['valid'].to(self.device)
         self.optimizer = optimizer
         model_types = ['ELPH', 'BUDDY']
         self.test_func = {model_type: self._test for model_type in model_types}
@@ -106,7 +106,7 @@ class Trainer_Subgraph_Sketching(Trainer):
         neg_train_edge = self.train_data['neg_edge_label_index'].T.to(self.device)
         links = torch.cat([pos_train_edge, neg_train_edge], dim=0)
         labels = torch.cat([torch.ones(pos_train_edge.size(0)), torch.zeros(neg_train_edge.size(0))]).to(self.device)
-        sample_indices = torch.randperm(len(labels))[:len(labels)]
+        sample_indices = torch.randperm(len(labels))[:len(labels)].to(self.device)
 
 
         for perm in PermIterator(self.device, links.shape[0], self.batch_size):
@@ -134,11 +134,10 @@ class Trainer_Subgraph_Sketching(Trainer):
                 loss = self._train_elph()
             elif self.model_name == 'BUDDY':
                 loss = self._train_buddy()
-            print('loss',loss)
             if torch.isnan(torch.tensor(loss)):
                 print('Loss is nan')
                 break
-            if epoch % 1 == 0:
+            if epoch % 10 == 0:
                 results_rank = self.merge_result_rank()
                 print(results_rank)
 
@@ -171,7 +170,7 @@ class Trainer_Subgraph_Sketching(Trainer):
             y_pred = self.model(subgraph_features, self.data.x[links], degrees[:, 0], degrees[:, 1], RA, None)
 
 
-        y_pred = y_pred.view(-1)
+        y_pred = y_pred.view(-1).cpu()
         hard_thres = (y_pred.max() + y_pred.min()) / 2
         pos_y = torch.ones(pos_train_edge.size(0))
         neg_y = torch.zeros(neg_train_edge.size(0))

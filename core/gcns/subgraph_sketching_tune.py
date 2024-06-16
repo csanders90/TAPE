@@ -7,9 +7,10 @@ from torch_sparse import SparseTensor
 from tqdm import tqdm
 from torch_geometric.nn.conv.gcn_conv import gcn_norm
 
-from core.graphgps.network.subgraph_sketching import ElphHashes
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from graphgps.network.subgraph_sketching import ElphHashes
+
 import argparse
 import time
 import logging
@@ -76,6 +77,7 @@ def _preprocess_subgraph_features(num_nodes, edge_index, edges):
             subgraph_features[:, [11, 12]] = 0  # also need to get rid of (0, 2) and (2, 0)
     return subgraph_features
 def hash_dataset(data, splits):
+    data = data.cpu()
     edge_weight = torch.ones(data.edge_index.size(1), dtype=float)
     edge_index = data.edge_index.cpu()
     edge_weight = edge_weight.cpu()
