@@ -15,10 +15,10 @@
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=cc7738@kit.edu
 
-source /hkfs/home/project/hk-project-test-p0021478/cc7738/anaconda3/etc/profile.d/conda.sh
+source /hkfs/home/haicore/aifb/cc7738/anaconda3/etc/profile.d/conda.sh
 
 conda activate base
-conda activate EAsF
+conda activate ss
 # <<< conda initialize <<<
 module purge
 module load devel/cmake/3.18
