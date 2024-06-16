@@ -5,8 +5,8 @@
 
 ## 0.0 Python environment setup with Conda
 ```
-conda create --name TAPE python=3.8
-conda activate TAPE
+conda create --name EAsF python=3.10
+conda activate EAsF
 
 conda install pytorch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 cudatoolkit=11.3 -c pytorch
 conda install -c pyg pytorch-sparse
@@ -41,6 +41,37 @@ pip install yacs
 pip install transformers
 pip install --upgrade accelerate
 
+```
+## 0.2 Here is my install examples in haicore server
+```
+module load devel/cmake/3.26
+module load compiler/intel/2023.1.0_llvm
+module load devel/cuda/11.8
+
+Currently Loaded Modules:
+  1) devel/cmake/3.26   2) compiler/intel/2023.1.0_llvm   3) devel/cuda/11.8 (E)
+
+  Where:
+   E:  Experimental
+
+# install pytorch 
+pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia
+
+python -c "import torch; print(torch.__version__)" 
+2.3.1
+python -c "import torch; print(torch.version.cuda)"
+11.8
+
+nvcc --version 
+nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2023 NVIDIA Corporation
+Built on Fri_Jan__6_16:45:21_PST_2023
+Cuda compilation tools, release 12.0, V12.0.140
+Build cuda_12.0.r12.0/compiler.32267302_0
+
+pip install pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-2.3.1+cu118.html
+pip install tqdm wandb pandas ogb yacs
 ```
 
 ## 0.1 Here is my install examples in horeka server cuda 118

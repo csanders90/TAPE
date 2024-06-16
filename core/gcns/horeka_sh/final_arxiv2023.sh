@@ -52,5 +52,5 @@ for index in "${!model_list[@]}"; do
 done
 
 
-# python final_gnn_tune.py --device cuda:0 --data arxiv_2023 --model GIN_Variant --epochs 1000 --wandb True
+# python final_gnn_tune.py --device cpu --data arxiv_2023 --model GIN_Variant --epochs 1000 --wandb True
         

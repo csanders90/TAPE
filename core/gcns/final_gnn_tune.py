@@ -109,7 +109,7 @@ def parse_args() -> argparse.Namespace:
                         help='decoder name')
     parser.add_argument('--wandb', dest='wandb', required=False, 
                         help='data name')
-    parser.add_argument('--repeat', type=int, default=3,
+    parser.add_argument('--repeat', type=int, default=1,
                         help='The number of repeated jobs.')
     parser.add_argument('--mark_done', action='store_true',
                         help='Mark yaml as done after a job has finished.')
@@ -214,6 +214,7 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
     
     loggers = create_logger(args.repeat)
     for run_id, seed, split_index in zip(*run_loop_settings(cfg, args)):
+        print(f'run id : {run_id}')
         # Set configurations for each run TODO clean code here 
         # if args.wandb:
         id = wandb.util.generate_id()
@@ -286,7 +287,7 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
             print_logger.info(f'Num parameters: {cfg.model.params}')
 
             optimizer = create_optimizer(model, cfg)
-            scheduler = LinearDecayLR(optimizer, start_lr=0.01, end_lr=0.001, num_epochs=cfg.train.epochs)
+            scheduler = LinearDecayLR(optimizer, start_lr=cfg.optimizer.base_lr, end_lr=cfg.optimizer.base_lr/10, num_epochs=cfg.train.epochs)
 
             if cfg.train.finetune: 
                 model = init_model_from_pretrained(model, cfg.train.finetune,
@@ -358,6 +359,7 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
             
             if args.wandb:
                 wandb.finish()
+    
         
 if __name__ == "__main__":
     project_main()

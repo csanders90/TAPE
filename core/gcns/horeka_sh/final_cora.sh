@@ -2,7 +2,7 @@
 #SBATCH --time=2-00:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=152
-#SBATCH --partition=dev_accelerated-h100
+#SBATCH --partition=accelerated
 #SBATCH --job-name=gnn_wb
 #SBATCH --mem=501600mb
 #BATCH  --cpu-per-gpu=38
