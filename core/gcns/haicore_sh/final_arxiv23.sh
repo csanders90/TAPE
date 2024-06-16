@@ -1,9 +1,11 @@
 #!/bin/sh
 #SBATCH --time=8:00:00
-#SBATCH --nodes=12
-#SBATCH --ntasks=256
 #SBATCH --partition=normal
 #SBATCH --job-name=gnn_wb
+
+#SBATCH --nodes=1
+
+#SBATCH --mem=501600mb
 
 #SBATCH --output=log/TAG_Benchmark_%j.output
 #SBATCH --error=error/TAG_Benchmark_%j.error
