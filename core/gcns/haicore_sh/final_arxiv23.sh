@@ -5,7 +5,7 @@
 
 #SBATCH --nodes=1
 
-#SBATCH --mem=501600mb
+#SBATCH --mem=251600mb
 
 #SBATCH --output=log/TAG_Benchmark_%j.output
 #SBATCH --error=error/TAG_Benchmark_%j.error
@@ -29,8 +29,7 @@ module load devel/cuda/11.8
 module load compiler/gnu/12
 
 
-cd /hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/gcns
-
+cd /hkfs/work/workspace_haic/scratch/cc7738-TAGBench/TAPE/core/gcns
 
 device_list=(0 1 2 3)
 data=arxiv_2023  #pubmed arxiv_2023
