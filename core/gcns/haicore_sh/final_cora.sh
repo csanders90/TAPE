@@ -1,5 +1,5 @@
 #!/bin/sh
-#SBATCH --time=12:00:00
+#SBATCH --time=8:00:00
 #SBATCH --nodes=12
 #SBATCH --ntasks=256
 #SBATCH --partition=normal

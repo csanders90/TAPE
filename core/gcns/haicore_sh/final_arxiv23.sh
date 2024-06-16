@@ -1,14 +1,13 @@
 #!/bin/sh
-#SBATCH --time=2-00:00:00
-#SBATCH --nodes=1
-#SBATCH --ntasks=152
-#SBATCH --partition=accelerated
+#SBATCH --time=8:00:00
+#SBATCH --nodes=12
+#SBATCH --ntasks=256
+#SBATCH --partition=normal
 #SBATCH --job-name=gnn_wb
-#SBATCH --mem=501600mb
-#BATCH  --cpu-per-gpu=38
+
 #SBATCH --output=log/TAG_Benchmark_%j.output
 #SBATCH --error=error/TAG_Benchmark_%j.error
-#SBATCH --gres=gpu:4
+#SBATCH --gres=gpu:full:4
 
 
 #SBATCH --chdir=/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/batch
@@ -40,9 +39,11 @@ for index in "${!model_list[@]}"; do
     for device in {0..3}; do
         model=${model_list[$device]}
         # echo "Running on data $data with device cuda:$device and model $model"
-        # python final_gnn_tune.py --data $data --device $device --epochs 9999 --model$models 
-        echo "python final_gnn_tune.py --device cuda:$device --data $data --model $model --epochs 2000 "
-        python final_gnn_tune.py --device cuda:$device --data $data --model $model --epochs 2000 &
+        echo "python final_gnn_tune.py --device cuda:0 --data $data --model $model --epochs 2000 &"
+        #debug
+        python final_gnn_tune.py --device cuda:0 --data $data --model $model --epochs 2000 &
+        #run
+        #python final_gnn_tune.py --device cuda:$device --data $data --model $model --epochs 2000 &
 
         while [ "$(jobs -r | wc -l)" -ge 4 ]; do
             sleep 1
@@ -52,5 +53,5 @@ for index in "${!model_list[@]}"; do
 done
 
 
-# python final_gnn_tune.py --device cuda:0 --data arxiv_2023 --model GIN_Variant --epochs 1000 --wandb True
+# python final_gnn_tune.py --device cuda:0 --data arxiv_2023 --model GIN_Variant --epochs 2000 --wandb True
         
