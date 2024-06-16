@@ -22,7 +22,9 @@ from graphgps.network.heart_gnn import GAT_Variant, GAE_forall, GCN_Variant, \
                                 SAGE_Variant, GIN_Variant, DGCNN
 from yacs.config import CfgNode as CN
 import os
-
+import torch
+from torch.utils.tensorboard import SummaryWriter
+writer = SummaryWriter()
 
 def create_GAE_model(cfg_model: CN, 
                        cfg_score: CN,
@@ -315,6 +317,7 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
                 print_logger,
                 cfg.device,
                 bool(args.wandb),
+                tensorboard_writer=writer
             )
 
             assert not args.epoch < trainer.report_step or args.epoch % trainer.report_step, "Epochs should be divisible by report_step"

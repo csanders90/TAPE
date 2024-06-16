@@ -196,7 +196,8 @@ class Trainer_Heart(Trainer):
                 loggers,
                 print_logger,
                 device, 
-                if_wandb):
+                if_wandb,
+                tensorboard_writer=None):
         super().__init__(FILE_PATH,
                     cfg,
                     model, 
@@ -230,6 +231,7 @@ class Trainer_Heart(Trainer):
             self.step = 0
         
         self.scheduler = scheduler
+        self.tensorboard_writer = tensorboard_writer
         
     def _train_heart(self):
 
@@ -283,7 +285,7 @@ class Trainer_Heart(Trainer):
             loss.backward()
             
             if emb_update == 1: torch.nn.utils.clip_grad_norm_(x, 1.0)
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+            # torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
 
             self.optimizer.step()           
         
@@ -398,6 +400,9 @@ class Trainer_Heart(Trainer):
                 wandb.log({"Epoch": epoch}, step=self.step)
                 wandb.log({'loss': loss}, step=self.step) 
                 wandb.log({"lr": self.scheduler.get_lr()}, step=self.step)
+                
+            self.tensorboard_writer.add_scalar("Loss/train", loss, epoch)
+            
             if epoch % int(self.report_step) == 0:
 
                 self.results_rank = self.merge_result_rank()
@@ -408,6 +413,9 @@ class Trainer_Heart(Trainer):
                     
                 for key, result in self.results_rank.items():
                     self.loggers[key].add_result(self.run, result)
+                    self.tensorboard_writer.add_scalar(f"Metrics/Train/{key}", result[0], epoch)
+                    self.tensorboard_writer.add_scalar(f"Metrics/Valid/{key}", result[1], epoch)
+                    self.tensorboard_writer.add_scalar(f"Metrics/Test/{key}", result[2], epoch)
                     
                     train_hits, valid_hits, test_hits = result
                     self.print_logger.info(
@@ -423,7 +431,8 @@ class Trainer_Heart(Trainer):
                 
             if self.if_wandb:
                 self.step += 1
-    
+            self.tensorboard_writer.flush()
+        self.tensorboard_writer.close()
     
     def finalize(self):
         for _ in range(1):
