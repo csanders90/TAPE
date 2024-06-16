@@ -287,7 +287,7 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
             print_logger.info(f'Num parameters: {cfg.model.params}')
 
             optimizer = create_optimizer(model, cfg)
-            scheduler = LinearDecayLR(optimizer, start_lr=0.01, end_lr=0.001, num_epochs=cfg.train.epochs)
+            scheduler = LinearDecayLR(optimizer, start_lr=cfg.optimizer.base_lr, end_lr=cfg.optimizer.base_lr/10, num_epochs=cfg.train.epochs)
 
             if cfg.train.finetune: 
                 model = init_model_from_pretrained(model, cfg.train.finetune,

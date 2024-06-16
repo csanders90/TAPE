@@ -402,7 +402,7 @@ class Trainer_Heart(Trainer):
                 wandb.log({"lr": self.scheduler.get_lr()}, step=self.step)
                 
             self.tensorboard_writer.add_scalar("Loss/train", loss, epoch)
-            
+            self.tensorboard_writer.add_scalar("LR/train", self.scheduler.get_lr(), epoch)
             if epoch % int(self.report_step) == 0:
 
                 self.results_rank = self.merge_result_rank()
