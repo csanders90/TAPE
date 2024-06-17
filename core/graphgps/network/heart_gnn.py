@@ -312,17 +312,16 @@ class DGCNN(torch.nn.Module):
         conv1d_channels = [16, 32]
         total_latent_dim = hidden_channels * num_layers + 1
         conv1d_kws = [total_latent_dim, 5]
-        self.conv1 = Conv1d(1, conv1d_channels[0], conv1d_kws[0],
-                            conv1d_kws[0])
+        self.conv1 = Conv1d(1                 , conv1d_channels[0], conv1d_kws[0], conv1d_kws[0])
         self.maxpool1d = MaxPool1d(2, 2)
-        self.conv2 = Conv1d(conv1d_channels[0], conv1d_channels[1],
-                            conv1d_kws[1], 1)
+        self.conv2 = Conv1d(conv1d_channels[0], conv1d_channels[1], conv1d_kws[1], 1)
         dense_dim = int((self.k - 2) / 2 + 1)
         dense_dim = (dense_dim - conv1d_kws[1] + 1) * conv1d_channels[1]
         self.lin1 = Linear(dense_dim, 128)
         self.lin2 = Linear(128, 1)
 
     def forward(self, z, edge_index, batch, x=None, edge_weight=None, node_id=None):
+        # batch is the batch idx for each data samples
         z_emb = self.z_embedding(z)
         if z_emb.ndim == 3:  # in case z has multiple integer labels
             z_emb = z_emb.sum(dim=1)

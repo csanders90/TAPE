@@ -58,6 +58,8 @@ def wandb_record_files(path):
             break
     return record_or_not
 
+import pandas as pd
+
 def save_results_to_file(result_dict, cfg, wandb, output_dir):
     """
     Saves the results and the configuration to a CSV file.

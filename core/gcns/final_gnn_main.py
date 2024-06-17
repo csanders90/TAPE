@@ -117,68 +117,6 @@ def parse_args() -> argparse.Namespace:
                         help='See graphgym/config.py for remaining options.')
     return parser.parse_args()
 
-product_space = {
-    '0': 'inner', 
-    '1': 'dot'    
-}
-
-hyperparameter_space = {
-    'GAT_Variant': {'out_channels': [2**5, 2**6], 'hidden_channels':  [2**5, 2*4],
-                                'heads': [2**2, 2**3], 'negative_slope': [0.1], 'dropout': [0, 0.1], 
-                                'num_layers': [1, 2, 3], 
-                                'base_lr': [0.015],
-                    'score_num_layers_predictor': [3],
-                    'score_gin_mlp_layer': [2],
-                    'score_hidden_channels': [2**6], 
-                    'score_out_channels': [1], 
-                    'score_num_layers': [3], 
-                    'score_dropout': [0.1], 
-                    'product': [0, 1]},
-    
-    'GCN_Variant': {'out_channels': [2**5, 2**6], 
-                    'hidden_channels': [2**5, 2**6], 
-                    'batch_size': [2**10],
-                    'dropout': [0.1],
-                    'num_layers': [1, 2, 3],
-                    'negative_slope': [0.1],
-                    'base_lr': [0.0089],
-                    'score_num_layers_predictor': [3],
-                    'score_gin_mlp_layer': [2],
-                    'score_hidden_channels': [2**6], 
-                    'score_out_channels': [1], 
-                    'score_num_layers': [3], 
-                    'score_dropout': [0.1], 
-                    'product': [0, 1]},
-                    
-
-    'SAGE_Variant': {'out_channels': [2**7, 2**8], 
-                     'hidden_channels': [2**6, 2**7, 2**8], 
-                     'base_lr': [0.0089],
-                    'score_num_layers_predictor': [3],
-                    'score_gin_mlp_layer': [2],
-                    'score_hidden_channels': [2**6], 
-                    'score_out_channels': [1], 
-                    'score_num_layers': [3], 
-                    'score_dropout': [0.1], 
-                    'product': [0, 1]},
-    
-    'GIN_Variant': {'out_channels': [2**6, 2**7, 2**8], 
-                    'hidden_channels': [2**6, 2**7, 2**8],
-                    'num_layers': [1, 2, 3], 
-                    'base_lr': [0.0089],
-                    'mlp_layer': [1, 2, 3],
-                    'score_num_layers_predictor': [3],
-                    'score_gin_mlp_layer': [2],
-                    'score_hidden_channels': [2**6], 
-                    'score_out_channels': [1], 
-                    'score_num_layers': [3], 
-                    'score_dropout': [0.1], 
-                    'product': [0, 1]},
-    
-    'VGAE_Variant': {'out_channels': [32], 'hidden_channels': [32], 'batch_size': [2**10]},
-}
-
-
 yaml_file = {   
              'GAT_Variant': 'core/yamls/cora/gcns/heart_gnn_models.yaml',
              'GAE_Variant': 'core/yamls/cora/gcns/heart_gnn_models.yaml',
@@ -241,125 +179,84 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
         )
 
         dump_cfg(cfg)
-        hyperparameter_gnn = hyperparameter_space[args.model]
-        print_logger.info(f"hypersearch space: {hyperparameter_gnn}")
 
-        keys = hyperparameter_gnn.keys()
-
-        product = itertools.product(*hyperparameter_gnn.values())
-
-        for combination in tqdm(product):
-            for key, value in zip(keys, combination):
-                if key == 'product':
-                    value = product_space[str(value)]
-                if hasattr(cfg_model, key):
-                    print_logger.info(f"Object cfg_model has attribute '{key}' with value: {getattr(cfg_model, key)}")
-                    setattr(cfg_model, key, value)
-                    print_logger.info(f"Object cfg_model.{key} updated to {getattr(cfg_model, key)}")
-                elif hasattr(cfg_score, key):
-                    print_logger.info(f"Object cfg_score has attribute '{key}' with value: {getattr(cfg_score, key)}")
-                    setattr(cfg_score, key, value)
-                    print_logger.info(f"Object cfg_score.{key} updated to {getattr(cfg_score, key)}")
-                    
-                elif hasattr(cfg.train, key):
-                    print_logger.info(f"Object cfg.train has attribute '{key}' with values {getattr(cfg.train, key)}")
-                    setattr(cfg.train, key, value)
-                    print_logger.info(f"Object cfg.train.{key} updated to {getattr(cfg.train, key)}")
-                elif hasattr(cfg.optimizer, key):    
-                    print_logger.info(f"Object cfg.train has attribute '{key}' with values {getattr(cfg.optimizer, key)}")
-                    setattr(cfg.train, key, value)
-                    print_logger.info(f"Object cfg.train.{key} updated to {getattr(cfg.optimizer, key)}")
-                
-                
-            if cfg_score.product == 'dot':
-                cfg_score.in_channels = cfg_model.out_channels
             
-            print_logger.info(f"out : {eval(f'cfg.model.{args.model}.out_channels')}, hidden: {eval(f'cfg.model.{args.model}.hidden_channels')}")
-            print_logger.info(f"bs : {cfg.train.batch_size}, lr: {cfg.optimizer.base_lr}")
-            print_logger.info(f"The model {args.model} is initialized.")
+        print_logger.info(f"out : {eval(f'cfg.model.{args.model}.out_channels')}, hidden: {eval(f'cfg.model.{args.model}.hidden_channels')}")
+        print_logger.info(f"bs : {cfg.train.batch_size}, lr: {cfg.optimizer.base_lr}")
+        print_logger.info(f"The model {args.model} is initialized.")
 
 
-            model = create_GAE_model(cfg_model, cfg_score, args.model)
-            model.to(cfg.device)
-            print_logger.info(f"{model} on {next(model.parameters()).device}" )
+        model = create_GAE_model(cfg_model, cfg_score, args.model)
+        model.to(cfg.device)
+        print_logger.info(f"{model} on {next(model.parameters()).device}" )
 
-            cfg.model.params = params_count(model)
-            print_logger.info(f'Num parameters: {cfg.model.params}')
+        cfg.model.params = params_count(model)
+        print_logger.info(f'Num parameters: {cfg.model.params}')
 
-            optimizer = create_optimizer(model, cfg)
-            scheduler = LinearDecayLR(optimizer, start_lr=cfg.optimizer.base_lr, end_lr=cfg.optimizer.base_lr/10, num_epochs=cfg.train.epochs)
+        optimizer = create_optimizer(model, cfg)
+        scheduler = LinearDecayLR(optimizer, start_lr=cfg.optimizer.base_lr, end_lr=cfg.optimizer.base_lr/10, num_epochs=cfg.train.epochs)
 
-            if cfg.train.finetune: 
-                model = init_model_from_pretrained(model, cfg.train.finetune,
-                                                cfg.train.freeze_pretrained)
-                
-            if args.wandb:
-                hyper_id = wandb.util.generate_id()
-                cfg.wandb.name_tag = f'{cfg.data.name}_run{id}_{args.model}_hyper{hyper_id}'
-                wandb.init(project=f'GAE-sweep-{args.data}', id=cfg.wandb.name_tag, config=cfg, settings=wandb.Settings(_service_wait=300), save_code=True)
-                wandb.watch(model, log="all",log_freq=10)
-
-            dump_run_cfg(cfg)
-            print_logger.info(f"config saved into {cfg.run_dir}")
-            print_logger.info(f'Run {run_id} with seed {seed} and split {split_index} on device {cfg.device}')
-
-            trainer = Trainer_Heart(
-                FILE_PATH,
-                cfg,
-                model,
-                None,
-                data,
-                optimizer,
-                scheduler, 
-                splits,
-                run_id,
-                args.repeat,
-                loggers,
-                print_logger,
-                cfg.device,
-                bool(args.wandb),
-                tensorboard_writer=writer
-            )
-
-            assert not args.epoch < trainer.report_step or args.epoch % trainer.report_step, "Epochs should be divisible by report_step"
+        if cfg.train.finetune: 
+            model = init_model_from_pretrained(model, cfg.train.finetune,
+                                            cfg.train.freeze_pretrained)
             
-            trainer.train()
-            trainer.finalize()
-            
-            run_result = {}
-            for key in trainer.loggers.keys():
-                print(key)
-                _, _, _, test_bvalid = trainer.loggers[key].calc_run_stats(run_id, True)
-                run_result[key] = test_bvalid
+        if args.wandb:
+            hyper_id = wandb.util.generate_id()
+            cfg.wandb.name_tag = f'{cfg.data.name}_run{id}_{args.model}_hyper{hyper_id}'
+            wandb.init(project=f'GAE-sweep-{args.data}', id=cfg.wandb.name_tag, config=cfg, settings=wandb.Settings(_service_wait=300), save_code=True)
+            wandb.watch(model, log="all",log_freq=10)
 
-            # save params TODO if the updated params is saved.
-            for k in hyperparameter_gnn.keys():
-                if hasattr(cfg_model, k):
-                    run_result[k] = getattr(cfg_model, k)
-                if hasattr(cfg_score, k):
-                    run_result[k] = getattr(cfg_score, k)
-                elif hasattr(cfg.train, k):
-                    run_result[k] = getattr(cfg.train, k)
-                elif hasattr(cfg.optimizer, k):
-                    run_result[k] = getattr(cfg.optimizer, k)
+        dump_run_cfg(cfg)
+        print_logger.info(f"config saved into {cfg.run_dir}")
+        print_logger.info(f'Run {run_id} with seed {seed} and split {split_index} on device {cfg.device}')
 
-            run_result['epochs'] = cfg.train.epochs
-            run_result['train_time'] = trainer.run_result['train_time']
-            run_result['test_time'] = trainer.run_result['eval_time']
-            run_result['params'] = cfg.model.params
+        trainer = Trainer_Heart(
+            FILE_PATH,
+            cfg,
+            model,
+            None,
+            data,
+            optimizer,
+            scheduler, 
+            splits,
+            run_id,
+            args.repeat,
+            loggers,
+            print_logger,
+            cfg.device,
+            bool(args.wandb),
+            tensorboard_writer=writer
+        )
 
-            print_logger.info(run_result)
-            to_file = f'{args.data}_{cfg.model.type}heart_tune_time_.csv'
-            trainer.save_tune(run_result, to_file)
-
-            print_logger.info(f"train time per epoch {run_result['train_time']}")
-            print_logger.info(f"test time per epoch {run_result['test_time']}")
-            print_logger.info(f"train time per epoch {run_result['train_time']}")
-            print_logger.info(f"test time per epoch {run_result['test_time']}")
-            
-            if args.wandb:
-                wandb.finish()
-    
+        assert not args.epoch < trainer.report_step or args.epoch % trainer.report_step, "Epochs should be divisible by report_step"
         
+        trainer.train()
+        trainer.finalize()
+        
+        run_result = {}
+        for key in trainer.loggers.keys():
+            print(key)
+            _, _, _, test_bvalid = trainer.loggers[key].calc_run_stats(run_id, True)
+            run_result[key] = test_bvalid
+
+        run_result['epochs'] = cfg.train.epochs
+        run_result['train_time'] = trainer.run_result['train_time']
+        run_result['test_time'] = trainer.run_result['eval_time']
+        run_result['params'] = cfg.model.params
+
+        print_logger.info(run_result)
+        to_file = f'{args.data}_{cfg.model.type}heart_tune_time_.csv'
+        trainer.save_tune(run_result, to_file)
+
+    result_dict = {}
+    for key in loggers:
+        _, _, _, valid_test, _, _ = trainer.loggers[key].calc_all_stats()
+        result_dict.update({key: valid_test})
+    
+    trainer.save_result(result_dict)
+    m_var_to_file = f'{args.data}_{cfg.model.type}heart_tune_time_.csv'
+    trainer.save_tune(result_dict, m_var_to_file)
+
+    
 if __name__ == "__main__":
     project_main()
