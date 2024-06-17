@@ -27,7 +27,7 @@
 			"request": "launch",
 			"program": "${file}",
 			"console": "integratedTerminal",
-			"justMyCode": false,
+			"justMyCode": true,
 			"python.tensorboard.logDirectory": "/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/gcns/runs", 
 			"args": [
 				"--data",
@@ -35,9 +35,9 @@
 				"--device",
 				"cpu",
 				"--epochs",
-				"100",
-				"--model",
-				"GCN_Variant"
+				"1",
+				// "--model",
+				// "GCN_Variant"
 			],
 		}
 	]
