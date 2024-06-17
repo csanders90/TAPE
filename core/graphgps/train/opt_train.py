@@ -53,17 +53,16 @@ class Trainer():
         self.test_data = splits['test']
         
         self.valid_data = splits['valid']
-        self.data = data
         self.optimizer = optimizer
         self.loggers = loggers
         self.print_logger = print_logger
         
         # TODO change before the submission
         report_step = {
-                'cora': 100,
-                'pubmed': 100,
-                'arxiv_2023': 100,
-                'ogbn-arxiv': 100,
+                'cora': 1,
+                'pubmed': 1,
+                'arxiv_2023': 1,
+                'ogbn-arxiv': 1,
                 'ogbn-products': 1,
         }
 

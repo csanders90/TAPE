@@ -245,7 +245,7 @@ parser.add_argument('--num_layers', type=int, default=3)
 parser.add_argument('--hidden_channels', type=int, default=32)
 parser.add_argument('--batch_size', type=int, default=32)
 # Subgraph extraction settings
-parser.add_argument('--num_hops', type=int, default=1)
+parser.add_argument('--num_hops', type=int, default=2)
 parser.add_argument('--ratio_per_hop', type=float, default=1.0)
 parser.add_argument('--max_nodes_per_hop', type=int, default=None)
 parser.add_argument('--node_label', type=str, default='drnl', 
@@ -475,15 +475,21 @@ if False:  # visualize some graphs
     import matplotlib.pyplot as plt
     loader = DataLoader(train_dataset, batch_size=1, shuffle=False)
     for g in loader:
+        # Create the plot
         f = plt.figure(figsize=(20, 20))
-        limits = plt.axis('off')
+        plt.axis('off')
+        # Move graph to device and convert to networkx graph
         g = g.to(device)
-        node_size = 100
-        with_labels = True
         G = to_networkx(g, node_attrs=['z'])
-        labels = {i: G.nodes[i]['z'] for i in range(len(G))}
-        nx.draw(G, node_size=node_size, arrows=True, with_labels=with_labels,
-                labels=labels)
+        labels = {i: G.nodes[i]['z'] for i in range(len(G.nodes))}
+        node_color_map = ['blue'] * G.number_of_nodes()
+        node_color_map[0] = 'red'  
+        node_color_map[1] = 'red'          
+        nx.draw(G, node_size=600, 
+                arrows=True, 
+                with_labels=True, 
+                labels=labels, 
+                node_color=node_color_map)
         f.savefig('tmp_vis.png')
         pdb.set_trace()
 
