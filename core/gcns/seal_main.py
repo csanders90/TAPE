@@ -1,5 +1,8 @@
 import os
 import sys
+
+from torch_geometric.graphgym import params_count
+
 # Add the project's root directory to the system path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -213,3 +216,9 @@ if __name__ == "__main__":
             result_dict[key] = valid_test
 
         trainer.save_result(result_dict)
+
+        cfg.model.params = params_count(model)
+        print_logger.info(f'Num parameters: {cfg.model.params}')
+        trainer.finalize()
+        print_logger.info(f"Inference time: {trainer.run_result['eval_time']}")
+

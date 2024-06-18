@@ -200,13 +200,8 @@ class Trainer_SEAL(Trainer):
         import time 
         for _ in range(1):
             start_train = time.time() 
-            self.train_func()
-            self.run_result['train_time'] = time.time() - start_train
-            start_train = time.time() 
             self._evaluate(self.test_data)
             self.run_result['eval_time'] = time.time() - start_train
-            
-        self.save_eval_edge_pred(self.test_data)
 
 
     @torch.no_grad()
