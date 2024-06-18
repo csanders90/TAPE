@@ -53,7 +53,8 @@ def load_taglp_cora(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
     # add one default argument
 
     data, data_citeid = load_graph_cora(False)
-    text = load_text_cora(data_citeid)
+    # text = load_text_cora(data_citeid)
+    text = None
     undirected = data.is_directed()
 
     splits = get_edge_split(data,
@@ -150,7 +151,7 @@ def load_taglp_pubmed(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
 if __name__ == '__main__':
     args = init_cfg_test()
     print(args)
-    data, text = load_taglp_arxiv2023(args.data)
+    data, text, __  = load_taglp_arxiv2023(args.data)
     print(data)
     print(type(text))
     data, text = load_taglp_cora(args.data)

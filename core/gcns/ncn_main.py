@@ -21,31 +21,40 @@ import scipy.sparse as ssp
 
 from graphgps.utility.ncn import PermIterator
 from graphgps.network.ncn import predictor_dict, convdict, GCN
-from data_utils.load import load_data_lp
+from data_utils.load import load_data_lp, load_graph_lp
 from graphgps.train.ncn_train import Trainer_NCN
+
 
 
 def parse_args() -> argparse.Namespace:
     r"""Parses the command line arguments."""
     parser = argparse.ArgumentParser(description='GraphGym')
-
     parser.add_argument('--cfg', dest='cfg_file', type=str, required=False,
-                        default='core/yamls/cora/gcns/seal.yaml',
+                        default='core/yamls/cora/gcns/ncn.yaml',
                         help='The configuration file path.')
-    parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
-                        default='core/yamls/cora/gcns/gae_sp1.yaml',
-                        help='The configuration file path.')
-    parser.add_argument('--data', dest='data', type=str, required=False,
-                        default='cora',
-                        help='data name')
 
+    parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
+                        default='core/yamls/cora/gcns/ncn.yaml',
+                        help='The configuration file path.')
+    parser.add_argument('--data', dest='data', type=str, required=True,
+                        default='pubmed',
+                        help='data name')
     parser.add_argument('--repeat', type=int, default=2,
                         help='The number of repeated jobs.')
+    parser.add_argument('--batch_size', dest='bs', type=int, required=False,
+                        default=2**15,
+                        help='data name')
+    parser.add_argument('--device', dest='device', required=True, 
+                        help='device id')
+    parser.add_argument('--epochs', dest='epoch', type=int, required=True,
+                        default=400,
+                        help='data name')
+    parser.add_argument('--wandb', dest='wandb', required=False, 
+                        help='data name')
     parser.add_argument('--mark_done', action='store_true',
                         help='Mark yaml as done after a job has finished.')
     parser.add_argument('opts', default=None, nargs=argparse.REMAINDER,
                         help='See graphgym/config.py for remaining options.')
-
     return parser.parse_args()
 
 def ncn_dataset(data, splits):
@@ -80,7 +89,7 @@ if __name__ == "__main__":
     best_acc = 0
     best_params = {}
     loggers = create_logger(args.repeat)
-
+    cfg.device = args.device
     predfn = predictor_dict[cfg.model.type]
     if cfg.model.type == 'NCN':
         predfn = partial(predfn)
@@ -90,12 +99,14 @@ if __name__ == "__main__":
         for run_id, seed, split_index in zip(
                 *run_loop_settings(cfg, args)):
             custom_set_run_dir(cfg, run_id)
-            set_printing(cfg)
+            print_logger = set_printing(cfg)
             cfg.seed = seed
             cfg.run_id = run_id
             seed_everything(cfg.seed)
             cfg = config_device(cfg)
-            splits, text, data = load_data_lp[cfg.data.name](cfg.data)
+            start = time.time()
+            splits, __, data = load_data_lp[cfg.data.name](cfg.data)
+            print(f'loaded data ')
             data.edge_index = splits['train']['pos_edge_label_index']
             data = ncn_dataset(data, splits).to(cfg.device)
             path = f'{os.path.dirname(__file__)}/ncn_{cfg.data.name}'
@@ -123,7 +134,7 @@ if __name__ == "__main__":
                                    run_id,
                                    args.repeat,
                                    loggers,
-                                   print_logger=None,
+                                   print_logger=print_logger,
                                    batch_size=batch_size)
 
             start = time.time()

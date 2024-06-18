@@ -189,22 +189,22 @@ def append_mrr_to_excel(uuid_val, metrics_mrr, root, name, method):
 
 def config_device(cfg):
     
-    # detect gpu
-    num_cuda_devices = 0
+    # config 
     if torch.cuda.is_available():
         # Get the number of available CUDA devices
         num_cuda_devices = torch.cuda.device_count()
         print(f'Number of available CUDA devices: {num_cuda_devices}')
-    # enviorment setting
-    if num_cuda_devices <= 0:
+        # enviorment setting 
+        if type(cfg.device) is int and cfg.device <= num_cuda_devices -1:
+            pass
+    else: 
         cfg.device = 'cpu'
-    elif hasattr(cfg, 'data') and hasattr(cfg.data, 'device'):
-        cfg.device = cfg.data.device
+
+    # consistency
+    if hasattr(cfg, 'data') and hasattr(cfg.data, 'device'):
+        cfg.data.device = cfg.device
     elif hasattr(cfg, 'train') and hasattr(cfg.data, 'device'):
-        cfg.device = cfg.train.device
-    else:
-        cfg.device = 0
-    
+        cfg.train.device = cfg.device
     return cfg
     
 
