@@ -153,8 +153,8 @@ class Trainer_Subgraph_Sketching(Trainer):
     def _evaluate(self, eval_data: Data):
 
         self.model.eval()
-        pos_train_edge = self.train_data['pos_edge_label_index'].T.to(self.device)
-        neg_train_edge = self.train_data['neg_edge_label_index'].T.to(self.device)
+        pos_train_edge = eval_data['pos_edge_label_index'].T.to(self.device)
+        neg_train_edge = eval_data['neg_edge_label_index'].T.to(self.device)
         links = torch.cat([pos_train_edge, neg_train_edge], dim=0)
         labels = torch.cat([torch.ones(pos_train_edge.size(0)), torch.zeros(neg_train_edge.size(0))]).to(self.device)
 

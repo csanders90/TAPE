@@ -200,7 +200,7 @@ class ELPH(torch.nn.Module):
         cards = torch.zeros((num_nodes, self.num_layers))
         node_hashings_table = {}
         for k in range(self.num_layers + 1):
-            logger.info(f"Calculating hop {k} hashes")
+            '''logger.info(f"Calculating hop {k} hashes")'''
             node_hashings_table[k] = {
                 'hll': torch.zeros((num_nodes, self.hll_size), dtype=torch.int8, device=edge_index.device),
                 'minhash': torch.zeros((num_nodes, self.num_perm), dtype=torch.int64, device=edge_index.device)}
@@ -219,7 +219,7 @@ class ELPH(torch.nn.Module):
                 cards[:, k - 1] = self.elph_hashes.hll_count(node_hashings_table[k]['hll'])
                 x = self.feature_conv(x, edge_index, k)
 
-            logger.info(f'{k} hop hash generation ran in {time() - start} s')
+            '''logger.info(f'{k} hop hash generation ran in {time() - start} s')'''
 
         return x, node_hashings_table, cards
 
@@ -573,7 +573,7 @@ class ElphHashes(object):
         cards = torch.zeros((num_nodes, self.max_hops))
         node_hashings_table = {}
         for k in range(self.max_hops + 1):
-            logger.info(f"Calculating hop {k} hashes")
+            '''logger.info(f"Calculating hop {k} hashes")'''
             node_hashings_table[k] = {'hll': torch.zeros((num_nodes, self.hll_size), dtype=torch.int8),
                                       'minhash': torch.zeros((num_nodes, self.num_perm), dtype=torch.int64)}
             start = time()
@@ -585,7 +585,7 @@ class ElphHashes(object):
                 node_hashings_table[k]['minhash'] = self.minhash_prop(node_hashings_table[k - 1]['minhash'],
                                                                       hash_edge_index)
                 cards[:, k - 1] = self.hll_count(node_hashings_table[k]['hll'])
-            logger.info(f'{k} hop hash generation ran in {time() - start} s')
+            '''logger.info(f'{k} hop hash generation ran in {time() - start} s')'''
         return node_hashings_table, cards
 
     def _get_intersections(self, edge_list, hash_table):
