@@ -8,7 +8,7 @@ from torch.nn import BCEWithLogitsLoss
 
 sys.path.insert(0, abspath(join(dirname(dirname(__file__)))))
 
-import torch
+import pandas as pd 
 import wandb
 from ogb.linkproppred import Evaluator
 from torch_geometric.graphgym.config import cfg
@@ -19,10 +19,17 @@ from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
 from heuristic.eval import get_metric_score
 from graphgps.train.opt_train import Trainer
+from graphgps.train.heart_train import Trainer_Heart
 from typing import Any, List, Optional, Sequence, Union
+import torch
+import numpy as np
+from torch.utils.tensorboard import SummaryWriter
+writer = SummaryWriter()
+
 
 class Trainer_SEAL(Trainer):
-    def __init__(self, FILE_PATH,
+    def __init__(self, 
+                 FILE_PATH,
                  cfg: CN,
                  model: torch.nn.Module,
                  emb: None,
@@ -38,7 +45,7 @@ class Trainer_SEAL(Trainer):
             cfg,
             model, 
             emb,
-            splits,
+            None,
             optimizer,
             splits,
             run, 
@@ -78,6 +85,11 @@ class Trainer_SEAL(Trainer):
         self.results_rank = {}
 
         self.if_wandb = if_wandb
+        self.tensorboard_writer = writer 
+        if if_wandb:
+            self.step = 0
+        self.out_dir = cfg.out_dir
+        self.run_dir = cfg.run_dir
         
     def _train_seal(self):
         self.model.train()
@@ -101,32 +113,28 @@ class Trainer_SEAL(Trainer):
     def train(self):  
         for epoch in range(1, self.epochs + 1):
             loss = self._train_seal()
-            
-            if self.if_wandb:
-                wandb.log({"Epoch": epoch}, step=self.step)
-                wandb.log({'loss': loss}, step=self.step) 
-                wandb.log({"lr": self.scheduler.get_lr()}, step=self.step)
-                
+        
+            self.tensorboard_writer.add_scalar("Loss/train", loss, epoch)
+
             if epoch % int(self.report_step) == 0:
 
                 self.results_rank = self.merge_result_rank()
-                
-                self.print_logger.info(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {self.results_rank["AUC"][0]:.4f}, AP: {self.results_rank["AP"][0]:.4f}, MRR: {self.results_rank["MRR"][0]:.4f}, Hit@10 {self.results_rank["Hits@10"][0]:.4f}')
-                self.print_logger.info(f'Epoch: {epoch:03d}, Loss_valid: {loss:.4f}, AUC: {self.results_rank["AUC"][1]:.4f}, AP: {self.results_rank["AP"][1]:.4f}, MRR: {self.results_rank["MRR"][1]:.4f}, Hit@10 {self.results_rank["Hits@10"][1]:.4f}')               
-                self.print_logger.info(f'Epoch: {epoch:03d}, Loss_test: {loss:.4f}, AUC: {self.results_rank["AUC"][2]:.4f}, AP: {self.results_rank["AP"][2]:.4f}, MRR: {self.results_rank["MRR"][2]:.4f}, Hit@10 {self.results_rank["Hits@10"][2]:.4f}')               
-                    
+                              
                 for key, result in self.results_rank.items():
                     self.loggers[key].add_result(self.run, result)
-                    
+                    self.print_logger.info(f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {self.results_rank["AUC"][0]:.4f}, AP: {self.results_rank["AP"][0]:.4f}, MRR: {self.results_rank["MRR"][0]:.4f}, Hit@10 {self.results_rank["Hits@10"][0]:.4f}')
+                    self.print_logger.info(f'Epoch: {epoch:03d}, Loss_valid: {loss:.4f}, AUC: {self.results_rank["AUC"][1]:.4f}, AP: {self.results_rank["AP"][1]:.4f}, MRR: {self.results_rank["MRR"][1]:.4f}, Hit@10 {self.results_rank["Hits@10"][1]:.4f}')               
+                    self.print_logger.info(f'Epoch: {epoch:03d}, Loss_test: {loss:.4f}, AUC: {self.results_rank["AUC"][2]:.4f}, AP: {self.results_rank["AP"][2]:.4f}, MRR: {self.results_rank["MRR"][2]:.4f}, Hit@10 {self.results_rank["Hits@10"][2]:.4f}')               
+
+                    self.tensorboard_writer.add_scalar(f"Metrics/Train/{key}", result[0], epoch)
+                    self.tensorboard_writer.add_scalar(f"Metrics/Valid/{key}", result[1], epoch)
+                    self.tensorboard_writer.add_scalar(f"Metrics/Test/{key}", result[2], epoch)
+                     
                     train_hits, valid_hits, test_hits = result
                     self.print_logger.info(
                         f'Run: {self.run + 1:02d}, Key: {key}, '
                         f'Epoch: {epoch:02d}, Loss: {loss:.4f}, Train: {100 * train_hits:.2f}, Valid: {100 * valid_hits:.2f}, Test: {100 * test_hits:.2f}%')
-                    
-                    if self.if_wandb:
-                        wandb.log({f"Metrics/train_{key}": train_hits}, step=self.step)
-                        wandb.log({f"Metrics/valid_{key}": valid_hits}, step=self.step)
-                        wandb.log({f"Metrics/test_{key}": test_hits}, step=self.step)
+                
                     
                 self.print_logger.info('---')
                 
@@ -183,8 +191,43 @@ class Trainer_SEAL(Trainer):
 
         acc = torch.sum(y_true == y_pred) / len(y_true)
 
-
         result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_pred, neg_pred)
         result_mrr.update({'ACC': round(acc.tolist(), 5)})
 
         return result_mrr
+
+    def finalize(self):
+        import time 
+        for _ in range(1):
+            start_train = time.time() 
+            self._evaluate(self.test_data)
+            self.run_result['eval_time'] = time.time() - start_train
+
+
+    @torch.no_grad()
+    def save_eval_edge_pred(self, eval_data: Data):    
+        self.model.eval()
+        y_pred, y_true, edge_index_s, edge_index_t = [], [], [], []
+
+        for data in DataLoader(eval_data, batch_size=self.batch_size, shuffle=False):
+            data = data.to(self.device)
+            self.optimizer.zero_grad()
+            x = data.x
+            edge_weight = data.edge_weight
+            node_id = data.node_id
+            logits = self.model(data.z, data.edge_index, data.batch, x, edge_weight, node_id)
+            y_pred.extend(logits.view(-1).cpu().tolist())
+            y_true.extend(data.y.view(-1).cpu().to(torch.float).tolist())
+            edge_index_s.extend(np.asarray(data.st).T[0]) 
+            edge_index_t.extend(np.asarray(data.st).T[1]) 
+
+        data_df = {
+            "edge_index0": edge_index_s,
+            "edge_index1": edge_index_t,
+            "pred": y_pred,
+            "gr": y_true,
+        }
+        
+        df = pd.DataFrame(data_df)
+        df.to_csv(f'{self.run_dir}/{self.data_name}_test_pred_gr_last_epoch.csv', index=False)
+        return 

@@ -109,7 +109,7 @@ def parse_args() -> argparse.Namespace:
                         help='decoder name')
     parser.add_argument('--wandb', dest='wandb', required=False, 
                         help='data name')
-    parser.add_argument('--repeat', type=int, default=1,
+    parser.add_argument('--repeat', type=int, default=3,
                         help='The number of repeated jobs.')
     parser.add_argument('--mark_done', action='store_true',
                         help='Mark yaml as done after a job has finished.')

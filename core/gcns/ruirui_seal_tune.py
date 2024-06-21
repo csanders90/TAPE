@@ -12,22 +12,19 @@ from torch_geometric.graphgym.utils.comp_budget import params_count
 from torch_geometric.graphgym.cmd_args import parse_args
 import argparse
 import wandb
+
 from graphgps.config import (dump_cfg, dump_run_cfg)
 from graphgps.encoder.seal import get_pos_neg_edges, extract_enclosing_subgraphs, k_hop_subgraph, construct_pyg_graph, do_edge_split
-
-from utils import set_cfg, parse_args, get_git_repo_root_path, Logger, custom_set_out_dir \
+from graphgps.train.seal_train  import  Trainer_SEAL
+from graphgps.utility.utils import set_cfg, parse_args, get_git_repo_root_path, Logger, custom_set_out_dir \
     , custom_set_run_dir, set_printing, run_loop_settings, create_optimizer, config_device, \
         init_model_from_pretrained, create_logger
-
+import scipy.sparse as ssp 
 import time
-from graphgps.train.opt_train import Trainer_SEAL
 from graphgps.network.heart_gnn import DGCNN
 
 from torch_geometric import seed_everything
 from torch_geometric.graphgym.utils.device import auto_select_device
-from utils import set_cfg, parse_args, get_git_repo_root_path, custom_set_run_dir, set_printing, run_loop_settings, create_optimizer, config_device, \
-    create_logger
-from gcns_subgraph.SEAL.utils import *
 from torch_geometric.data import InMemoryDataset, Dataset
 from data_utils.load_data_nc import load_graph_cora, load_graph_pubmed, load_tag_arxiv23, load_graph_ogbn_arxiv
 
@@ -101,11 +98,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
                         default='core/yamls/cora/gcns/seal_sweep.yaml',
                         help='The configuration file path.')
-    parser.add_argument('--device', dest='device', required=True, 
+    parser.add_argument('--device', dest='device', required=False, default='cpu',
                         help='device id')
+    parser.add_argument('--data', dest='data', type=str, required=True,
+                        default='pubmed',
+                        help='data name')
     parser.add_argument('--epochs', dest='epoch', type=int, required=False,
                         default=100,
-                        help='data name')
+                        help='epochs')
     parser.add_argument('--repeat', type=int, default=2,
                         help='The number of repeated jobs.')
     parser.add_argument('--mark_done', action='store_true',
@@ -224,16 +224,19 @@ def project_main():
             trainer = Trainer_SEAL(FILE_PATH,
                                    cfg,
                                    model,
+                                    None,
                                    optimizer,
                                    dataset,
                                    run_id,
                                    args.repeat,
                                    loggers,
                                    print_logger,
+                                   args.device,
                                    batch_size)
 
             trainer.train()
-
+            trainer.finalize()
+            
             run_result = {}
             for key in trainer.loggers.keys():
                 # refer to calc_run_stats in Logger class
@@ -252,7 +255,6 @@ def project_main():
             
             print_logger.info(f"runing time {time.time() - start_time}")
         
-    # statistic for all runs
 
 
 if __name__ == "__main__":

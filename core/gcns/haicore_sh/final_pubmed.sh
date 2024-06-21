@@ -12,7 +12,7 @@
 #SBATCH --gres=gpu:full:4
 
 
-#SBATCH --chdir=/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/batch
+#SBATCH --chdir=/hkfs/work/workspace_haic/scratch/cc7738-TAGBench/TAPE/batch
 
 # Notification settings:
 #SBATCH --mail-type=ALL
