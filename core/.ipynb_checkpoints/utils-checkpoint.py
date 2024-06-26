@@ -777,12 +777,19 @@ def sentence_transformer_embedding_generation(model_name: str, data: List[str]) 
 def open_source_embedding_generation(model_name: str, device: str, data: List[str], batch_size: int) -> torch.Tensor:
     hf_token = os.getenv('HF_TOKEN')
     tokenizer = AutoTokenizer.from_pretrained(model_name, token=hf_token)
-    tokenizer.pad_token = tokenizer.eos_token
+
     device_ids = [i for i in range(torch.cuda.device_count())]
     model = AutoModel.from_pretrained(model_name, token=hf_token)
     if torch.cuda.device_count() > 1:
         print(f"{torch.cuda.device_count()} GPUs in use!")
         model = torch.nn.DataParallel(model)
+
+    if tokenizer.pad_token is None:
+        if tokenizer.eos_token is not None:
+            tokenizer.pad_token = tokenizer.eos_token
+        else:
+            tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+            model.resize_token_embeddings(len(tokenizer))        
 
     model = model.to(device)
     encoded_input = tokenizer(data, padding=True, truncation=True, return_tensors='pt').to(device)
