@@ -94,6 +94,10 @@ if __name__ == "__main__":
         splits, text, data = load_data_lp[cfg.data.name](cfg.data)
         data.edge_index = torch.cat([splits['train']['pos_edge_label_index'],
                                         splits['train']['neg_edge_label_index']], dim=1)
+        data = data.to(cfg.device)
+        splits['train'] = splits['train'].to(cfg.device)
+        splits['valid'] = splits['valid'].to(cfg.device)
+        splits['test'] = splits['test'].to(cfg.device)
         path = f'{os.path.dirname(__file__)}/{cfg.model.type}_{cfg.data.name}'
         print_logger = set_printing(cfg)
         print_logger.info(

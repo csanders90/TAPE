@@ -58,11 +58,11 @@ class Trainer_NBFNet(Trainer):
         self.data = data
 
         self.test_data = splits['test']
-        self.test_data.edge_type = torch.zeros(self.test_data.edge_index.shape[1], dtype=torch.int)
+        self.test_data.edge_type = torch.zeros(self.test_data.edge_index.shape[1], dtype=torch.int).to(self.device)
         self.train_data = splits['train']
-        self.train_data.edge_type = torch.zeros(self.train_data.edge_index.shape[1], dtype=torch.int)
+        self.train_data.edge_type = torch.zeros(self.train_data.edge_index.shape[1], dtype=torch.int).to(self.device)
         self.valid_data = splits['valid']
-        self.valid_data.edge_type = torch.zeros(self.valid_data.edge_index.shape[1], dtype=torch.int)
+        self.valid_data.edge_type = torch.zeros(self.valid_data.edge_index.shape[1], dtype=torch.int).to(self.device)
         self.optimizer = optimizer
         self.train_func = self._train_nbfnet
         model_types = ['NBFNet']
