@@ -1,6 +1,6 @@
 out_dir: results
 metric_best: acc
-cfg_dest: elph.yaml
+cfg_dest: nbfnet.yaml
 print: file
 seed: 0
 
@@ -14,30 +14,19 @@ train:
   mode: custom
   batch_size: 256 #
   eval_period: 1
-  epochs: 100
+  epochs: 20
   device: 0
   auto_resume: False
   final_eval: False
   finetune: False
 
 model:
-  type: ELPH
+  type: NBFNet
   out_channels: 32
   in_channels: 1433
   hidden_channels: 256 #
   num_layers: 3 #
-  label_dropout: 0.5 #
-  feature_dropout: 0.5 #
-  sign_dropout: 0.5 #
-  use_zero_one: 0
-  floor_sf: 0
-  hll_p: 8
-  minhash_num_perm: 128
-  max_hash_hops: 3 #
-  use_feature: True
-  feature_prop: gcn
-  propagate_embeddings: False
-  sign_k: 0
+
 
 
 num_threads: 11
@@ -45,11 +34,11 @@ num_threads: 11
 wandb:
   use: True
   project: gtblueprint
-  name_tag: elph-pubmed
+  name_tag: NBFNet-arxiv-2023
 
 
 data:
-  name: pubmed
+  name: arxiv-2023
   undirected: True
   include_negatives: True
   val_pct: 0.15
