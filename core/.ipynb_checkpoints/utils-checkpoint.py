@@ -5,21 +5,24 @@ import numpy as np
 import time
 import datetime
 import pytz
+import logging
 import torch
 import git
 import subprocess
 import pandas as pd
 import argparse
 import torch.optim as optim
+from IPython import embed
 from torch_scatter import scatter
 from yacs.config import CfgNode as CN
-from torch_geometric.graphgym.config import (cfg,
-                                             makedirs_rm_exist)
+from graphgps.finetuning import get_final_pretrained_ckpt
+from torch_geometric.data.makedirs import makedirs
+from torch_geometric.graphgym.train import train
+from torch_geometric.graphgym.utils.agg_runs import agg_runs
+from torch_geometric.graphgym.config import (cfg, dump_cfg, 
+                                             makedirs_rm_exist, set_cfg)
 from torch_geometric.utils import remove_self_loops
 from typing import Tuple, List, Dict
-import logging
-from yacs.config import CfgNode
-import torch 
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from transformers import AutoTokenizer, AutoModel
@@ -29,29 +32,14 @@ from tqdm import tqdm
 from torch.utils.data import DataLoader, TensorDataset
 from openai import OpenAI
 from dotenv import load_dotenv
-from graphgps.finetuning import get_final_pretrained_ckpt
+
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 load_dotenv()
 
 set_float = lambda result: float(result.split(' ± ')[0])
 
-def get_git_repo_root_path():
-    try:
-        # Using git module
-        git_repo = git.Repo('.', search_parent_directories=True)
-        return git_repo.working_dir
-    except git.InvalidGitRepositoryError:
-        # Fallback to using subprocess if not a valid Git repository
-        result = subprocess.run(['git', 'rev-parse', '--show-toplevel'], capture_output=True, text=True)
 
-        if result.returncode == 0:
-            return result.stdout.strip()
-        print("Error:", result.stderr)
-        return None
-
-        
-        
 def init_random_state(seed=0):
     # Libraries using GPU should be imported after specifying GPU-ID
     import torch
@@ -134,6 +122,19 @@ def get_root_dir():
     return os.path.join(file_dir, "..")
 
 
+def get_git_repo_root_path():
+    try:
+        # Using git module
+        git_repo = git.Repo('.', search_parent_directories=True)
+        return git_repo.working_dir
+    except git.InvalidGitRepositoryError:
+        # Fallback to using subprocess if not a valid Git repository
+        result = subprocess.run(['git', 'rev-parse', '--show-toplevel'], capture_output=True, text=True)
+
+        if result.returncode == 0:
+            return result.stdout.strip()
+        print("Error:", result.stderr)
+        return None
 
 
 # Define a function that uses the lambda function
@@ -145,6 +146,7 @@ def append_acc_to_excel(uuid_val, metrics_acc, root, name, method):
     # if not exists save the first row
 
     csv_columns = ['Metric'] + list(metrics_acc) 
+
     # load old csv
     try:
         Data = pd.read_csv(root)[:-1]
@@ -201,24 +203,25 @@ def append_mrr_to_excel(uuid_val, metrics_mrr, root, name, method):
 
 
 def config_device(cfg):
-    
-    # config 
+
+    if hasattr(cfg, 'device'):
+        device = cfg.device
+    elif hasattr(cfg, 'data') and hasattr(cfg.data, 'device'):
+        device = cfg.data.device
+    elif hasattr(cfg, 'train') and hasattr(cfg.data, 'device'):
+        device = cfg.train.device
+    else:
+        device = 'cpu'
+    num_cuda_devices = 0
     if torch.cuda.is_available():
         # Get the number of available CUDA devices
         num_cuda_devices = torch.cuda.device_count()
-        print(f'Number of available CUDA devices: {num_cuda_devices}')
-        # enviorment setting 
-        if type(cfg.device) is int and cfg.device <= num_cuda_devices -1:
-            pass
-    else: 
-        cfg.device = 'cpu'
 
-    # consistency
-    if hasattr(cfg, 'data') and hasattr(cfg.data, 'device'):
-        cfg.data.device = cfg.device
-    elif hasattr(cfg, 'train') and hasattr(cfg.data, 'device'):
-        cfg.train.device = cfg.device
-    return cfg
+    if num_cuda_devices <= 0:
+        return 'cpu'
+    # Set the first CUDA device as the active device
+    torch.cuda.set_device(device)
+    return device
     
 
 def set_cfg(file_path, args):
@@ -243,8 +246,7 @@ def init_cfg_test():
             'val_pct': 0.1,
             'test_pct': 0.1,
             'split_labels': True,
-            'device': 'cpu',
-            'split_index': [0.8, 0.15, 0.05]
+            'device': 'cpu'
             },
         'train':  {
                 'device': 'cpu'
@@ -270,7 +272,7 @@ def create_logger(repeat):
         'mrr_hit100': Logger(repeat),
         'AUC': Logger(repeat),
         'AP': Logger(repeat),
-        'ACC': Logger(repeat)
+        'acc': Logger(repeat)
     }
 
 
@@ -321,10 +323,14 @@ class Logger(object):
         best_train_valid, _, best_test_valid = result[best_valid_epoch]
 
         if print_mode:
-            print(f'Highest Train: {result[:, 0].max().item():.2f} at Epoch {100*result[:, 0].argmax().item()}, Highest Valid: {result[:, 1].max().item():.2f} at Epoch {100*best_valid_epoch}, Final Train: {best_train_valid:.2f} at Epoch {100*best_valid_epoch} Final Test: {best_test_valid:.2f} at Epoch {100*best_valid_epoch}.')
+            print(f'Run {run + 1:02d}:')
+            print(f'Highest Train: {result[:, 0].max().item():.2f} at Epoch {100*result[:, 0].argmax().item()}')
+            print(f'Highest Valid: {result[:, 1].max().item():.2f} at Epoch {100*best_valid_epoch}')
+            print(f'  Final Train: {best_train_valid:.2f} at Epoch {100*best_valid_epoch}')
+            print(f'   Final Test: {best_test_valid:.2f} at Epoch {100*best_valid_epoch}')
         
         # best train, best valid, train with the best valid epoch, test with the best valid epoch
-        return round(result[:, 0].max().item(), 2), round(result[:, 1].max().item(), 2), round(best_train_valid.item(), 2), round(best_test_valid.item(), 2)
+        return result[:, 0].max().item(), result[:, 1].max().item(), best_train_valid.item(), best_test_valid.item()
     
     
     def calc_all_stats(self, print_mode: bool=True) -> Tuple[str, str, str, List[float], List[float]]:
@@ -371,30 +377,20 @@ class Logger(object):
     def save2dict(self):
         "save the result into csv based on calc_all_stats"
         
+        
 
 def get_logger(name, log_dir, config_dir):
+	
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
+    logger.propagate = False
 
-    """
-    Set up printing options
+    std_out_format = '%(asctime)s - [%(levelname)s] - %(message)s'
+    consoleHandler = logging.StreamHandler(sys.stdout)
+    consoleHandler.setFormatter(logging.Formatter(std_out_format))
+    logger.addHandler(consoleHandler)
 
-    """
-    logging.root.handlers = []
-    logging_cfg = {'level': logging.INFO, 'format': '%(message)s'}
-    os.makedirs(cfg.run_dir, exist_ok=True)
-    h_file = logging.FileHandler(f'{cfg.run_dir}/logging.log')
-    h_stdout = logging.StreamHandler(sys.stdout)
-    if cfg.print == 'file':
-        logging_cfg['handlers'] = [h_file]
-    elif cfg.print == 'stdout':
-        logging_cfg['handlers'] = [h_stdout]
-    elif cfg.print == 'both':
-        logging_cfg['handlers'] = [h_file, h_stdout]
-    else:
-        raise ValueError('Print option not supported')
-
-    logging.basicConfig(**logging_cfg)
-    return logging_cfg
-
+    return logger
 
 
 def save_emb(score_emb, save_path):
@@ -568,11 +564,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
                         default='core/yamls/cora/gcns/gae_sp1.yaml',
                         help='The configuration file path.')
-    parser.add_argument('--data', dest='data', type=str, required=False,
-                        default='cora',
-                        help='data name')
-        
-    parser.add_argument('--repeat', type=int, default=2,
+    
+    parser.add_argument('--repeat', type=int, default=4,
                         help='The number of repeated jobs.')
     parser.add_argument('--mark_done', action='store_true',
                         help='Mark yaml as done after a job has finished.')
@@ -644,37 +637,6 @@ def build_optimizer(args, params):
 
 
 
-class LinearDecayLR:
-    def __init__(self, optimizer, start_lr, end_lr, num_epochs):
-        """
-        Initialize the LinearDecayLR scheduler.
-        
-        Args:
-            optimizer (Optimizer): Wrapped optimizer.
-            start_lr (float): Initial learning rate.
-            end_lr (float): Final learning rate.
-            num_epochs (int): Number of epochs over which to linearly decay the learning rate.
-        """
-        self.optimizer = optimizer
-        self.start_lr = start_lr
-        self.end_lr = end_lr
-        self.num_epochs = num_epochs
-        self.step_count = 0
-
-    def step(self):
-        """Update the learning rate for the current step."""
-        self.step_count += 1
-        lr = self.start_lr + (self.end_lr - self.start_lr) * (self.step_count / self.num_epochs)
-        
-        for param_group in self.optimizer.param_groups:
-            param_group['lr'] = lr
-
-    def get_lr(self):
-        """Get the current learning rate."""
-        return [param_group['lr'] for param_group in self.optimizer.param_groups]
-
-
-
 def custom_set_out_dir(cfg, cfg_fname, name_tag):
     """Set custom main output directory path to cfg.
     Include the config filename and name_tag in the new :obj:`cfg.out_dir`.
@@ -691,14 +653,14 @@ def custom_set_out_dir(cfg, cfg_fname, name_tag):
 
 
 
-def custom_set_run_dir(cfg, wandb_tag):
+def custom_set_run_dir(cfg, run_id):
     """Custom output directory naming for each experiment run.
 
     Args:
         cfg (CfgNode): Configuration node
         run_id (int): Main for-loop iter id (the random seed or dataset split)
     """
-    cfg.run_dir = os.path.join(cfg.out_dir, str(wandb_tag))
+    cfg.run_dir = os.path.join(cfg.out_dir, str(run_id))
     # Make output directory
     if cfg.train.auto_resume:
         os.makedirs(cfg.run_dir, exist_ok=True)
@@ -712,33 +674,20 @@ def set_printing(cfg):
     Set up printing options
 
     """
-    import logging
-
-    # Step 1: Create a logger
-    logger = logging.getLogger(__name__)
-
-    # Step 2: Set the overall log level for the logger
-    logger.setLevel(logging.INFO)
-
-    # Step 3: Create handlers
-    file_handler = logging.FileHandler(f'{cfg.run_dir}/logging.log')
-    # console_handler = logging.StreamHandler(sys.stdout) # if you dont want to see the log in the console
-    console_handler = logging.StreamHandler() 
-    
-    # Step 4: Set log levels for handlers
-    file_handler.setLevel(logging.INFO)
-    console_handler.setLevel(logging.INFO)
-
-    # Step 5: Create formatters and add them to handlers
-    formatter = logging.Formatter('%(asctime)s - %(message)s')
-    file_handler.setFormatter(formatter)
-    console_handler.setFormatter(formatter)
-
-    # Step 6: Add handlers to the logger
-    logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
-    
-    return logger
+    logging.root.handlers = []
+    logging_cfg = {'level': logging.INFO, 'format': '%(message)s'}
+    os.makedirs(cfg.run_dir, exist_ok=True)
+    h_file = logging.FileHandler(f'{cfg.run_dir}/logging.log')
+    h_stdout = logging.StreamHandler(sys.stdout)
+    if cfg.print == 'file':
+        logging_cfg['handlers'] = [h_file]
+    elif cfg.print == 'stdout':
+        logging_cfg['handlers'] = [h_stdout]
+    elif cfg.print == 'both':
+        logging_cfg['handlers'] = [h_file, h_stdout]
+    else:
+        raise ValueError('Print option not supported')
+    logging.basicConfig(**logging_cfg)
 
 
 def create_optimizer(model, optimizer_config):
@@ -764,7 +713,7 @@ def create_optimizer(model, optimizer_config):
         optimizer = optim.SGD(params, lr=optimizer.base_lr)
     else:
         raise ValueError(f'Optimizer {optimizer_config.optimizer} not supported')
-    optimizer.zero_grad()
+
     return optimizer
 
 
@@ -918,125 +867,6 @@ def init_model_from_pretrained(model, pretrained_dir, freeze_pretrained=False):
     model_dict.update(pretrained_dict)
     # Load the new state dict.
     model.load_state_dict(model_dict)
-
-    if freeze_pretrained:
-        for key, param in model.named_parameters():
-            if not key.startswith('post_mp'):
-                param.requires_grad = False
-    return model
-
-def flatten_dict(metrics):
-    """Flatten a list of train/val/test metrics into one dict to send to wandb.
-
-    Args:
-        metrics: List of Dicts with metrics
-
-    Returns:
-        A flat dictionary with names prefixed with "train/" , "val/" , "test/"
-    """
-    prefixes = ['train', 'val', 'test']
-    result = {}
-    for i in range(len(metrics)):
-        # Take the latest metrics.
-        stats = metrics[i][-1]
-        result.update({f"{prefixes[i]}/{k}": v for k, v in stats.items()})
-    return result
-
-
-def cfg_to_dict(cfg_node, key_list=[]):
-    """Convert a config node to dictionary.
-
-    Yacs doesn't have a default function to convert the cfg object to plain
-    python dict. The following function was taken from
-    https://github.com/rbgirshick/yacs/issues/19
-    """
-    _VALID_TYPES = {tuple, list, str, int, float, bool}
-
-    if not isinstance(cfg_node, CfgNode):
-        if type(cfg_node) not in _VALID_TYPES:
-            logging.warning(f"Key {'.'.join(key_list)} with "
-                            f"value {type(cfg_node)} is not "
-                            f"a valid type; valid types: {_VALID_TYPES}")
-        return cfg_node
-    else:
-        cfg_dict = dict(cfg_node)
-        for k, v in cfg_dict.items():
-            cfg_dict[k] = cfg_to_dict(v, key_list + [k])
-        return cfg_dict
-
-
-def make_wandb_name(cfg):
-    # Format dataset name.
-    dataset_name = cfg.dataset.format
-    if dataset_name.startswith('OGB'):
-        dataset_name = dataset_name[3:]
-    if dataset_name.startswith('PyG-'):
-        dataset_name = dataset_name[4:]
-    if dataset_name in ['GNNBenchmarkDataset', 'TUDataset']:
-        # Shorten some verbose dataset naming schemes.
-        dataset_name = ""
-    if cfg.dataset.name != 'none':
-        dataset_name += "-" if dataset_name != "" else ""
-        if cfg.dataset.name == 'LocalDegreeProfile':
-            dataset_name += 'LDP'
-        else:
-            dataset_name += cfg.dataset.name
-    # Format model name.
-    model_name = cfg.model.type
-    if cfg.model.type in ['gnn', 'custom_gnn']:
-        model_name += f".{cfg.gnn.layer_type}"
-    elif cfg.model.type == 'GPSModel':
-        model_name = f"GPS.{cfg.gt.layer_type}"
-    model_name += f".{cfg.name_tag}" if cfg.name_tag else ""
-    # Compose wandb run name.
-    name = f"{dataset_name}.{model_name}.r{cfg.run_id}"
-    return name
-
-import pandas as pd
-
-def analyse_hyper(file_path: str):
-    # Load the CSV file
-    file_path = 'path_to_your_file.csv'
-    df = pd.read_csv(file_path)
-
-    # Define the column representing the main performance metric
-    performance_metric = 'Metric'
-
-    # Identify the best combination of hyperparameters based on the performance metric
-    best_row = df.loc[df[performance_metric].idxmax()]
-
-    # Extract relevant columns and their values
-    best_combination = best_row[['out_channels', 'hidden_channels', 'base_lr', 'score_num_layers_predictor',
-                                'score_gin_mlp_layer', 'score_hidden_channels', 'score_out_channels',
-                                'score_num_layers', 'score_dropout', 'product', 'epochs', 'train_time',
-                                'test_time', 'params']]
-
-    # Print the best combination and its performance metrics
-    print("Best Hyperparameter Combination:")
-    print(best_combination)
-    print("\nPerformance Metrics:")
-    print(best_row[['Hits@1', 'Hits@3', 'Hits@10', 'Hits@20', 'Hits@50', 'Hits@100',
-                    'MRR', 'mrr_hit1', 'mrr_hit3', 'mrr_hit10', 'mrr_hit20', 'mrr_hit50', 
-                    'mrr_hit100', 'AUC', 'AP', 'ACC']])
-
-    # Example of saving the best combination to a new CSV file
-    best_combination_df = pd.DataFrame(best_combination).transpose()
-    best_combination_df.to_csv('best_hyperparameter_combination.csv', index=False)
-    return 
-
-
-import time
-import random
-
-def timeit(func):
-    def wrapper(*args, **kwargs):
-        start = time.perf_counter()
-        result = func(*args, **kwargs)
-        end = time.perf_counter()
-        elapsed = end - start
-        print(f'Time taken: {elapsed:.6f} seconds')
-        return result
-    return wrapper
 
     if freeze_pretrained:
         for key, param in model.named_parameters():

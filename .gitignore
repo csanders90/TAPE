@@ -83,9 +83,15 @@ scripts/log/
 generated_dataset/
 dataset.tar.gz
 ../results
+
 core/dataset
 */dataset
 core/gcns/results
 gcns/results
 core/gcns/runs
 core/batch
+
+/results
+
+.env
+/core/embedding_finetuning/models/

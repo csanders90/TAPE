@@ -58,3 +58,15 @@ sampler:
   walk_length: 20
   num_steps: 30 
   sample_coverage: 100
+
+  base_lr: 0.01
+  weight_decay: 0.0005
+  
+llm:
+  llm_embedding: True
+  batch_size: 4
+  model_type: fine_tuned_embedding
+  model_name: core/embeddings/models/
+  
+embedding_fine_tuning:
+    model_name: sentence-transformers/all-mpnet-base-v2 
