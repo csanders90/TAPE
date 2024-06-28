@@ -27,67 +27,10 @@ from torch_geometric.data import InMemoryDataset, Dataset
 from data_utils.load_data_nc import load_graph_cora, load_graph_pubmed, load_tag_arxiv23, load_graph_ogbn_arxiv
 import scipy.sparse as ssp
 from graphgps.config import (dump_cfg, dump_run_cfg)
-from graphgps.network.subgraph_sketching import BUDDY, ELPH
-
+from graphgps.network.nbfnet import NBFNet
+from graphgps.train.nbfnet_train import Trainer_NBFNet
 from data_utils.load import load_data_lp
-from graphgps.train.subgraph_sketching_train import Trainer_Subgraph_Sketching
 
-
-def _generate_sign_features(data, edge_index, edge_weight, sign_k):
-    """
-    Generate features by preprocessing using the Scalable Inception Graph Neural Networks (SIGN) method
-     https://arxiv.org/abs/2004.11198
-    @param data: A pyg data object
-    @param sign_k: the maximum number of times to apply the propagation operator
-    @return:
-    """
-    try:
-        num_nodes = data.x.size(0)
-    except AttributeError:
-        num_nodes = data.num_nodes
-    edge_index, edge_weight = gcn_norm(  # yapf: disable
-        edge_index, edge_weight.float(), num_nodes)
-    if sign_k == 0:
-        # for most datasets it works best do one step of propagation
-        xs = torch_sparse.spmm(edge_index, edge_weight, data.x.shape[0], data.x.shape[0], data.x)
-    else:
-        xs = [data.x]
-        for _ in range(sign_k):
-            x = torch_sparse.spmm(edge_index, edge_weight, data.x.shape[0], data.x.shape[0], data.x)
-            xs.append(x)
-        xs = torch.cat(xs, dim=-1)
-    return xs
-
-
-def _preprocess_subgraph_features(num_nodes, edge_index, edges):
-    """
-    Handles caching of hashes and subgraph features where each edge is fully hydrated as a preprocessing step
-    Sets self.subgraph_features
-    @return:
-    """
-    elph_hashes = ElphHashes(cfg.model)
-    hashes, cards = elph_hashes.build_hash_tables(num_nodes, edge_index)
-    subgraph_features = elph_hashes.get_subgraph_features(edges, hashes, cards, cfg.train.batch_size)
-    if cfg.model.floor_sf and subgraph_features is not None:
-        subgraph_features[subgraph_features < 0] = 0
-    if not cfg.model.use_zero_one and subgraph_features is not None:  # knock out the zero_one features (0,1) and (1,0)
-        if cfg.model.max_hash_hops > 1:
-            subgraph_features[:, [4, 5]] = 0
-        if cfg.model.max_hash_hops == 3:
-            subgraph_features[:, [11, 12]] = 0  # also need to get rid of (0, 2) and (2, 0)
-    return subgraph_features
-def hash_dataset(splits):
-    data = splits.cpu()
-    edge_weight = torch.ones(data.edge_index.size(1), dtype=float)
-    edge_index = data.edge_index.cpu()
-    edge_weight = edge_weight.cpu()
-    data.links = torch.cat([data['pos_edge_label_index'], data['neg_edge_label_index']], dim=1)
-    data.A = ssp.csr_matrix((edge_weight, (edge_index[0], edge_index[1])),
-                            shape=(data.num_nodes, data.num_nodes))
-    data.x = _generate_sign_features(data, edge_index, edge_weight, cfg.model.sign_k)
-    data.subgraph_features = _preprocess_subgraph_features(data.num_nodes, data.edge_index, data.links.T)
-    data.degrees = torch.tensor(data.A.sum(axis=0, dtype=float), dtype=torch.float).flatten()
-    return data
 
 
 def parse_args() -> argparse.Namespace:
@@ -151,6 +94,10 @@ if __name__ == "__main__":
         splits, text, data = load_data_lp[cfg.data.name](cfg.data)
         data.edge_index = torch.cat([splits['train']['pos_edge_label_index'],
                                         splits['train']['neg_edge_label_index']], dim=1)
+        data = data.to(cfg.device)
+        splits['train'] = splits['train'].to(cfg.device)
+        splits['valid'] = splits['valid'].to(cfg.device)
+        splits['test'] = splits['test'].to(cfg.device)
         path = f'{os.path.dirname(__file__)}/{cfg.model.type}_{cfg.data.name}'
         print_logger = set_printing(cfg)
         print_logger.info(
@@ -159,31 +106,18 @@ if __name__ == "__main__":
             f"\n Valid: {2 * splits['train']['pos_edge_label'].shape[0]} samples,"
             f"\n Test: {2 * splits['test']['pos_edge_label'].shape[0]} samples")
         dump_cfg(cfg)
-        hyperparameter_search = {'hidden_channels': [128, 256, 512, 1024], 'num_layers': [2, 3],
-                                 "batch_size": [512, 1024], "lr": [0.01, 0.001, 0.0001],
-                                 'max_hash_hops': [2, 3], 'label_dropout': [0.1, 0.3, 0.5],
-                                 'feature_dropout': [0.1, 0.3, 0.5], 'sign_dropout': [0.1, 0.3, 0.5],}
+        hyperparameter_search = {'hidden_channels': [32, 64, 128, 256], 'num_layers': [3, 4, 5, 6],
+                                 "batch_size": [64, 128, 256, 512, 1024], "lr": [0.01, 0.001, 0.0001]}
         print_logger.info(f"hypersearch space: {hyperparameter_search}")
-        for hidden_channels, num_layers, batch_size, lr, max_hash_hops, label_dropout, feature_dropout, sign_dropout in tqdm(
-                itertools.product(*hyperparameter_search.values())):
+        for hidden_channels, num_layers, batch_size, lr in tqdm(itertools.product(*hyperparameter_search.values())):
             cfg.model.hidden_channels = hidden_channels
             cfg.train.batch_size = batch_size
             cfg.optimizer.lr = lr
             cfg.model.num_layers = num_layers
-            cfg.model.max_hash_hops = max_hash_hops
-            cfg.model.label_dropout = label_dropout
-            cfg.model.feature_dropout = feature_dropout
-            cfg.model.sign_dropout = sign_dropout
             print_logger.info(
                 f"hidden_channels: {hidden_channels}, num_layers: {num_layers}, batch_size: {batch_size}, lr: {lr}")
             start_time = time.time()
-            if cfg.model.type == 'BUDDY':
-                splits['train'] = hash_dataset(splits['train'])
-                splits['valid'] = hash_dataset(splits['valid'])
-                splits['test'] = hash_dataset(splits['test'])
-                model = BUDDY(cfg.model, data.num_features, node_embedding=None)
-            elif cfg.model.type == 'ELPH':
-                model = ELPH(cfg.model, data.num_features, node_embedding=None)
+            model = NBFNet(cfg.model.in_channels, [cfg.model.hidden_channels] * cfg.model.num_layers, num_relation = 1)
 
             optimizer = torch.optim.Adam(params=model.parameters(), lr=cfg.optimizer.lr, weight_decay=cfg.optimizer.weight_decay)
 
@@ -201,7 +135,7 @@ if __name__ == "__main__":
             print_logger.info(f'Run {run_id} with seed {seed} and split {split_index} on device {cfg.device}')
 
             # Execute experiment
-            trainer = Trainer_Subgraph_Sketching(FILE_PATH,
+            trainer = Trainer_NBFNet(FILE_PATH,
                                   cfg,
                                   model,
                                   optimizer,
@@ -226,8 +160,6 @@ if __name__ == "__main__":
 
             run_result.update(
                 {'hidden_channels': hidden_channels,' num_layers': num_layers, 'batch_size': batch_size,'lr': lr,
-                    'max_hash_hops': max_hash_hops, 'label_dropout': label_dropout, 'feature_dropout': feature_dropout,
-                    'sign_dropout': sign_dropout
                  })
             print_logger.info(run_result)
 
