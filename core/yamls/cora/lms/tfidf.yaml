@@ -1,4 +1,3 @@
-# line.yaml
 
 out_dir: results
 metric_best: acc
@@ -23,18 +22,21 @@ train:
   batch_size: 2048
   eval_period: 1
   epochs: 10000
-  device: 1
+  device: 'cpu'
   auto_resume: False
   final_eval: False
   finetune: False
 
-model:
-  type: GAE
-  out_channels: 32
-  in_channels: None
-  hidden_channels: 32
-
-num_threads: 11
+embedder:
+  type: TFIDF
+  max_features: 1000
+  ngram_range: (1, 1)
+  max_df: 0.8
+  min_df: 0.1
+  norm: l2
+  use_idf: True
+  smooth_idf: True
+  sublinear_tf: False
 
 data:
   name: cora
@@ -44,20 +46,22 @@ data:
   test_pct: 0.05
   split_labels: True
   num_features:  1433
-  device: 1
+  device: 0
   split_index: [0.8, 0.15, 0.05]
+
+
+decoder:
+  type: GAE
+  out_channels: 32
+  in_channels: None
+  hidden_channels: 32
+  out_channels: 1
+  num_layers: 3
+  dropout: 0.1
+
+num_threads: 11
 
 optimizer:
   type: adam
-  base_lr: 0.001
-  weight_decay: 0.0005
-
-
-sampler:
-  batch_size: 2048
-  walk_length: 20
-  num_steps: 30 
-  sample_coverage: 100
-
-  base_lr: 0.01
+  base_lr: 0.0001
   weight_decay: 0.0005

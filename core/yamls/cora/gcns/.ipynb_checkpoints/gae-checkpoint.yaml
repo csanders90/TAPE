@@ -5,13 +5,11 @@ metric_best: acc
 cfg_dest: gae.yaml
 print: file
 seed: 0
-accelerator: auto
 
 run:
   seed: 0
   num_threads: 11
   multiple_splits: None
-
 
 wandb:
   use: True
@@ -20,10 +18,10 @@ wandb:
 
 train:
   mode: custom
-  batch_size: 2048
+  batch_size: 1024 
   eval_period: 1
   epochs: 10000
-  device: 1
+  device: 0
   auto_resume: False
   final_eval: False
   finetune: False
@@ -31,8 +29,7 @@ train:
 model:
   type: GAE
   out_channels: 32
-  in_channels: None
-  hidden_channels: 32
+  in_channels: 1433
 
 num_threads: 11
 
@@ -44,20 +41,19 @@ data:
   test_pct: 0.05
   split_labels: True
   num_features:  1433
-  device: 1
+  device: 0
   split_index: [0.8, 0.15, 0.05]
 
 optimizer:
   type: adam
-  base_lr: 0.001
-  weight_decay: 0.0005
-
-
-sampler:
-  batch_size: 2048
-  walk_length: 20
-  num_steps: 30 
-  sample_coverage: 100
-
   base_lr: 0.01
   weight_decay: 0.0005
+  
+llm:
+  llm_embedding: True
+  batch_size: 4
+  model_type: shallow_embedding
+  model_name: tfidf
+  
+embedding_fine_tuning:
+    model_name: sentence-transformers/all-mpnet-base-v2 

@@ -25,6 +25,9 @@ import os
 import torch
 from torch.utils.tensorboard import SummaryWriter
 writer = SummaryWriter()
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
+FILE_PATH = f'{get_git_repo_root_path()}/'
+
 
 def create_GAE_model(cfg_model: CN, 
                        cfg_score: CN,
@@ -80,10 +83,8 @@ def create_GAE_model(cfg_model: CN,
 
     return GAE_forall(encoder=encoder, decoder=decoder) 
 
-os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 
 
-FILE_PATH = f'{get_git_repo_root_path()}/'
 
 def parse_args() -> argparse.Namespace:
     r"""Parses the command line arguments."""
@@ -153,8 +154,7 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
     loggers = create_logger(args.repeat)
     for run_id, seed, split_index in zip(*run_loop_settings(cfg, args)):
         print(f'run id : {run_id}')
-        # Set configurations for each run TODO clean code here 
-        # if args.wandb:
+
         id = wandb.util.generate_id()
         cfg.wandb.name_tag = f'{cfg.data.name}_run{id}_{args.model}'
 
@@ -180,7 +180,6 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
 
         dump_cfg(cfg)
 
-            
         print_logger.info(f"out : {eval(f'cfg.model.{args.model}.out_channels')}, hidden: {eval(f'cfg.model.{args.model}.hidden_channels')}")
         print_logger.info(f"bs : {cfg.train.batch_size}, lr: {cfg.optimizer.base_lr}")
         print_logger.info(f"The model {args.model} is initialized.")

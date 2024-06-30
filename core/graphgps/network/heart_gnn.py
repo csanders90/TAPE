@@ -214,7 +214,7 @@ class mlp_model(torch.nn.Module):
 
         x = self.lins[-1](x)
 
-        return x
+        return x.squeeze()
 
 
 class GIN_Variant(torch.nn.Module):
