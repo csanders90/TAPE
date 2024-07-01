@@ -76,15 +76,16 @@ def _preprocess_subgraph_features(num_nodes, edge_index, edges):
         if cfg.model.max_hash_hops == 3:
             subgraph_features[:, [11, 12]] = 0  # also need to get rid of (0, 2) and (2, 0)
     return subgraph_features
-def hash_dataset(data, splits):
-    data = data.cpu()
+def hash_dataset(splits):
+    data = splits.cpu()
     edge_weight = torch.ones(data.edge_index.size(1), dtype=float)
     edge_index = data.edge_index.cpu()
     edge_weight = edge_weight.cpu()
+    data.links = torch.cat([data['pos_edge_label_index'], data['neg_edge_label_index']], dim=1)
     data.A = ssp.csr_matrix((edge_weight, (edge_index[0], edge_index[1])),
                             shape=(data.num_nodes, data.num_nodes))
     data.x = _generate_sign_features(data, edge_index, edge_weight, cfg.model.sign_k)
-    data.subgraph_features = _preprocess_subgraph_features(data.num_nodes, data.edge_index, data.edge_index.T)
+    data.subgraph_features = _preprocess_subgraph_features(data.num_nodes, data.edge_index, data.links.T)
     data.degrees = torch.tensor(data.A.sum(axis=0, dtype=float), dtype=torch.float).flatten()
     return data
 
@@ -177,7 +178,9 @@ if __name__ == "__main__":
                 f"hidden_channels: {hidden_channels}, num_layers: {num_layers}, batch_size: {batch_size}, lr: {lr}")
             start_time = time.time()
             if cfg.model.type == 'BUDDY':
-                data = hash_dataset(data, splits)
+                splits['train'] = hash_dataset(splits['train'])
+                splits['valid'] = hash_dataset(splits['valid'])
+                splits['test'] = hash_dataset(splits['test'])
                 model = BUDDY(cfg.model, data.num_features, node_embedding=None)
             elif cfg.model.type == 'ELPH':
                 model = ELPH(cfg.model, data.num_features, node_embedding=None)

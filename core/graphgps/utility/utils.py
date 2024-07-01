@@ -21,6 +21,19 @@ import logging
 from yacs.config import CfgNode
 import torch 
 
+from sklearn.feature_extraction.text import TfidfVectorizer
+from transformers import AutoTokenizer, AutoModel
+from sentence_transformers import SentenceTransformer
+import torch.nn.functional as F
+from tqdm import tqdm
+from torch.utils.data import DataLoader, TensorDataset
+from openai import OpenAI
+from dotenv import load_dotenv
+from graphgps.finetuning import get_final_pretrained_ckpt
+from sklearn.feature_extraction.text import TfidfVectorizer
+
+load_dotenv()
+
 set_float = lambda result: float(result.split(' ± ')[0])
 
 def get_git_repo_root_path():
@@ -783,78 +796,134 @@ def create_scheduler(optimizer, scheduler_config):
         raise ValueError(f'Scheduler {scheduler_config.scheduler} not supported')
     return scheduler
 
-import os.path as osp
-def init_model_from_pretrained(model, pretrained_dir, freeze_pretrained=False) -> torch.Tensor:
-    # raise NotImplementedError #assign to constantin
-    # TODO start with torch.Embedding as preliminary step
-    """ Load the generated embedding from LLM to update data.x
+
+def use_pretrained_llm_embeddings(model_type: str, model_name: str, data: List[str], batch_size: int=4):
     
-    Step1: load themd
-    Step2: postprocessing to torch.Tensor in shape (num_nodes, n_dim)
-    num_nodes = data.x.shape[0]
-    n_dim = free to choose
-    Step3: Normalization 
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    if model_type == "sentence_embedding":
+        embeddings = sentence_transformer_embedding_generation(model_name, data)
+
+    elif model_type == "open_source":
+        embeddings = open_source_embedding_generation(model_name, device, data, batch_size)
+
+    elif model_type == "closed_source":
+        embeddings = close_source_embedding_generation(model_name, data)
+        
+    elif model_type == "shallow_embedding":
+        embeddings = shallow_embedding_generation(model_name, data)
+        
+    elif model_type == "fine_tuned_embedding":
+        embeddings = custom_model_embedding_generation(model_name, data)
+        
+    return embeddings
+            
+def sentence_transformer_embedding_generation(model_name: str, data: List[str]) -> torch.Tensor:
+    embedding_model = SentenceTransformer(model_name)
+    print("Start sentence embedding generation")
+    embeddings = torch.tensor(embedding_model.encode(data))
+    print("Embedding sentence generation completed")
+    return embeddings
     
-    Return 
-    """
 
+def open_source_embedding_generation(model_name: str, device: str, data: List[str], batch_size: int) -> torch.Tensor:
+    hf_token = os.getenv('HF_TOKEN')
+    tokenizer = AutoTokenizer.from_pretrained(model_name, token=hf_token)
+    tokenizer.pad_token = tokenizer.eos_token
+    device_ids = [i for i in range(torch.cuda.device_count())]
+    model = AutoModel.from_pretrained(model_name, token=hf_token)
+    if torch.cuda.device_count() > 1:
+        print(f"{torch.cuda.device_count()} GPUs in use!")
+        model = torch.nn.DataParallel(model)
 
+    model = model.to(device)
+    encoded_input = tokenizer(data, padding=True, truncation=True, return_tensors='pt').to(device)
+    input_ids = encoded_input['input_ids']
+    attention_mask = encoded_input['attention_mask']
 
-def negate_edge_index(edge_index, batch=None):
-    """Negate batched sparse adjacency matrices given by edge indices.
+    # Create a TensorDataset and DataLoader for batching
+    dataset = TensorDataset(input_ids, attention_mask)
+    dataloader = DataLoader(dataset, batch_size=batch_size)
 
-    Returns batched sparse adjacency matrices with exactly those edges that
-    are not in the input `edge_index` while ignoring self-loops.
+    all_embeddings = []
 
-    Implementation inspired by `torch_geometric.utils.to_dense_adj`
+    model.eval() 
+    with torch.no_grad():
+        for batch in tqdm(dataloader):
+            batch_input_ids, batch_attention_mask = [b.to(device) for b in batch]
+            model_output = model(input_ids=batch_input_ids, attention_mask=batch_attention_mask)
+            sentence_embeddings = mean_pooling(model_output, batch_attention_mask)
+            normalized_embeddings = F.normalize(sentence_embeddings, p=2, dim=1)
+            all_embeddings.append(normalized_embeddings)
+
+    embeddings = torch.cat(all_embeddings, dim=0)
+    return embeddings
+
+def close_source_embedding_generation(model_name: str, data: List[str]):
+    openai_api_key = os.getenv('OPENAI_API_KEY')
+    open_ai_client = OpenAI(api_key=openai_api_key)
+    embeddings = [] 
+    print("Start OpenAI embedding generation")
+    for text in tqdm(data):
+        response = open_ai_client.embeddings.create(
+            input=text,
+            model="text-embedding-3-small"
+        )
+        embeddings.append(response.data[0].embedding)
+    embeddings = torch.tensor(embeddings)
+    print("Embedding generation completed")
+    return embeddings
+
+def shallow_embedding_generation(model_name: str, data: List[str]) -> torch.Tensor:
+    if model_name == "tfidf":
+        vectorizer = TfidfVectorizer()
+        embeddings = torch.tensor(vectorizer.fit_transform(data).toarray(), dtype=torch.float32)
+    return embeddings
+
+def custom_model_embedding_generation(model_path: str, data: List[str]) -> torch.Tensor:
+    embedding_model = SentenceTransformer(model_path)
+    print("Start sentence embedding generation")
+    embeddings = torch.tensor(embedding_model.encode(data))
+    print("Embedding sentence generation completed")
+    return embeddings
+
+def mean_pooling(model_output, attention_mask):
+    token_embeddings = model_output[0] #First element of model_output contains all token embeddings
+    input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
+    return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(input_mask_expanded.sum(1), min=1e-9)
+        
+
+def init_model_from_pretrained(model, pretrained_dir, freeze_pretrained=False):
+    """ Copy model parameters from pretrained model except the prediction head.
 
     Args:
-        edge_index: The edge indices.
-        batch: Batch vector, which assigns each node to a specific example.
+        model: Initialized model with random weights.
+        pretrained_dir: Root directory of saved pretrained model.
+        freeze_pretrained: If True, do not finetune the loaded pretrained
+            parameters, train the prediction head only. If False, train all.
 
     Returns:
-        Complementary edge index.
+        Updated pytorch model object.
     """
+    ckpt_file = get_final_pretrained_ckpt(osp.join(pretrained_dir, '0', 'ckpt'))
+    logging.info(f"[*] Loading from pretrained model: {ckpt_file}")
 
-    if batch is None:
-        batch = edge_index.new_zeros(edge_index.max().item() + 1)
+    ckpt = torch.load(ckpt_file)
+    pretrained_dict = ckpt['model_state']
+    model_dict = model.state_dict()
 
-    batch_size = batch.max().item() + 1
-    one = batch.new_ones(batch.size(0))
-    num_nodes = scatter(one, batch,
-                        dim=0, dim_size=batch_size, reduce='add')
-    cum_nodes = torch.cat([batch.new_zeros(1), num_nodes.cumsum(dim=0)])
+    # Filter out prediction head parameter keys.
+    pretrained_dict = {k: v for k, v in pretrained_dict.items()
+                       if not k.startswith('post_mp')}
+    # Overwrite entries in the existing state dict.
+    model_dict.update(pretrained_dict)
+    # Load the new state dict.
+    model.load_state_dict(model_dict)
 
-    idx0 = batch[edge_index[0]]
-    idx1 = edge_index[0] - cum_nodes[batch][edge_index[0]]
-    idx2 = edge_index[1] - cum_nodes[batch][edge_index[1]]
-
-    negative_index_list = []
-    for i in range(batch_size):
-        n = num_nodes[i].item()
-        size = [n, n]
-        adj = torch.ones(size, dtype=torch.short,
-                         device=edge_index.device)
-
-        # Remove existing edges from the full N x N adjacency matrix
-        flattened_size = n * n
-        adj = adj.view([flattened_size])
-        _idx1 = idx1[idx0 == i]
-        _idx2 = idx2[idx0 == i]
-        idx = _idx1 * n + _idx2
-        zero = torch.zeros(_idx1.numel(), dtype=torch.short,
-                           device=edge_index.device)
-        scatter(zero, idx, dim=0, out=adj, reduce='mul')
-
-        # Convert to edge index format
-        adj = adj.view(size)
-        _edge_index = adj.nonzero(as_tuple=False).t().contiguous()
-        _edge_index, _ = remove_self_loops(_edge_index)
-        negative_index_list.append(_edge_index + cum_nodes[i])
-
-    edge_index_negative = torch.cat(negative_index_list, dim=1).contiguous()
-    return edge_index_negative
-
+    if freeze_pretrained:
+        for key, param in model.named_parameters():
+            if not key.startswith('post_mp'):
+                param.requires_grad = False
+    return model
 
 def flatten_dict(metrics):
     """Flatten a list of train/val/test metrics into one dict to send to wandb.
@@ -968,3 +1037,9 @@ def timeit(func):
         print(f'Time taken: {elapsed:.6f} seconds')
         return result
     return wrapper
+
+    if freeze_pretrained:
+        for key, param in model.named_parameters():
+            if not key.startswith('post_mp'):
+                param.requires_grad = False
+    return model

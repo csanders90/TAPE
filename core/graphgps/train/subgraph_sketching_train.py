@@ -112,11 +112,11 @@ class Trainer_Subgraph_Sketching(Trainer):
         for perm in PermIterator(self.device, links.shape[0], self.batch_size):
             self.optimizer.zero_grad()
             curr_links = links[perm]
-            batch_node_features = self.data.x[curr_links].to(self.device)
+            batch_node_features = self.train_data.x[curr_links].to(self.device)
             batch_emb = None
             RA = None
-            degrees = self.data.degrees[curr_links].to(self.device)
-            subgraph_features = self.data.subgraph_features[sample_indices[perm]].to(self.device)
+            degrees = self.train_data.degrees[curr_links].to(self.device)
+            subgraph_features = self.train_data.subgraph_features[sample_indices[perm]].to(self.device)
             logits = self.model(subgraph_features, batch_node_features, degrees[:, 0], degrees[:, 1], RA, batch_emb)
 
             loss = BCEWithLogitsLoss()(logits.view(-1), labels[perm].to(self.device))
@@ -153,10 +153,9 @@ class Trainer_Subgraph_Sketching(Trainer):
     def _evaluate(self, eval_data: Data):
 
         self.model.eval()
-        pos_train_edge = self.train_data['pos_edge_label_index'].T.to(self.device)
-        neg_train_edge = self.train_data['neg_edge_label_index'].T.to(self.device)
+        pos_train_edge = eval_data['pos_edge_label_index'].T.to(self.device)
+        neg_train_edge = eval_data['neg_edge_label_index'].T.to(self.device)
         links = torch.cat([pos_train_edge, neg_train_edge], dim=0)
-        labels = torch.cat([torch.ones(pos_train_edge.size(0)), torch.zeros(neg_train_edge.size(0))]).to(self.device)
 
 
         if self.model_name == 'ELPH':
@@ -165,9 +164,9 @@ class Trainer_Subgraph_Sketching(Trainer):
             y_pred = self.model.predictor(subgraph_features, node_features[links], None)
         elif self.model_name == 'BUDDY':
             RA = None
-            degrees = self.data.degrees[links].to(self.device)
-            subgraph_features = self.data.subgraph_features.to(self.device)
-            y_pred = self.model(subgraph_features, self.data.x[links], degrees[:, 0], degrees[:, 1], RA, None)
+            degrees = eval_data.degrees[links].to(self.device)
+            subgraph_features = eval_data.subgraph_features.to(self.device)
+            y_pred = self.model(subgraph_features, eval_data.x[links], degrees[:, 0], degrees[:, 1], RA, None)
 
 
         y_pred = y_pred.view(-1).cpu()

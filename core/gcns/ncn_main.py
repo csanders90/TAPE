@@ -2,6 +2,8 @@ import copy
 import os, sys
 
 from torch_sparse import SparseTensor
+from torch_geometric.graphgym import params_count
+
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import argparse
@@ -30,7 +32,7 @@ def parse_args() -> argparse.Namespace:
     r"""Parses the command line arguments."""
     parser = argparse.ArgumentParser(description='GraphGym')
     parser.add_argument('--cfg', dest='cfg_file', type=str, required=False,
-                        default='core/yamls/cora/gcns/ncn.yaml',
+                        default='core/yamls/cora/gcns/ncnc.yaml',
                         help='The configuration file path.')
 
     parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
@@ -83,6 +85,13 @@ if __name__ == "__main__":
     cfg = set_cfg(FILE_PATH, args.cfg_file)
     cfg.merge_from_list(args.opts)
 
+    cfg.data.name = args.data
+
+    cfg.data.device = args.device
+    cfg.model.device = args.device
+    cfg.device = args.device
+    cfg.train.epochs = args.epoch
+
     torch.set_num_threads(cfg.num_threads)
     batch_sizes = [cfg.train.batch_size]
 
@@ -106,7 +115,7 @@ if __name__ == "__main__":
             cfg = config_device(cfg)
             start = time.time()
             splits, __, data = load_data_lp[cfg.data.name](cfg.data)
-            print(f'loaded data ')
+
             data.edge_index = splits['train']['pos_edge_label_index']
             data = ncn_dataset(data, splits).to(cfg.device)
             path = f'{os.path.dirname(__file__)}/ncn_{cfg.data.name}'
@@ -151,3 +160,8 @@ if __name__ == "__main__":
             result_dict[key] = valid_test
 
         trainer.save_result(result_dict)
+
+        cfg.model.params = params_count(model)
+        print_logger.info(f'Num parameters: {cfg.model.params}')
+        trainer.finalize()
+        print_logger.info(f"Inference time: {trainer.run_result['eval_time']}")

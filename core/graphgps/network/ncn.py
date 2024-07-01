@@ -3,13 +3,16 @@ import sys
 from torch_geometric.nn import GCNConv
 import torch.nn as nn
 import torch
-from torch_sparse.matmul import spmm_max, spmm_mean, spmm_add
+from torch_sparse.matmul import spmm_max, spmm_mean, spmm_add # check
 from torch_sparse import SparseTensor
 import torch_sparse
 from torch_scatter import scatter_add
 from typing import Iterable, Final
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
+from graphgps.visualization.adj import (plot_coo_matrix, 
+                                        coo_matrix, 
+                                        construct_sparse_adj, 
+                                        coo_tensor_to_coo_matrix)
 from graphgps.utility.ncn import adjoverlap
 
 
@@ -81,6 +84,16 @@ class DropAdj(nn.Module):
         self.doscale = doscale # whether to rescale edge weight
 
     def forward(self, adj: SparseTensor) -> SparseTensor:
+        # visualize 
+        # adj_sparse = coo_tensor_to_coo_matrix(adj)
+        #  coo = adj.coo()
+        # row_indices = coo[0].numpy()
+        # col_indices =  coo[1].numpy()
+        # values = torch.ones(row_indices.shape[0])
+        # sparse_original = coo_matrix((values, (row_indices, col_indices)), shape=shape)
+        # shape = adj.sizes()
+        # plot_coo_matrix(adj_sparse, 'test')
+        # TODO visualize the adjacency matrix before and after the DropAdj
         if self.dp < 1e-6 or not self.training:
             return adj
         mask = torch.rand_like(adj.storage.col(), dtype=torch.float) > self.dp
@@ -141,7 +154,7 @@ class GCN(nn.Module):
         self.lins = nn.ModuleList()
         if "pure" in conv_fn:
             self.convs.append(convfn(hidden_channels, hidden_channels))
-            for i in range(num_layers - 1):
+            for _ in range(num_layers - 1):
                 self.lins.append(nn.Identity())
                 self.convs.append(convfn(hidden_channels, hidden_channels))
             self.lins.append(nn.Dropout(taildropout, True))
@@ -242,14 +255,25 @@ class CNLinkPredictor(nn.Module):
         xi = x[tar_ei[0]] # input features for the source node
         xj = x[tar_ei[1]] # input features for the target node
         x = x + self.xlin(x)
+        
         cn = adjoverlap(adj, adj, tar_ei, filled1, cnsampledeg=self.cndeg) # common neighbors
-        xcns = [spmm_add(cn, x)] # common neighbor features
+        xcns = [spmm_add(cn, x)] # common neighbor features #TODO 
         xij = self.xijlin(xi * xj)
 
-        xs = torch.cat(
-            [self.lin(self.xcnlin(xcn) * self.beta + xij) for xcn in xcns],
-            dim=-1)
-        return xs
+        return torch.cat(
+            [self.lin(self.xcnlin(xcn) * self.beta + xij) for xcn in xcns], dim=-1
+        )
+        # TODO visualize the node features
+        import matplotlib.pyplot as plt 
+        plt.figure(figsize=(12, 8))  # Adjust figsize as needed to fit your page
+        plt.imshow(x.detach().numpy(), cmap='viridis', aspect='auto')
+        plt.colorbar(label='Value')
+        plt.title('Heatmap of a 2708x256 Matrix')
+        plt.xlabel('Column Index')
+        plt.ylabel('Row Index')
+        plt.tight_layout() 
+        plt.savefig('heatmap.png')
+
 
     def forward(self, x, adj, tar_ei, filled1: bool = False):
         return self.multidomainforward(x, adj, tar_ei, filled1, [])
@@ -319,6 +343,7 @@ class IncompleteCN1Predictor(CNLinkPredictor):
         xj = x[tar_ei[1]]
         xij = xi * xj
         x = x + self.xlin(x)
+        
         if depth > 0.5:
             cn, cnres1, cnres2 = adjoverlap(
                 adj,
@@ -339,6 +364,7 @@ class IncompleteCN1Predictor(CNLinkPredictor):
                 ressampledeg=self.trainresdeg if self.training else self.testresdeg)
         xcns = [spmm_add(cn, x)]
 
+        # completion oder configuration
         if depth > 0.5:
             potcn1 = cnres1.coo()
             potcn2 = cnres2.coo()

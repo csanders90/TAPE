@@ -104,7 +104,7 @@ def compare_adj(data_name, data_edges):
 
 def plot_adj_sparse():
     """plot the adjacency matrix of a sparse matrix"""
-
+    raise NotImplementedError
 
 def plot_coo_matrix(m: coo_matrix, name: str):
     """
@@ -131,6 +131,17 @@ def plot_coo_matrix(m: coo_matrix, name: str):
     ax.set_yticks([])
     fig.savefig(name)
     return ax
+from torch_sparse import SparseTensor
+
+def coo_tensor_to_coo_matrix(coo_tensor: SparseTensor):
+    coo = coo_tensor.coo()
+    row_indices = coo[0].numpy()
+    col_indices = coo[1].numpy()
+    values = coo[2].numpy()
+    shape = coo_tensor.sizes()
+
+    # Create a scipy coo_matrix
+    return coo_matrix((values, (row_indices, col_indices)), shape=shape)
 
 
 def plot_pos_neg_adj(m_pos: coo_matrix, m_neg: coo_matrix, name: str):

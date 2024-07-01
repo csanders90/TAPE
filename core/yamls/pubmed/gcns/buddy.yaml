@@ -46,11 +46,11 @@ num_threads: 11
 wandb:
   use: True
   project: gtblueprint
-  name_tag: buddy-arxiv-2023
+  name_tag: buddy-pubmed
 
 
 data:
-  name: arxiv_2023
+  name: pubmed
   undirected: True
   include_negatives: True
   val_pct: 0.15
