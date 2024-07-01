@@ -36,8 +36,8 @@
 				// "cpu",
 				// "--epochs",
 				// "100",
-				"--embedder",
-				"tfidf"
+				// "--embedder",
+				// "tfidf"
 			],
 		}
 	]

@@ -26,13 +26,13 @@ cfg = set_cfg(FILE_PATH, args.cfg_file)
 cfg.merge_from_list(args.opts)
 custom_set_out_dir(cfg, args.cfg_file, cfg.wandb.name_tag)
 dump_cfg(cfg)
-
+# cfg = config_device(cfg)
 # Set Pytorch environment
 torch.set_num_threads(cfg.run.num_threads)
 
 loggers = create_logger(args.repeat)
 
-splits, text = load_data_lp[cfg.data.name](cfg.data)
+splits, text, data = load_data_lp[cfg.data.name](cfg.data)
 
 dataset = []
 pos_train_edge_index = splits['train'].pos_edge_label_index
