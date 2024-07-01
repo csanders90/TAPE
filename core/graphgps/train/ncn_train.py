@@ -26,7 +26,13 @@ from graphgps.utility.utils import config_device, Logger
 from typing import Dict, Tuple
 from graphgps.train.opt_train import (Trainer)
 from graphgps.utility.ncn import PermIterator
+
+import torch
 from torch.utils.tensorboard import SummaryWriter
+writer = SummaryWriter()
+
+from torch.utils.tensorboard import SummaryWriter
+
 
 writer = SummaryWriter()
 
@@ -112,6 +118,7 @@ class Trainer_NCN(Trainer):
                 pos_train_edge.device, non_blocking=True)
             adjmask[perm] = 1
             adj = adj.to_symmetric()
+            
             h = self.model(self.data.x, adj) # get the node embeddings
             edge = pos_train_edge[:, perm]
             pos_outs = self.predictor.multidomainforward(h, adj, edge) # get the prediction
@@ -127,7 +134,7 @@ class Trainer_NCN(Trainer):
         return total_loss
 
     def train(self):
-        best_auc, best_hits, best_hit100 = 0, 0, 0
+        best_auc, best_hits10, best_mrr = 0, 0, 0
         for epoch in range(1, self.epochs + 1):
             loss = self._train_ncn()
             self.tensorboard_writer.add_scalar("Loss/train", loss, epoch)
@@ -158,7 +165,7 @@ class Trainer_NCN(Trainer):
                 self.print_logger.info('---')
 
 
-        return best_auc, best_hits
+        return best_auc, best_hits10, best_mrr
 
     @torch.no_grad()
     def _test(self, data: Data):
