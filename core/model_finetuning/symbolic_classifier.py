@@ -25,12 +25,12 @@ from ogb.nodeproppred import Evaluator
 embedding_model_name = "tfidf"
 
 # Load datasets
-train_dataset = torch.load(f'./data/{embedding_model_name}_train_dataset.pt').numpy()
-train_labels = torch.load(f'./data/{embedding_model_name}_train_labels.pt').numpy()
-val_dataset = torch.load(f'./data/{embedding_model_name}_val_dataset.pt').numpy()
-val_labels = torch.load(f'./data/{embedding_model_name}_val_labels.pt').numpy()
-test_dataset = torch.load(f'./data/{embedding_model_name}_test_dataset.pt').numpy()
-test_labels = torch.load(f'./data/{embedding_model_name}_test_labels.pt').numpy()
+train_dataset = torch.load(f'./generated_dataset/{embedding_model_name}_train_dataset.pt').numpy()
+train_labels = torch.load(f'./generated_dataset/{embedding_model_name}_train_labels.pt').numpy()
+val_dataset = torch.load(f'./generated_dataset/{embedding_model_name}_val_dataset.pt').numpy()
+val_labels = torch.load(f'./generated_dataset/{embedding_model_name}_val_labels.pt').numpy()
+test_dataset = torch.load(f'./generated_dataset/{embedding_model_name}_test_dataset.pt').numpy()
+test_labels = torch.load(f'./generated_dataset/{embedding_model_name}_test_labels.pt').numpy()
 
 # Combine train and validation datasets for cross-validation
 X_train = np.concatenate((train_dataset, val_dataset), axis=0)

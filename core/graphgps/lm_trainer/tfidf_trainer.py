@@ -15,6 +15,8 @@ from torch.utils.data import DataLoader, Dataset
 import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
 from heuristic.eval import get_metric_score
+
+
 class Trainer_TFIDF():
     def __init__(self, 
                  FILE_PATH: str, 
@@ -123,32 +125,25 @@ class Trainer_TFIDF():
     
     @torch.no_grad()
     def _eval_tfidf(self, loader):
-       
+        all_preds = []
+        all_labels = [] 
         self.model.eval()
-        pos_pred =  []
-        neg_pred =  []
-        for embeddings, labels in loader:
-            embeddings = embeddings.to(self.device)
-            labels = labels.to(self.device).float()
-            outputs = self.model(embeddings)
+        with torch.no_grad():
+            for embeddings, labels in loader:
+                embeddings = embeddings.to(self.device)
+                labels = labels.to(self.device)
 
-            pos_pred.append(outputs[labels == 1].tolist())
-            neg_pred.append(outputs[labels == 0].tolist())
-        
-        try:
-            pos_pred = torch.Tensor(pos_pred).view(-1)
-            neg_pred = torch.Tensor(neg_pred).view(-1)
-        except:
-            pos_pred = torch.Tensor(pos_pred[0])
-            neg_pred = torch.Tensor(neg_pred[0])
-        
-        acc = self._acc(pos_pred, neg_pred)
-        
-        pos_pred, neg_pred = pos_pred.cpu(), neg_pred.cpu()
-        result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_pred, neg_pred)
-        result_mrr.update({'ACC': round(acc, 5)})
-    
-        return result_mrr
+                outputs = self.model(embeddings)
+                _, preds = torch.max(outputs, 1)
+                all_preds.extend(preds.cpu().numpy())
+                all_labels.extend(labels.cpu().numpy())
+                acc = self._acc(all_preds, all_labels)
+                
+                pos_pred, neg_pred = pos_pred.cpu(), neg_pred.cpu()
+                result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_pred, neg_pred)
+                result_mrr.update({'ACC': round(acc, 5)})
+            
+                return result_mrr
         
         
     def _acc(self, pos_pred, neg_pred):
