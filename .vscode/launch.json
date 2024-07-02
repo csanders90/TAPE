@@ -30,8 +30,8 @@
 			"justMyCode": true,
 			"python.tensorboard.logDirectory": "/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/gcns/runs", 
 			"args": [
-				// "--data",
-				// "cora",
+				"--data",
+				"arxiv_2023",
 				// "--device",
 				// "cpu",
 				// "--epochs",

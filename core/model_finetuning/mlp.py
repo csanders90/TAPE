@@ -169,11 +169,11 @@ def project_main():
         
         for key, result in results_rank.items():
             loggers[key].add_result(run_id, result)
-            
-        print(loggers[run_id].results)
+        st()
+
         
         for key in results_rank.keys():
-            print(loggers[key].calc_all_stats())
+            print(loggers[key].calc_run_stats(run_id))
         # clf = MLPClassifier(random_state=1, max_iter=300).fit(train_dataset, train_labels)
         # test_proba = clf.predict_proba(test_dataset)
         # test_pred = clf.predict(test_dataset)
