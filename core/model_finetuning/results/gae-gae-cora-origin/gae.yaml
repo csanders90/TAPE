@@ -13,6 +13,7 @@ data:
   test_pct: 0.05
   undirected: true
   val_pct: 0.15
+
 device: 0
 metric_best: acc
 model:
@@ -42,7 +43,9 @@ seed: 0
 train:
   auto_resume: false
   batch_size: 2048
+
   device: 0
+
   epochs: 10000
   eval_period: 1
   final_eval: false

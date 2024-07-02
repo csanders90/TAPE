@@ -1,5 +1,5 @@
 #!/bin/sh
-#SBATCH --time=1-00:00:00
+#SBATCH --time=02:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --partition=accelerated
@@ -9,6 +9,7 @@
 #SBATCH --output=log/TAG_Benchmark_%j.output
 #SBATCH --error=error/TAG_Benchmark_%j.error
 #SBATCH --gres=gpu:4
+#SBATCH --account=hk-project-test-p0022257  # specify the project group
 
 
 #SBATCH --chdir=/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/batch

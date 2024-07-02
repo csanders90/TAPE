@@ -9,7 +9,7 @@ import torch.nn as nn
 from tqdm import tqdm
 import torch.optim as optim
 import numpy as np
-
+from torch_geometric import seed_everything
 # Assuming other necessary imports from your script
 from graphgps.utility.utils import (
     set_cfg, parse_args, get_git_repo_root_path, Logger, custom_set_out_dir,
@@ -104,6 +104,7 @@ def process_texts(pos_edge_index, neg_edge_index, text):
     return dataset, labels
 
 def main():
+    # create dataset with 3 seeds
     embedding_model_name = "tfidf"
     file_path = f'{get_git_repo_root_path()}/'
     args = parse_args()
@@ -114,93 +115,100 @@ def main():
     cfg = config_device(cfg)
     torch.set_num_threads(cfg.run.num_threads)
     loggers = create_logger(args.repeat)
-    splits, text, data = load_data_lp[cfg.data.name](cfg.data)
+    cfg.data.name = args.data
+    
+    for run_id, seed, split_index in zip(*run_loop_settings(cfg, args)):
+        print(f'run id : {run_id}')
+        cfg.seed = seed
+        cfg.run_id = run_id
+        seed_everything(cfg.seed)
+        splits, text, data = load_data_lp[cfg.data.name](cfg.data)
 
-    if embedding_model_name == "tfidf":
-        train_dataset, train_labels = process_texts(
-            splits['train'].pos_edge_label_index, 
-            splits['train'].neg_edge_label_index, 
-            text
-        )
-        val_dataset, val_labels = process_texts(
-            splits['valid'].pos_edge_label_index, 
-            splits['valid'].neg_edge_label_index, 
-            text
-        )
-        test_dataset, test_labels = process_texts(
-            splits['test'].pos_edge_label_index, 
-            splits['test'].neg_edge_label_index, 
-            text
-        )
-        vectorizer = TfidfVectorizer()
-        train_dataset = vectorizer.fit_transform(train_dataset).toarray()
-        vectorizer.get_feature_names_out()
-        val_dataset = vectorizer.transform(val_dataset).toarray()
-        test_dataset = vectorizer.transform(test_dataset).toarray()
-    elif embedding_model_name == "word2vec":
-        sentences = [text[i].split() for i in range(len(text))]
-        word2vec_model = Word2Vec(sentences, vector_size=100, window=5, min_count=1, workers=4)
-        train_dataset, train_labels = process_edges(
-            splits['train'].pos_edge_label_index, 
-            splits['train'].neg_edge_label_index, 
-            text, 
-            word2vec_model, 
-            "word2vec"
-        )
-        val_dataset, val_labels = process_edges(
-            splits['valid'].pos_edge_label_index, 
-            splits['valid'].neg_edge_label_index, 
-            text, 
-            word2vec_model, 
-            "word2vec"
-        )
-        test_dataset, test_labels = process_edges(
-            splits['test'].pos_edge_label_index, 
-            splits['test'].neg_edge_label_index, 
-            text, 
-            word2vec_model, 
-            "word2vec"
-        )
-    else:
-        embedding_model = SentenceTransformer("sentence-transformers/all-mpnet-base-v2")
-        train_dataset, train_labels = process_edges(
-            splits['train'].pos_edge_label_index, 
-            splits['train'].neg_edge_label_index, 
-            text, 
-            embedding_model, 
-            "mpnet"
-        )
-        val_dataset, val_labels = process_edges(
-            splits['valid'].pos_edge_label_index, 
-            splits['valid'].neg_edge_label_index, 
-            text, 
-            embedding_model, 
-            "mpnet"
-        )
-        test_dataset, test_labels = process_edges(
-            splits['test'].pos_edge_label_index, 
-            splits['test'].neg_edge_label_index, 
-            text, 
-            embedding_model, 
-            "mpnet"
-        )
+        if embedding_model_name == "tfidf":
+            train_dataset, train_labels = process_texts(
+                splits['train'].pos_edge_label_index, 
+                splits['train'].neg_edge_label_index, 
+                text
+            )
+            val_dataset, val_labels = process_texts(
+                splits['valid'].pos_edge_label_index, 
+                splits['valid'].neg_edge_label_index, 
+                text
+            )
+            test_dataset, test_labels = process_texts(
+                splits['test'].pos_edge_label_index, 
+                splits['test'].neg_edge_label_index, 
+                text
+            )
+            vectorizer = TfidfVectorizer()
+            train_dataset = vectorizer.fit_transform(train_dataset).toarray()
+            vectorizer.get_feature_names_out()
+            val_dataset = vectorizer.transform(val_dataset).toarray()
+            test_dataset = vectorizer.transform(test_dataset).toarray()
+        elif embedding_model_name == "word2vec":
+            sentences = [text[i].split() for i in range(len(text))]
+            word2vec_model = Word2Vec(sentences, vector_size=100, window=5, min_count=1, workers=4)
+            train_dataset, train_labels = process_edges(
+                splits['train'].pos_edge_label_index, 
+                splits['train'].neg_edge_label_index, 
+                text, 
+                word2vec_model, 
+                "word2vec"
+            )
+            val_dataset, val_labels = process_edges(
+                splits['valid'].pos_edge_label_index, 
+                splits['valid'].neg_edge_label_index, 
+                text, 
+                word2vec_model, 
+                "word2vec"
+            )
+            test_dataset, test_labels = process_edges(
+                splits['test'].pos_edge_label_index, 
+                splits['test'].neg_edge_label_index, 
+                text, 
+                word2vec_model, 
+                "word2vec"
+            )
+        else:
+            embedding_model = SentenceTransformer("sentence-transformers/all-mpnet-base-v2")
+            train_dataset, train_labels = process_edges(
+                splits['train'].pos_edge_label_index, 
+                splits['train'].neg_edge_label_index, 
+                text, 
+                embedding_model, 
+                "mpnet"
+            )
+            val_dataset, val_labels = process_edges(
+                splits['valid'].pos_edge_label_index, 
+                splits['valid'].neg_edge_label_index, 
+                text, 
+                embedding_model, 
+                "mpnet"
+            )
+            test_dataset, test_labels = process_edges(
+                splits['test'].pos_edge_label_index, 
+                splits['test'].neg_edge_label_index, 
+                text, 
+                embedding_model, 
+                "mpnet"
+            )
 
-    # Convert to tensors
-    train_dataset = torch.tensor(train_dataset, dtype=torch.float32)
-    train_labels = torch.tensor(train_labels, dtype=torch.long)
-    val_dataset = torch.tensor(val_dataset, dtype=torch.float32)
-    val_labels = torch.tensor(val_labels, dtype=torch.long)
-    test_dataset = torch.tensor(test_dataset, dtype=torch.float32)
-    test_labels = torch.tensor(test_labels, dtype=torch.long)
+        # Convert to tensors
+        train_dataset = torch.tensor(train_dataset, dtype=torch.float64)
+        train_labels = torch.tensor(train_labels, dtype=torch.long)
+        val_dataset = torch.tensor(val_dataset, dtype=torch.float64)
+        val_labels = torch.tensor(val_labels, dtype=torch.long)
+        test_dataset = torch.tensor(test_dataset, dtype=torch.float64)
+        test_labels = torch.tensor(test_labels, dtype=torch.long)
 
-    # Save datasets
-    os.makedirs('./generated_dataset', exist_ok=True)
-    torch.save(train_dataset, f'./generated_dataset/{embedding_model_name}_train_dataset.pt')
-    torch.save(train_labels, f'./generated_dataset/{embedding_model_name}_train_labels.pt')
-    torch.save(val_dataset, f'./generated_dataset/{embedding_model_name}_val_dataset.pt')
-    torch.save(val_labels, f'./generated_dataset/{embedding_model_name}_val_labels.pt')
-    torch.save(test_dataset, f'./generated_dataset/{embedding_model_name}_test_dataset.pt')
-    torch.save(test_labels, f'./generated_dataset/{embedding_model_name}_test_labels.pt')
+        # Save datasets
+        os.makedirs(f'./generated_dataset/{cfg.data.name}/', exist_ok=True)
+        torch.save(train_dataset, f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_train_dataset.pt')
+        torch.save(train_labels, f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_train_labels.pt')
+        torch.save(val_dataset, f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_val_dataset.pt')
+        torch.save(val_labels, f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_val_labels.pt')
+        torch.save(test_dataset, f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_test_dataset.pt')
+        torch.save(test_labels, f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_test_labels.pt')
 
 if __name__ == "__main__":
     main()

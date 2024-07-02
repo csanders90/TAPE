@@ -26,7 +26,20 @@ import torch.optim as optim
 import numpy as np
 
 from heuristic.eval import get_metric_score
-from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
+from graphgps.lm_trainer.tfidf_trainer import Trainer_TFIDF
+from sklearn.linear_model import RidgeClassifier
+from sklearn.neural_network import MLPClassifier
+import argparse
+import wandb
+from pdb import set_trace as st 
+
+FILE_PATH = f'{get_git_repo_root_path()}/'
+
+yaml_file = {   
+             'tfidf': 'core/yamls/cora/lms/tfidf.yaml',
+             'word2vec': 'core/yamls/cora/lms/word2vec.yaml',
+             'bert': 'core/yamls/cora/gcns/heart_gnn_models.yaml',
+            }
 
 class EmbeddingDataset(Dataset):
     def __init__(self, embeddings, labels):
@@ -68,161 +81,100 @@ def init_weights(m):
         if m.bias is not None:
             torch.nn.init.zeros_(m.bias)
 
-# Sample dataset
-np.random.seed(0)
-torch.manual_seed(0)
 
+def parse_args() -> argparse.Namespace:
+    r"""Parses the command line arguments."""
+    parser = argparse.ArgumentParser(description='GraphGym')
+    parser.add_argument('--data', dest='data', type=str, required=True,
+                        default='pubmed',
+                        help='data name')
+    parser.add_argument('--device', dest='device', required=False, 
+                        help='device id')
+    parser.add_argument('--epochs', dest='epoch', type=int, required=False,
+                        default=400,
+                        help='data name')
+    parser.add_argument('--embedder', dest='embedder_type', type=str, required=False,
+                        default='tfidf',
+                        help='word embedding method')
+    parser.add_argument('--score', dest='score', type=str, required=False, default='mlp_score',
+                        help='decoder name')
+    parser.add_argument('--repeat', type=int, default=3,
+                        help='The number of repeated jobs.')
+    parser.add_argument('opts', default=None, nargs=argparse.REMAINDER,
+                        help='See graphgym/config.py for remaining options.')
+
+    return parser.parse_args()
+
+
+def project_main(): 
+    # process params
+    args = parse_args()
+    args.cfg_file = yaml_file[args.embedder_type]
+    cfg = set_cfg(FILE_PATH, args.cfg_file)
+    cfg.merge_from_list(args.opts)
+
+    cfg.data.name = args.data
     
-embedding_model_name = "tfidf"
+    cfg.data.device = args.device
+    cfg.decoder.device = args.device
+    cfg.device = args.device
+    cfg.train.epochs = args.epoch
+    cfg.embedder.type = args.embedder_type
+    evaluator_hit = Evaluator(name='ogbl-collab')
+    evaluator_mrr = Evaluator(name='ogbl-citation2')
 
+    custom_set_out_dir(cfg, args.cfg_file, cfg.wandb.name_tag)
+    # torch.set_num_threads(20)
+    loggers = create_logger(args.repeat)
+    for run_id, seed, split_index in zip(*run_loop_settings(cfg, args)):
+        print(f'run id : {run_id}')
+        # Set configurations for each run TODO clean code here 
+        train_dataset = torch.load(f'./generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_train_dataset.pt')
+        train_labels = torch.load(f'./generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_train_labels.pt')
+        val_dataset = torch.load(f'./generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_val_dataset.pt')
+        val_labels = torch.load(f'./generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_val_labels.pt')
+        test_dataset = torch.load(f'./generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_test_dataset.pt')
+        test_labels = torch.load(f'./generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_test_labels.pt')
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        clf = RidgeClassifier(tol=1e-2, solver="sparse_cg")
+        clf.fit(train_dataset, train_labels)
+        
+        test_pred = clf.predict(test_dataset)
+        test_acc = sum(np.asarray(test_labels) == test_pred ) / len(test_labels)    
+        y_pos_pred, y_neg_pred = torch.tensor(test_pred[test_labels == 1]), torch.tensor(test_pred[test_labels == 0])
+        test_metrics = get_metric_score(evaluator_hit, evaluator_mrr, y_pos_pred, y_neg_pred)
+        test_metrics.update({'ACC': round(test_acc, 4)})
+        
+        train_pred = clf.predict(train_dataset)
+        train_acc = sum(np.asarray(train_labels) == train_pred ) / len(train_labels)    
+        y_pos_pred, y_neg_pred = torch.tensor(train_pred[train_labels == 1]), torch.tensor(train_pred[train_labels == 0])
+        train_metrics = get_metric_score(evaluator_hit, evaluator_mrr, y_pos_pred, y_neg_pred)
+        train_metrics.update({'ACC': round(train_acc, 4)})
 
+        val_pred = clf.predict(val_dataset)
+        val_acc = sum(np.asarray(val_labels) == val_pred ) / len(val_labels)    
+        y_pos_pred, y_neg_pred = torch.tensor(val_pred[val_labels == 1]), torch.tensor(val_pred[val_labels == 0])
+        val_metrics = get_metric_score(evaluator_hit, evaluator_mrr, y_pos_pred, y_neg_pred)
+        val_metrics.update({'ACC': round(val_acc, 4)})
+        
+        print(f'Accuracy: {test_acc:.4f}')
+        print(f'metrics : {test_metrics}')
 
-# Convert to tensors
-train_dataset = torch.load(f'./generated_dataset/{embedding_model_name}_train_dataset.pt')
-train_labels = torch.load(f'./generated_dataset/{embedding_model_name}_train_labels.pt')
-val_dataset = torch.load(f'./generated_dataset/{embedding_model_name}_val_dataset.pt')
-val_labels = torch.load(f'./generated_dataset/{embedding_model_name}_val_labels.pt')
-test_dataset = torch.load(f'./generated_dataset/{embedding_model_name}_test_dataset.pt')
-test_labels = torch.load(f'./generated_dataset/{embedding_model_name}_test_labels.pt')
+        results_rank = {
+            key: (test_metrics[key], train_metrics[key], val_metrics[key])
+            for key in test_metrics.keys()
+        }
+        
+        for key, result in results_rank.items():
+            loggers[key].add_result(run_id, result)
+        st()
 
-from sklearn.linear_model import RidgeClassifier
-evaluator_hit = Evaluator(name='ogbl-collab')
-evaluator_mrr = Evaluator(name='ogbl-citation2')
-
-clf = RidgeClassifier(tol=1e-2, solver="sparse_cg")
-clf.fit(train_dataset, train_labels)
-test_pred = clf.predict(test_dataset)
-acc = sum(np.asarray(test_labels) == test_pred) / len(test_labels)    
-y_pos_pred, y_neg_pred = test_pred[test_labels == 1], test_pred[test_labels == 0]
-
-y_pos_pred, y_neg_pred = torch.tensor(y_pos_pred), torch.tensor(y_neg_pred)
-metrics = get_metric_score(evaluator_hit, evaluator_mrr, y_pos_pred, y_neg_pred)
-print('ridge classifcation')
-print(f'Accuracy: {acc:.4f}')
-print(f'metrics : {metrics}')
-
-from sklearn.neural_network import MLPClassifier
-clf = MLPClassifier(random_state=1, max_iter=300).fit(train_dataset, train_labels)
-test_proba = clf.predict_proba(test_dataset)
-test_pred = clf.predict(test_dataset)
-acc = clf.score(test_dataset, test_labels)
-
-y_pos_pred, y_neg_pred = test_pred[test_labels == 1], test_pred[test_labels == 0]
-
-y_pos_pred, y_neg_pred = torch.tensor(y_pos_pred), torch.tensor(y_neg_pred)
-metrics = get_metric_score(evaluator_hit, evaluator_mrr, y_pos_pred, y_neg_pred)
-print('mlp classifcation')
-print(f'Accuracy: {acc:.4f}')
-print(f'metrics : {metrics}')
-
-exit(-1)
-hidden_size = 1024
-learning_rate = 1e-5
-batch_size = 64
-patience = 5
-weight_decay = 1e-3
-num_epochs = 200
-
-train_dataloader = DataLoader(EmbeddingDataset(train_dataset, train_labels), batch_size=batch_size, shuffle=True)
-val_dataloader = DataLoader(EmbeddingDataset(val_dataset, val_labels), batch_size=batch_size, shuffle=False)
-test_dataloader = DataLoader(EmbeddingDataset(test_dataset, test_labels), batch_size=batch_size, shuffle=False)
-
-input_size = train_dataset.shape[1]
-num_classes = 2
-
-model = MLP(input_size, hidden_size, num_classes)
-model.apply(init_weights)
-model = model.to(device)
-
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
-scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=2, factor=0.5)
-
-best_f1_score = 0
-best_model_path = 'best_mlp_model.pth'
-early_stopping_counter = 0
-
-for epoch in range(num_epochs):
-    model.train()
-    total_loss = 0
-    for embeddings, labels in train_dataloader:
-        embeddings = embeddings.to(device)
-        labels = labels.to(device)
-
-        outputs = model(embeddings)
-        loss = criterion(outputs, labels)
-
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-        total_loss += loss.item()
-
-    model.eval()
-    val_loss = 0
-    val_correct = 0
-    val_total = 0
-    val_preds = []
-    val_targets = []
-    with torch.no_grad():
-        for batch in val_dataloader:
-            inputs, labels = batch
-            inputs = inputs.to(device)
-            labels = labels.to(device)
-
-            outputs = model(inputs)
-            loss = criterion(outputs, labels)
-            val_loss += loss.item()
-
-            _, predicted = torch.max(outputs.data, 1)
-            val_total += labels.size(0)
-            val_correct += (predicted == labels).sum().item()
-
-            val_preds.extend(predicted.cpu().numpy())
-            val_targets.extend(labels.cpu().numpy())
-
-    val_loss /= len(val_dataloader)
-    val_accuracy = val_correct / val_total
-    val_f1 = f1_score(val_targets, val_preds)
-
-    if val_f1 > best_f1_score:
-        best_f1_score = val_f1
-        torch.save(model.state_dict(), best_model_path)
-        early_stopping_counter = 0
-    else:
-        early_stopping_counter += 1
-
-    if early_stopping_counter >= patience:
-        print("Early stopping triggered")
-        break
-
-    scheduler.step(val_loss)
-
-    print(f'Epoch [{epoch+1}/{num_epochs}], Train Loss: {total_loss / len(train_dataloader):.4f}, Val Loss: {val_loss:.4f}, Val Accuracy: {val_accuracy:.4f}, Val F1 Score: {val_f1:.4f}')
-
-# Load the best model for evaluation
-model.load_state_dict(torch.load(best_model_path))
-model.eval()
-
-test_preds = []
-test_targets = []
-
-with torch.no_grad():
-    for embeddings, labels in test_dataloader:
-        embeddings = embeddings.to(device)
-        labels = labels.to(device)
-
-        outputs = model(embeddings)
-
-        _, predicted = torch.max(outputs.data, 1)
-
-        test_preds.extend(predicted.cpu().numpy())
-        test_targets.extend(labels.cpu().numpy())
-
-print(f'Accuracy: {accuracy_score(test_targets, test_preds):.4f}')
-print(f'ROC AUC: {roc_auc_score(test_targets, test_preds):.4f}')
-print('Confusion Matrix:')
-print(confusion_matrix(test_targets, test_preds))
-print('F1_score:', f1_score(test_targets, test_preds))
+        
+        for key in results_rank.keys():
+            print(loggers[key].calc_run_stats(run_id))
+        # clf = MLPClassifier(random_state=1, max_iter=300).fit(train_dataset, train_labels)
+        # test_proba = clf.predict_proba(test_dataset)
+        # test_pred = clf.predict(test_dataset)
+        # acc = clf.score(test_dataset, test_labels)
+if __name__ == '__main__':
+    project_main()
