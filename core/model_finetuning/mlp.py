@@ -171,8 +171,12 @@ def project_main():
 
         
         for key in results_rank.keys():
-            print(loggers[key].calc_run_stats(run_id))
-        # clf = MLPClassifier(random_state=1, max_iter=300).fit(train_dataset, train_labels)
+           print(loggers[key].calc_run_stats(run_id))
+        
+    for key in results_rank.keys():
+        print(loggers[key].calc_all_stats())
+        
+    # clf = MLPClassifier(random_state=1, max_iter=300).fit(train_dataset, train_labels)
         # test_proba = clf.predict_proba(test_dataset)
         # test_pred = clf.predict(test_dataset)
         # acc = clf.score(test_dataset, test_labels)
