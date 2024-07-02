@@ -9,15 +9,12 @@ import torch.nn as nn
 from tqdm import tqdm
 import torch.optim as optim
 import numpy as np
-from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
 # Assuming other necessary imports from your script
 from graphgps.utility.utils import (
     set_cfg, parse_args, get_git_repo_root_path, Logger, custom_set_out_dir,
     custom_set_run_dir, set_printing, run_loop_settings, create_optimizer,
     config_device, init_model_from_pretrained, create_logger, use_pretrained_llm_embeddings
 )
-import os, sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from sklearn.metrics import accuracy_score, roc_auc_score, confusion_matrix, f1_score
 import torch
@@ -27,8 +24,9 @@ import torch.nn as nn
 from tqdm import tqdm
 import torch.optim as optim
 import numpy as np
-from heuristic.eval import get_metric_score
 
+from heuristic.eval import get_metric_score
+from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
 
 class EmbeddingDataset(Dataset):
     def __init__(self, embeddings, labels):
@@ -90,11 +88,20 @@ test_dataset = torch.load(f'./generated_dataset/{embedding_model_name}_test_data
 test_labels = torch.load(f'./generated_dataset/{embedding_model_name}_test_labels.pt')
 
 from sklearn.linear_model import RidgeClassifier
+evaluator_hit = Evaluator(name='ogbl-collab')
+evaluator_mrr = Evaluator(name='ogbl-citation2')
 
 clf = RidgeClassifier(tol=1e-2, solver="sparse_cg")
 clf.fit(train_dataset, train_labels)
-pred = clf.predict(test_dataset)
-acc = sum(np.asarray(test_labels) == pred) / len(test_labels)    
+test_pred = clf.predict(test_dataset)
+acc = sum(np.asarray(test_labels) == test_pred) / len(test_labels)    
+y_pos_pred, y_neg_pred = test_pred[test_labels == 1], test_pred[test_labels == 0]
+
+y_pos_pred, y_neg_pred = torch.tensor(y_pos_pred), torch.tensor(y_neg_pred)
+metrics = get_metric_score(evaluator_hit, evaluator_mrr, y_pos_pred, y_neg_pred)
+print('ridge classifcation')
+print(f'Accuracy: {acc:.4f}')
+print(f'metrics : {metrics}')
 
 from sklearn.neural_network import MLPClassifier
 clf = MLPClassifier(random_state=1, max_iter=300).fit(train_dataset, train_labels)
@@ -103,10 +110,10 @@ test_pred = clf.predict(test_dataset)
 acc = clf.score(test_dataset, test_labels)
 
 y_pos_pred, y_neg_pred = test_pred[test_labels == 1], test_pred[test_labels == 0]
-evaluator_hit = Evaluator(name='ogbl-collab')
-evaluator_mrr = Evaluator(name='ogbl-citation2')
-metrics = get_metric_score(evaluator_hit, evaluator_mrr, y_pos_pred, y_neg_pred)
 
+y_pos_pred, y_neg_pred = torch.tensor(y_pos_pred), torch.tensor(y_neg_pred)
+metrics = get_metric_score(evaluator_hit, evaluator_mrr, y_pos_pred, y_neg_pred)
+print('mlp classifcation')
 print(f'Accuracy: {acc:.4f}')
 print(f'metrics : {metrics}')
 
