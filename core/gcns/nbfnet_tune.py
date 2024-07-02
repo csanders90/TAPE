@@ -106,16 +106,15 @@ if __name__ == "__main__":
             f"\n Valid: {2 * splits['train']['pos_edge_label'].shape[0]} samples,"
             f"\n Test: {2 * splits['test']['pos_edge_label'].shape[0]} samples")
         dump_cfg(cfg)
-        hyperparameter_search = {'hidden_channels': [32, 64, 128, 256], 'num_layers': [3, 4, 5, 6],
+        hyperparameter_search = {'hidden_channels': [32, 64, 128, 256],
                                  "batch_size": [64, 128, 256, 512, 1024], "lr": [0.01, 0.001, 0.0001]}
         print_logger.info(f"hypersearch space: {hyperparameter_search}")
-        for hidden_channels, num_layers, batch_size, lr in tqdm(itertools.product(*hyperparameter_search.values())):
+        for hidden_channels, batch_size, lr in tqdm(itertools.product(*hyperparameter_search.values())):
             cfg.model.hidden_channels = hidden_channels
             cfg.train.batch_size = batch_size
             cfg.optimizer.lr = lr
-            cfg.model.num_layers = num_layers
             print_logger.info(
-                f"hidden_channels: {hidden_channels}, num_layers: {num_layers}, batch_size: {batch_size}, lr: {lr}")
+                f"hidden_channels: {hidden_channels}, batch_size: {batch_size}, lr: {lr}")
             start_time = time.time()
             model = NBFNet(cfg.model.in_channels, [cfg.model.hidden_channels] * cfg.model.num_layers, num_relation = 1)
 
@@ -159,7 +158,7 @@ if __name__ == "__main__":
                     run_result[key] = test_bvalid
 
             run_result.update(
-                {'hidden_channels': hidden_channels,' num_layers': num_layers, 'batch_size': batch_size,'lr': lr,
+                {'hidden_channels': hidden_channels, 'batch_size': batch_size,'lr': lr,
                  })
             print_logger.info(run_result)
 
