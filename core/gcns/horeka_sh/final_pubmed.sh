@@ -9,6 +9,7 @@
 #SBATCH --output=log/TAG_Benchmark_%j.output
 #SBATCH --error=error/TAG_Benchmark_%j.error
 #SBATCH --gres=gpu:4
+#SBATCH --account=hk-project-test-p0022257  # specify the project group
 
 
 #SBATCH --chdir=/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/batch
@@ -17,7 +18,7 @@
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=cc7738@kit.edu
 
-source /hkfs/home/project/hk-project-test-p0021478/cc7738/anaconda3/etc/profile.d/conda.sh
+source /hkfs/home/project/hk-project-test-p0022257/cc7738/anaconda3/etc/profile.d/conda.sh
 
 conda activate base
 conda activate EAsF

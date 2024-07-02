@@ -96,25 +96,22 @@ def project_main():  # sourcery skip: avoid-builtin-shadow, hoist-statement-from
    
     # save params
     custom_set_out_dir(cfg, args.cfg_file, cfg.wandb.name_tag)
-
-    torch.set_num_threads(20)
-    
-    train_dataset = torch.load(f'./generated_dataset/{cfg.embedder.type}_train_dataset.pt')
-    train_labels = torch.load(f'./generated_dataset/{cfg.embedder.type}_train_labels.pt')
-    val_dataset = torch.load(f'./generated_dataset/{cfg.embedder.type}_val_dataset.pt')
-    val_labels = torch.load(f'./generated_dataset/{cfg.embedder.type}_val_labels.pt')
-    test_dataset = torch.load(f'./generated_dataset/{cfg.embedder.type}_test_dataset.pt')
-    test_labels = torch.load(f'./generated_dataset/{cfg.embedder.type}_test_labels.pt')
-
-    train_dataloader = DataLoader(EmbeddingDataset(train_dataset, train_labels), batch_size=cfg.train.batch_size, shuffle=True)
-    val_dataloader = DataLoader(EmbeddingDataset(val_dataset, val_labels), batch_size=cfg.train.batch_size, shuffle=False)
-    test_dataloader = DataLoader(EmbeddingDataset(test_dataset, test_labels), batch_size=cfg.train.batch_size, shuffle=False)
-
+    # torch.set_num_threads(20)
     loggers = create_logger(args.repeat)
     
     for run_id, seed, split_index in zip(*run_loop_settings(cfg, args)):
         print(f'run id : {run_id}')
         # Set configurations for each run TODO clean code here 
+        train_dataset = torch.load( f'./generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_train_dataset.pt')
+        train_labels = torch.load(f'./generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_train_labels.pt')
+        val_dataset = torch.load(f'./generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_val_dataset.pt')
+        val_labels = torch.load(f'./generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_val_labels.pt')
+        test_dataset = torch.load(f'./generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_test_dataset.pt')
+        test_labels = torch.load(f'./generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_test_labels.pt')
+
+        train_dataloader = DataLoader(EmbeddingDataset(train_dataset, train_labels), batch_size=cfg.train.batch_size, shuffle=True)
+        val_dataloader = DataLoader(EmbeddingDataset(val_dataset, val_labels), batch_size=cfg.train.batch_size, shuffle=False)
+        test_dataloader = DataLoader(EmbeddingDataset(test_dataset, test_labels), batch_size=cfg.train.batch_size, shuffle=False)
 
         wandb_id = wandb.util.generate_id()
         cfg.wandb.name_tag = f'{cfg.data.name}_run{wandb_id}_{args.embedder_type}{args.score}'

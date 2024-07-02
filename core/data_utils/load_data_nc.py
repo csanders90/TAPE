@@ -72,8 +72,7 @@ def load_text_arxiv23() -> List[str]:
 
 def load_tag_arxiv23() -> Tuple[Data, List[str]]:
     graph = load_graph_arxiv23()
-    # text = load_text_arxiv23()
-    text = None
+    text = load_text_arxiv23()
     train_id, val_id, test_id, train_mask, val_mask, test_mask = get_node_mask(graph.num_nodes)
     graph.train_id = train_id
     graph.val_id = val_id

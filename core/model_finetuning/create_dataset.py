@@ -116,6 +116,7 @@ def main():
     torch.set_num_threads(cfg.run.num_threads)
     loggers = create_logger(args.repeat)
     cfg.data.name = args.data
+    
     for run_id, seed, split_index in zip(*run_loop_settings(cfg, args)):
         print(f'run id : {run_id}')
         cfg.seed = seed
@@ -201,7 +202,7 @@ def main():
         test_labels = torch.tensor(test_labels, dtype=torch.long)
 
         # Save datasets
-        os.makedirs(f'./generated_dataset/{cfg.data.name}', exist_ok=True)
+        os.makedirs(f'./generated_dataset/{cfg.data.name}/', exist_ok=True)
         torch.save(train_dataset, f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_train_dataset.pt')
         torch.save(train_labels, f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_train_labels.pt')
         torch.save(val_dataset, f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_val_dataset.pt')
