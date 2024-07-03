@@ -169,8 +169,6 @@ def project_main():
         
         for key, result in results_rank.items():
             loggers[key].add_result(run_id, result)
-        st()
-
         
         for key in results_rank.keys():
            print(loggers[key].calc_run_stats(run_id))
