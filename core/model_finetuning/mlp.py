@@ -15,7 +15,7 @@ from graphgps.utility.utils import (
     custom_set_run_dir, set_printing, run_loop_settings, create_optimizer,
     config_device, init_model_from_pretrained, create_logger, use_pretrained_llm_embeddings
 )
-
+from embedding.tune_utils import mvari_str2csv
 from sklearn.metrics import accuracy_score, roc_auc_score, confusion_matrix, f1_score
 import torch
 from torch.utils.data import DataLoader, Dataset
@@ -24,7 +24,7 @@ import torch.nn as nn
 from tqdm import tqdm
 import torch.optim as optim
 import numpy as np
-
+from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
 from heuristic.eval import get_metric_score
 from graphgps.lm_trainer.tfidf_trainer import Trainer_TFIDF
 from sklearn.linear_model import RidgeClassifier
@@ -169,16 +169,24 @@ def project_main():
             loggers[key].add_result(run_id, result)
         st()
 
-        
         for key in results_rank.keys():
            print(loggers[key].calc_run_stats(run_id))
         
     for key in results_rank.keys():
         print(loggers[key].calc_all_stats())
         
+
+    root = os.path.join(FILE_PATH, cfg.out_dir)
+    acc_file = os.path.join(root, f'{cfg.data.name}_wb_acc_mrr.csv')
+
+    results_dict = {key: loggers[key].calc_all_stats() for key in results_rank.keys()}
+    os.makedirs(root, exist_ok=True)
+    name_tag = cfg.wandb.name_tag = f'{cfg.data.name}_run{id}_{args.model}'
+    mvari_str2csv(name_tag, results_dict, acc_file)
     # clf = MLPClassifier(random_state=1, max_iter=300).fit(train_dataset, train_labels)
-        # test_proba = clf.predict_proba(test_dataset)
-        # test_pred = clf.predict(test_dataset)
-        # acc = clf.score(test_dataset, test_labels)
+    # test_proba = clf.predict_proba(test_dataset)
+    # test_pred = clf.predict(test_dataset)
+    # acc = clf.score(test_dataset, test_labels)
+    
 if __name__ == '__main__':
     project_main()
