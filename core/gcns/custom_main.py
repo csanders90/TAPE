@@ -21,7 +21,7 @@ from torch_geometric.datasets import Planetoid
 from graphgps.train.opt_train import Trainer
 from graphgps.network.custom_gnn import create_model
 from data_utils.load import load_data_nc, load_data_lp
-from utils import set_cfg, parse_args, get_git_repo_root_path, Logger, custom_set_out_dir \
+from graphgps.utility.utils import set_cfg, parse_args, get_git_repo_root_path, Logger, custom_set_out_dir \
     , custom_set_run_dir, set_printing, run_loop_settings, create_optimizer, config_device, \
         init_model_from_pretrained, create_logger, use_pretrained_llm_embeddings
 

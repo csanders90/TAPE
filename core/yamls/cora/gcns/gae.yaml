@@ -6,7 +6,7 @@ cfg_dest: gae.yaml
 print: file
 seed: 0
 accelerator: auto
-
+device: 0
 run:
   seed: 0
   num_threads: 11
@@ -23,7 +23,7 @@ train:
   batch_size: 2048
   eval_period: 1
   epochs: 10000
-  device: 1
+  device: 0
   auto_resume: False
   final_eval: False
   finetune: False
@@ -44,7 +44,7 @@ data:
   test_pct: 0.05
   split_labels: True
   num_features:  1433
-  device: 1
+  device: 0
   split_index: [0.8, 0.15, 0.05]
 
 optimizer:
