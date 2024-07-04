@@ -141,8 +141,11 @@ def project_main():
         test_dataset = load_npz(f'{root}/generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_test_dataset.npz')
         test_labels = np.array(torch.load(f'{root}/generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_test_labels.npz'))
 
-        clf = RidgeClassifier(tol=1e-2, solver="sparse_cg")
-        clf.fit(train_dataset, train_labels)
+        if args.decoder == 'Ridge':
+            clf = RidgeClassifier(tol=1e-2, max_iter=10000, solver="sparse_cg")
+            clf.fit(train_dataset, train_labels)
+        elif args.decoder == 'MLP':
+            clf = MLPClassifier(random_state=run_id, max_iter=10000).fit(train_dataset, train_labels)  
 
         test_pred = clf.predict(test_dataset)
         test_acc = sum(np.asarray(test_labels) == test_pred ) / len(test_labels)
