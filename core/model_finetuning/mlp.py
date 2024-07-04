@@ -93,7 +93,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--epochs', dest='epoch', type=int, required=False,
                         default=400,
                         help='data name')
-    parser.add_argument('--embedder', dest='embedder_type', type=str, required=False,
+    parser.add_argument('--embedder', dest='embedder', type=str, required=False,
                         default='tfidf',
                         help='word embedding method')
     parser.add_argument('--score', dest='score', type=str, required=False, default='mlp_score',
@@ -109,7 +109,7 @@ def parse_args() -> argparse.Namespace:
 def project_main(): 
     # process params
     args = parse_args()
-    args.cfg_file = yaml_file[args.embedder_type]
+    args.cfg_file = yaml_file[args.embedder]
     cfg = set_cfg(FILE_PATH, args.cfg_file)
     cfg.merge_from_list(args.opts)
 
@@ -119,7 +119,7 @@ def project_main():
     cfg.decoder.device = args.device
     cfg.device = args.device
     cfg.train.epochs = args.epoch
-    cfg.embedder.type = args.embedder_type
+    cfg.embedder.type = args.embedder
     evaluator_hit = Evaluator(name='ogbl-collab')
     evaluator_mrr = Evaluator(name='ogbl-citation2')
 
@@ -129,12 +129,13 @@ def project_main():
     for run_id, seed, split_index in zip(*run_loop_settings(cfg, args)):
         print(f'run id : {run_id}')
         # Set configurations for each run TODO clean code here 
-        train_dataset = torch.load(f'./generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_train_dataset.pt')
-        train_labels = torch.load(f'./generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_train_labels.pt')
-        val_dataset = torch.load(f'./generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_val_dataset.pt')
-        val_labels = torch.load(f'./generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_val_labels.pt')
-        test_dataset = torch.load(f'./generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_test_dataset.pt')
-        test_labels = torch.load(f'./generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_test_labels.pt')
+        root = '/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/model_finetuning'
+        train_dataset = torch.load(root + f'/generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_train_dataset.pt')
+        train_labels = torch.load(root + f'/generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_train_labels.pt')
+        val_dataset = torch.load(root + f'/generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_val_dataset.pt')
+        val_labels = torch.load(root + f'/generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_val_labels.pt')
+        test_dataset = torch.load(root + f'/generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_test_dataset.pt')
+        test_labels = torch.load(root + f'/generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_test_labels.pt')
 
         clf = RidgeClassifier(tol=1e-2, solver="sparse_cg")
         clf.fit(train_dataset, train_labels)
@@ -180,7 +181,8 @@ def project_main():
 
     results_dict = {key: loggers[key].calc_all_stats() for key in results_rank.keys()}
     os.makedirs(root, exist_ok=True)
-    name_tag = cfg.wandb.name_tag = f'{cfg.data.name}_run{id}_{args.model}'
+    name_tag = cfg.wandb.name_tag = f'{cfg.data.name}_run{run_id}_{args.embedder}'
+    st()
     mvari_str2csv(name_tag, results_dict, acc_file)
     # clf = MLPClassifier(random_state=1, max_iter=300).fit(train_dataset, train_labels)
     # test_proba = clf.predict_proba(test_dataset)
