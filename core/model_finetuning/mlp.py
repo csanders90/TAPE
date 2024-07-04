@@ -129,12 +129,17 @@ def project_main():
     for run_id, seed, split_index in zip(*run_loop_settings(cfg, args)):
         print(f'run id : {run_id}')
         # Set configurations for each run TODO clean code here 
-        train_dataset = torch.load(f'./generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_train_dataset.pt')
-        train_labels = torch.load(f'./generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_train_labels.pt')
-        val_dataset = torch.load(f'./generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_val_dataset.pt')
-        val_labels = torch.load(f'./generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_val_labels.pt')
-        test_dataset = torch.load(f'./generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_test_dataset.pt')
-        test_labels = torch.load(f'./generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_test_labels.pt')
+        root = '/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen'
+        from scipy.sparse import load_npz
+        train_dataset = load_npz(f'{root}/generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_train_dataset.npz')
+        # train_dataset = torch.load(f'{root}/generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_train_dataset.npz')
+        train_labels = np.array(torch.load(f'{root}/generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_train_labels.npz'))
+        # val_dataset = torch.load(f'{root}/generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_val_dataset.npz')       
+        val_dataset = load_npz(f'{root}/generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_val_dataset.npz')
+        val_labels = np.array(torch.load(f'{root}/generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_val_labels.npz'))
+        # test_dataset = torch.load(f'{root}/generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_test_dataset.npz')
+        test_dataset = load_npz(f'{root}/generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_test_dataset.npz')
+        test_labels = np.array(torch.load(f'{root}/generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_test_labels.npz'))
 
         clf = RidgeClassifier(tol=1e-2, solver="sparse_cg")
         clf.fit(train_dataset, train_labels)
@@ -185,8 +190,8 @@ def project_main():
         run_result[key] = test_bvalid
     
     os.makedirs(root, exist_ok=True)
-    name_tag = cfg.wandb.name_tag = f'{cfg.data.name}_run{id}_{args.model}'
-    mvari_str2csv(name_tag, results_dict, acc_file)
+    name_tag = cfg.wandb.name_tag = f'{cfg.data.name}_run{run_id}_{args.embedder}'
+    mvari_str2csv(name_tag, run_result, acc_file)
     # clf = MLPClassifier(random_state=1, max_iter=300).fit(train_dataset, train_labels)
     # test_proba = clf.predict_proba(test_dataset)
     # test_pred = clf.predict(test_dataset)
