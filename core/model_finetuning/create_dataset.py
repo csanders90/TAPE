@@ -117,7 +117,7 @@ def main():
     cfg = config_device(cfg)
     torch.set_num_threads(cfg.run.num_threads)
     cfg.data.name = args.data
-    
+    cfg.seed = 3
     for run_id, seed, split_index in zip(*run_loop_settings(cfg, args)):
         print(f'run id : {run_id}')
         cfg.seed = seed

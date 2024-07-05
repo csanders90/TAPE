@@ -3,8 +3,6 @@
 #SBATCH --partition=cpuonly
 #SBATCH --job-name=gnn_wb
 
-
-
 #SBATCH --output=log/TAG_Benchmark_%j.output
 #SBATCH --error=error/TAG_Benchmark_%j.error
 
