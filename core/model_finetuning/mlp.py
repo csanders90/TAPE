@@ -86,7 +86,7 @@ def parse_args() -> argparse.Namespace:
     r"""Parses the command line arguments."""
     parser = argparse.ArgumentParser(description='GraphGym')
     parser.add_argument('--data', dest='data', type=str, required=True,
-                        default='pubmed',
+                        default='cora',
                         help='data name')
     parser.add_argument('--device', dest='device', required=False, 
                         help='device id')
@@ -100,8 +100,6 @@ def parse_args() -> argparse.Namespace:
                         default='MLP',
                         help='word embedding method')
     parser.add_argument('--score', dest='score', type=str, required=False, default='mlp_score',
-                        help='decoder name')
-    parser.add_argument('--decoder', dest='decoder', type=str, required=False, default='MLP',
                         help='decoder name')
     parser.add_argument('--repeat', type=int, default=3,
                         help='The number of repeated jobs.')
