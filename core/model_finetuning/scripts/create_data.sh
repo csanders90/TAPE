@@ -1,7 +1,7 @@
 #!/bin/sh
 #SBATCH --time=3-00:00:00
 #SBATCH --partition=cpuonly
-#SBATCH --job-name=gnn_wb
+#SBATCH --job-name=tfidf
 
 
 

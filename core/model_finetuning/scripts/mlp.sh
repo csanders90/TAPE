@@ -1,15 +1,12 @@
 #!/bin/sh
-#SBATCH --time=02:00:00
-#SBATCH --nodes=1
-#SBATCH --ntasks=1
-#SBATCH --partition=accelerated
-#SBATCH --job-name=cross_encoder
-#SBATCH --mem=50160mb
-#BATCH  --cpu-per-gpu=38
+#SBATCH --time=3-00:00:00
+#SBATCH --partition=cpuonly
+#SBATCH --job-name=gnn_wb
+
+
+
 #SBATCH --output=log/TAG_Benchmark_%j.output
 #SBATCH --error=error/TAG_Benchmark_%j.error
-#SBATCH --gres=gpu:4
-#SBATCH --account=hk-project-test-p0022257  # specify the project group
 
 
 #SBATCH --chdir=/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/batch
@@ -18,10 +15,10 @@
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=cc7738@kit.edu
 
-source /hkfs/home/project/hk-project-test-p0021478/cc7738/anaconda3/etc/profile.d/conda.sh
+source /hkfs/home/haicore/aifb/cc7738/anaconda3/etc/profile.d/conda.sh
 
 conda activate base
-conda activate TAG_LP
+conda activate ss
 # <<< conda initialize <<<
 module purge
 module load devel/cmake/3.18
@@ -32,4 +29,9 @@ module load compiler/gnu/12
 cd /hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/model_finetuning
 
 
-python cross_encoder.py
+for data in  cora arxiv_2023 pubmed ogbn-arxiv ogbn-products; do
+    python mlp.py --data $data --decoder MLP
+done
+for data in cora  arxiv_2023 pubmed ogbn-arxiv ogbn-products; do
+    python mlp.py --data $data --decoder Ridge
+done

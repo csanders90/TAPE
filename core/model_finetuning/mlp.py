@@ -52,28 +52,6 @@ class EmbeddingDataset(Dataset):
     def __getitem__(self, idx):
         return self.embeddings[idx], self.labels[idx]
     
-class MLP(nn.Module):
-    def __init__(self, input_size, hidden_size, num_classes):
-        super(MLP, self).__init__()
-        self.fc1 = nn.Linear(input_size, hidden_size)
-        self.fc2 = nn.Linear(hidden_size, hidden_size)
-        self.fc3 = nn.Linear(hidden_size, num_classes)
-        self.relu = nn.ReLU()
-        self.dropout = nn.Dropout(p=0.2)
-        self.bn1 = nn.BatchNorm1d(hidden_size)
-        self.bn2 = nn.BatchNorm1d(hidden_size)
-
-    def forward(self, x):
-        out = self.fc1(x)
-        out = self.bn1(out)
-        out = self.relu(out)
-        out = self.dropout(out)
-        out = self.fc2(out)
-        out = self.bn2(out)
-        out = self.relu(out)
-        out = self.dropout(out)
-        out = self.fc3(out)
-        return out
 
 def init_weights(m):
     if isinstance(m, nn.Linear):
@@ -86,7 +64,7 @@ def parse_args() -> argparse.Namespace:
     r"""Parses the command line arguments."""
     parser = argparse.ArgumentParser(description='GraphGym')
     parser.add_argument('--data', dest='data', type=str, required=True,
-                        default='pubmed',
+                        default='cora',
                         help='data name')
     parser.add_argument('--device', dest='device', required=False, 
                         help='device id')
@@ -101,9 +79,7 @@ def parse_args() -> argparse.Namespace:
                         help='word embedding method')
     parser.add_argument('--score', dest='score', type=str, required=False, default='mlp_score',
                         help='decoder name')
-    parser.add_argument('--decoder', dest='decoder', type=str, required=False, default='MLP',
-                        help='decoder name')
-    parser.add_argument('--repeat', type=int, default=3,
+    parser.add_argument('--repeat', type=int, default=5,
                         help='The number of repeated jobs.')
     parser.add_argument('opts', default=None, nargs=argparse.REMAINDER,
                         help='See graphgym/config.py for remaining options.')
@@ -132,7 +108,6 @@ def project_main():
     custom_set_out_dir(cfg, args.cfg_file, cfg.wandb.name_tag)
     # torch.set_num_threads(20)
     loggers = create_logger(args.repeat)
-    
     for run_id, seed, split_index in zip(*run_loop_settings(cfg, args)):
         print(f'run id : {run_id}')
         # Set configurations for each run TODO clean code here 
@@ -152,7 +127,7 @@ def project_main():
             clf = RidgeClassifier(tol=1e-2, max_iter=10000, solver="sparse_cg")
             clf.fit(train_dataset, train_labels)
         elif args.decoder == 'MLP':
-            clf = MLPClassifier(random_state=run_id, max_iter=10000).fit(train_dataset, train_labels)  
+            clf = MLPClassifier(random_state=run_id, max_iter=100).fit(train_dataset, train_labels)  
 
         test_pred = clf.predict(test_dataset)
         test_acc = sum(np.asarray(test_labels) == test_pred ) / len(test_labels)

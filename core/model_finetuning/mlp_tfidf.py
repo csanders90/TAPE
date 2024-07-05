@@ -59,7 +59,7 @@ def parse_args() -> argparse.Namespace:
                         help='word embedding method')
     parser.add_argument('--score', dest='score', type=str, required=False, default='mlp_score',
                         help='decoder name')
-    parser.add_argument('--repeat', type=int, default=3,
+    parser.add_argument('--repeat', type=int, default=5,
                         help='The number of repeated jobs.')
     parser.add_argument('opts', default=None, nargs=argparse.REMAINDER,
                         help='See graphgym/config.py for remaining options.')
@@ -77,7 +77,23 @@ class EmbeddingDataset(Dataset):
     def __getitem__(self, idx):
         return self.embeddings[idx], self.labels[idx]
    
-   
+    
+
+class MLP(nn.Module):
+    def __init__(self, input_dim, hidden_dim, output_dim):
+        super(MLP, self).__init__()
+        self.model = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, output_dim)
+        )
+
+    def forward(self, x):
+        return self.model(x)
+    
+
 def project_main():  # sourcery skip: avoid-builtin-shadow, hoist-statement-from-loop
 
     # process params
@@ -130,13 +146,16 @@ def project_main():  # sourcery skip: avoid-builtin-shadow, hoist-statement-from
         )
 
         dump_cfg(cfg)
-        in_channels = train_dataset.shape[1]
-
-        model = mlp_model(in_channels, 
-                            cfg.decoder.hidden_channels, 
-                            cfg.decoder.out_channels, 
-                            cfg.decoder.num_layers,
-                            cfg.decoder.dropout).to(cfg.device)
+        # model = mlp_model(in_channels, 
+        #                     cfg.decoder.hidden_channels, 
+        #                     cfg.decoder.out_channels, 
+        #                     cfg.decoder.num_layers,
+        #                     cfg.decoder.dropout).to(cfg.device)
+        input_dim = train_dataset.shape[1]
+        hidden_dim = 128
+        output_dim = len(np.unique(train_labels))
+        model = MLP(input_dim, hidden_dim, output_dim).to(cfg.device)
+        
         model = model.to(cfg.device)
 
         print_logger.info(f"{model} on {next(model.parameters()).device}" )
