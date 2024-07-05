@@ -30,5 +30,5 @@ cd /hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/model_finetu
 
 
 for data in arxiv_2023 pubmed cora ogbn-arxiv ogbn-products; do
-    python create_dataset.py --data $data
+    python create_dataset.py --data $data arxiv_2023
 done

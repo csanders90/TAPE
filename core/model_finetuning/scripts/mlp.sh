@@ -1,6 +1,6 @@
 #!/bin/sh
 #SBATCH --time=8:00:00
-#SBATCH --partition=normal
+#SBATCH --partition=cpuonly #normal 
 #SBATCH --job-name=tfidf-mlp
 
 
