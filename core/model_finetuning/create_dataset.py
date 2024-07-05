@@ -143,6 +143,7 @@ def main():
             )
             
             vectorizer = TfidfVectorizer()
+
             os.makedirs(f'./generated_dataset/{cfg.data.name}/', exist_ok=True)
             train_dataset = vectorizer.fit_transform(train_dataset)
             ssp.save_npz(f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_train_dataset.npz', train_dataset)
@@ -157,7 +158,7 @@ def main():
             ssp.save_npz(f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_test_dataset.npz', test_dataset)  
             torch.save(test_labels, f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_test_labels.npz')          
             del test_dataset
-            
+
         elif embedding_model_name == "word2vec":
             sentences = [text[i].split() for i in range(len(text))]
             word2vec_model = Word2Vec(sentences, vector_size=100, window=5, min_count=1, workers=4)
@@ -206,12 +207,13 @@ def main():
                 "mpnet"
             )
 
-        # # Convert to tensors
-        # train_dataset = torch.tensor(train_dataset, dtype=torch.float64)
+
+        # Convert to tensors
+        # train_dataset = torch.tensor(train_dataset, dtype=torch.float32)
         # train_labels = torch.tensor(train_labels, dtype=torch.long)
-        # val_dataset = torch.tensor(val_dataset, dtype=torch.float64)
+        # val_dataset = torch.tensor(val_dataset, dtype=torch.float32)
         # val_labels = torch.tensor(val_labels, dtype=torch.long)
-        # test_dataset = torch.tensor(test_dataset, dtype=torch.float64)
+        # test_dataset = torch.tensor(test_dataset, dtype=torch.float32)
         # test_labels = torch.tensor(test_labels, dtype=torch.long)
 
         # # Save datasets

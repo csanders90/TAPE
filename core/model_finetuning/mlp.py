@@ -101,6 +101,8 @@ def parse_args() -> argparse.Namespace:
                         help='word embedding method')
     parser.add_argument('--score', dest='score', type=str, required=False, default='mlp_score',
                         help='decoder name')
+    parser.add_argument('--decoder', dest='decoder', type=str, required=False, default='MLP',
+                        help='decoder name')
     parser.add_argument('--repeat', type=int, default=3,
                         help='The number of repeated jobs.')
     parser.add_argument('opts', default=None, nargs=argparse.REMAINDER,
@@ -125,7 +127,8 @@ def project_main():
     cfg.embedder.type = args.embedder
     evaluator_hit = Evaluator(name='ogbl-collab')
     evaluator_mrr = Evaluator(name='ogbl-citation2')
-    cfg.out_dir = 'results/tfidf'
+    
+    
     custom_set_out_dir(cfg, args.cfg_file, cfg.wandb.name_tag)
     # torch.set_num_threads(20)
     loggers = create_logger(args.repeat)
@@ -169,11 +172,9 @@ def project_main():
         val_metrics = get_metric_score(evaluator_hit, evaluator_mrr, y_pos_pred, y_neg_pred)
         val_metrics.update({'ACC': round(val_acc, 4)})
 
-        print(f'Accuracy: {test_acc:.4f}')
-        print(f'metrics : {test_metrics}')
 
         results_rank = {
-            key: (test_metrics[key], train_metrics[key], val_metrics[key])
+            key: (train_metrics[key], val_metrics[key], test_metrics[key])
             for key in test_metrics.keys()
         }
 
@@ -186,7 +187,7 @@ def project_main():
     for key in results_rank.keys():
         print(loggers[key].calc_all_stats())
 
-
+    cfg.out_dir = 'results/tfidf'
     root = os.path.join(FILE_PATH, cfg.out_dir)
     acc_file = os.path.join(root, f'{cfg.data.name}_lm_mrr.csv')
 
@@ -199,10 +200,7 @@ def project_main():
     os.makedirs(root, exist_ok=True)
     name_tag = cfg.wandb.name_tag = f'{cfg.data.name}_run{run_id}_{args.embedder}'
     mvari_str2csv(name_tag, run_result, acc_file)
-    # clf = MLPClassifier(random_state=1, max_iter=300).fit(train_dataset, train_labels)
-    # test_proba = clf.predict_proba(test_dataset)
-    # test_pred = clf.predict(test_dataset)
-    # acc = clf.score(test_dataset, test_labels)
+
     
 if __name__ == '__main__':
     project_main()
