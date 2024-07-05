@@ -38,7 +38,7 @@ FILE_PATH = f'{get_git_repo_root_path()}/'
 yaml_file = {   
              'tfidf': 'core/yamls/cora/lms/tfidf.yaml',
              'word2vec': 'core/yamls/cora/lms/word2vec.yaml',
-             'bert': 'core/yamls/cora/gcns/heart_gnn_models.yaml',
+             'bert': 'core/yamls/cora/gcns/todo.yaml',
             }
 
 class EmbeddingDataset(Dataset):
@@ -95,6 +95,9 @@ def parse_args() -> argparse.Namespace:
                         help='data name')
     parser.add_argument('--embedder', dest='embedder', type=str, required=False,
                         default='tfidf',
+                        help='word embedding method')
+    parser.add_argument('--decoder', dest='decoder', type=str, required=False,
+                        default='MLP',
                         help='word embedding method')
     parser.add_argument('--score', dest='score', type=str, required=False, default='mlp_score',
                         help='decoder name')
