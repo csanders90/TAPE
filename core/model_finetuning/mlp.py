@@ -129,6 +129,7 @@ def project_main():
     custom_set_out_dir(cfg, args.cfg_file, cfg.wandb.name_tag)
     # torch.set_num_threads(20)
     loggers = create_logger(args.repeat)
+    
     for run_id, seed, split_index in zip(*run_loop_settings(cfg, args)):
         print(f'run id : {run_id}')
         # Set configurations for each run TODO clean code here 

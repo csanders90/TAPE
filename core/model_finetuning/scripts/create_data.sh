@@ -26,7 +26,7 @@ module load devel/cuda/11.8
 module load compiler/gnu/12
 
 
-cd /hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/model_finetuning
+# cd /hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/model_finetuning
 
 
 for data in arxiv_2023 pubmed cora ogbn-arxiv ogbn-products; do
