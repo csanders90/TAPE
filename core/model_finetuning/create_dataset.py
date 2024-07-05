@@ -141,8 +141,10 @@ def main():
                 text
             )
             vectorizer = TfidfVectorizer()
+            from pdb import set_trace as st
+            st()
             train_dataset = vectorizer.fit_transform(train_dataset).toarray()
-            vectorizer.get_feature_names_out()
+            # vectorizer.get_feature_names_out()
             val_dataset = vectorizer.transform(val_dataset).toarray()
             test_dataset = vectorizer.transform(test_dataset).toarray()
         elif embedding_model_name == "word2vec":
@@ -194,11 +196,11 @@ def main():
             )
 
         # Convert to tensors
-        train_dataset = torch.tensor(train_dataset, dtype=torch.float64)
+        train_dataset = torch.tensor(train_dataset, dtype=torch.float32)
         train_labels = torch.tensor(train_labels, dtype=torch.long)
-        val_dataset = torch.tensor(val_dataset, dtype=torch.float64)
+        val_dataset = torch.tensor(val_dataset, dtype=torch.float32)
         val_labels = torch.tensor(val_labels, dtype=torch.long)
-        test_dataset = torch.tensor(test_dataset, dtype=torch.float64)
+        test_dataset = torch.tensor(test_dataset, dtype=torch.float32)
         test_labels = torch.tensor(test_labels, dtype=torch.long)
 
         # Save datasets
