@@ -79,9 +79,12 @@ def parse_args() -> argparse.Namespace:
                         help='word embedding method')
     parser.add_argument('--score', dest='score', type=str, required=False, default='mlp_score',
                         help='decoder name')
+
     parser.add_argument('--max_iter', dest='max_iter', type=int, required=False, default=1000,
                         help='decoder name')
+
     parser.add_argument('--repeat', type=int, default=5,
+
                         help='The number of repeated jobs.')
     parser.add_argument('opts', default=None, nargs=argparse.REMAINDER,
                         help='See graphgym/config.py for remaining options.')
