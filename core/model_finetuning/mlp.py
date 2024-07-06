@@ -79,6 +79,8 @@ def parse_args() -> argparse.Namespace:
                         help='word embedding method')
     parser.add_argument('--score', dest='score', type=str, required=False, default='mlp_score',
                         help='decoder name')
+    parser.add_argument('--max_iter', dest='max_iter', type=int, required=False, default=1000,
+                        help='decoder name')
     parser.add_argument('--repeat', type=int, default=5,
                         help='The number of repeated jobs.')
     parser.add_argument('opts', default=None, nargs=argparse.REMAINDER,
@@ -86,6 +88,20 @@ def parse_args() -> argparse.Namespace:
 
     return parser.parse_args()
 
+def get_metrics(clf, dataset, labels, evaluator_hit, evaluator_mrr):
+    # Predict and calculate accuracy
+    pred = clf.predict(dataset)
+    acc = np.mean(np.asarray(labels) == pred)
+    
+    # Calculate positive and negative predictions
+    y_pos_pred = torch.tensor(pred[labels == 1])
+    y_neg_pred = torch.tensor(pred[labels == 0])
+    
+    # Get additional metrics
+    metrics = get_metric_score(evaluator_hit, evaluator_mrr, y_pos_pred, y_neg_pred)
+    metrics.update({'ACC': round(acc, 4)})
+    
+    return metrics
 
 def project_main(): 
     # process params
@@ -111,7 +127,7 @@ def project_main():
     for run_id, seed, split_index in zip(*run_loop_settings(cfg, args)):
         print(f'run id : {run_id}')
         # Set configurations for each run TODO clean code here 
-        root = '/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen'
+        root = '/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/model_finetuning'
         from scipy.sparse import load_npz
         train_dataset = load_npz(f'{root}/generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_train_dataset.npz')
         # train_dataset = torch.load(f'{root}/generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_train_dataset.npz')
@@ -124,28 +140,23 @@ def project_main():
         test_labels = np.array(torch.load(f'{root}/generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_test_labels.npz'))
 
         if args.decoder == 'Ridge':
-            clf = RidgeClassifier(tol=1e-2, max_iter=10000, solver="sparse_cg")
-            clf.fit(train_dataset, train_labels)
+            clf = RidgeClassifier(tol=1e-2, max_iter=args.max_iter, solver="sparse_cg")
         elif args.decoder == 'MLP':
-            clf = MLPClassifier(random_state=run_id, max_iter=100).fit(train_dataset, train_labels)  
+            clf = MLPClassifier(random_state=run_id, max_iter=args.max_iter)
+        
+        # clf.fit(train_dataset, train_labels)  
+        classes = np.unique(train_labels)
+        for i in range(args.max_iter):
+            clf.partial_fit(train_dataset, train_labels, classes=classes)
+        
+        # Calculate and print metrics for test set
+        test_metrics = get_metrics(clf, test_dataset, test_labels, evaluator_hit, evaluator_mrr)
 
-        test_pred = clf.predict(test_dataset)
-        test_acc = sum(np.asarray(test_labels) == test_pred ) / len(test_labels)
-        y_pos_pred, y_neg_pred = torch.tensor(test_pred[test_labels == 1]), torch.tensor(test_pred[test_labels == 0])
-        test_metrics = get_metric_score(evaluator_hit, evaluator_mrr, y_pos_pred, y_neg_pred)
-        test_metrics.update({'ACC': round(test_acc, 4)})
+        # Calculate and print metrics for train set
+        train_metrics = get_metrics(clf, train_dataset, train_labels, evaluator_hit, evaluator_mrr)
 
-        train_pred = clf.predict(train_dataset)
-        train_acc = sum(np.asarray(train_labels) == train_pred ) / len(train_labels)
-        y_pos_pred, y_neg_pred = torch.tensor(train_pred[train_labels == 1]), torch.tensor(train_pred[train_labels == 0])
-        train_metrics = get_metric_score(evaluator_hit, evaluator_mrr, y_pos_pred, y_neg_pred)
-        train_metrics.update({'ACC': round(train_acc, 4)})
-
-        val_pred = clf.predict(val_dataset)
-        val_acc = sum(np.asarray(val_labels) == val_pred ) / len(val_labels)
-        y_pos_pred, y_neg_pred = torch.tensor(val_pred[val_labels == 1]), torch.tensor(val_pred[val_labels == 0])
-        val_metrics = get_metric_score(evaluator_hit, evaluator_mrr, y_pos_pred, y_neg_pred)
-        val_metrics.update({'ACC': round(val_acc, 4)})
+        # Calculate and print metrics for validation set
+        val_metrics = get_metrics(clf, val_dataset, val_labels, evaluator_hit, evaluator_mrr)
 
 
         results_rank = {
