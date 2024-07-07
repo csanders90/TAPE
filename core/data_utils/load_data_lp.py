@@ -21,7 +21,8 @@ from data_utils.load_data_nc import load_tag_cora, load_tag_pubmed, \
     load_tag_arxiv23, load_graph_cora, load_graph_pubmed, \
     load_graph_arxiv23, load_graph_ogbn_arxiv, load_text_cora, \
     load_text_pubmed, load_text_arxiv23, load_text_ogbn_arxiv, \
-    load_text_product
+    load_text_product, load_text_citeseer, load_text_citationv8, \
+    load_graph_citeseer, load_graph_citationv8
 
 from graphgps.utility.utils import get_git_repo_root_path, config_device, init_cfg_test
 from graphgps.utility.utils import time_logger
@@ -146,26 +147,70 @@ def load_taglp_pubmed(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
                             )
     return splits, text, data
 
+def load_taglp_citeseer(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
+    # add one default argument
+
+    data = load_graph_citeseer()
+    text = load_text_citeseer()
+    undirected = data.is_directed()
+
+    splits = get_edge_split(data,
+                            undirected,
+                            cfg.device,
+                            cfg.split_index[1],
+                            cfg.split_index[2],
+                            cfg.include_negatives,
+                            cfg.split_labels
+                            )
+    return splits, text, data
+
+def load_taglp_citationv8(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
+    # add one default argument
+
+    data = load_graph_citationv8()
+    text = load_text_citationv8()
+    undirected = data.is_directed()
+
+    splits = get_edge_split(data,
+                            undirected,
+                            cfg.device,
+                            cfg.split_index[1],
+                            cfg.split_index[2],
+                            cfg.include_negatives,
+                            cfg.split_labels
+                            )
+    return splits, text, data
+
 
 # TEST CODE
 if __name__ == '__main__':
     args = init_cfg_test()
     print(args)
-    data, text, __  = load_taglp_arxiv2023(args.data)
+    '''data, text, __  = load_taglp_arxiv2023(args.data)
     print(data)
     print(type(text))
     data, text = load_taglp_cora(args.data)
     print(data)
     print(type(text))
 
-    data, text = load_taglp_ogbn_arxiv(args.data)
-    print(data)
-    print(type(text))
+    
 
     data, text = load_taglp_product(args.data)
     print(data)
     print(type(text))
 
     data, text = load_taglp_pubmed(args.data)
+    print(data)
+    print(type(text))'''
+
+    splits, text, data = load_taglp_citeseer(args.data)
+    print(data)
+    print(type(text))
+
+    splits, text, data = load_taglp_citationv8(args.data)
+    print(data)
+    print(type(text))
+
+    splits, text, data = load_taglp_ogbn_arxiv(args.data)
     print(data)
     print(type(text))
