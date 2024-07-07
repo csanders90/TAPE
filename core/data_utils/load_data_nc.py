@@ -1,6 +1,6 @@
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
+import dgl
 import torch
 import pandas as pd
 import numpy as np
@@ -419,7 +419,7 @@ def load_graph_ogbn_arxiv(use_mask):
             
 
 def load_tag_ogbn_arxiv() -> List[str]:
-    graph = load_graph_ogbn_arxiv()
+    graph = load_graph_ogbn_arxiv(False)
     text = load_text_ogbn_arxiv()
     return graph, text
 
@@ -436,15 +436,69 @@ def load_tag_product() -> Tuple[Data, List[str]]:
     return data, text
 
 
+def load_graph_citationv8() -> Data:
+    graph = dgl.load_graphs(FILE_PATH + 'core/dataset/citationv8/Citation-2015.pt')[0][0]
+    graph = dgl.to_bidirected(graph)
+    from torch_geometric.utils import from_dgl
+    graph = from_dgl(graph)
+    return graph
+
+
+def load_text_citationv8() -> List[str]:
+    df = pd.read_csv(FILE_PATH + 'core/dataset/citationv8_orig/Citation-2015.csv')
+    return [
+        f'Text: {ti}\n'
+        for ti in zip(df['text'])
+    ]
+
+
+def load_tag_citationv8() -> Tuple[Data, List[str]]:
+    graph = load_graph_citationv8()
+    text = None
+    train_id, val_id, test_id, train_mask, val_mask, test_mask = get_node_mask(graph.num_nodes)
+    graph.train_id = train_id
+    graph.val_id = val_id
+    graph.test_id = test_id
+    graph.train_mask = train_mask
+    graph.val_mask = val_mask
+    graph.test_mask = test_mask
+    return graph, text
+
+
+def load_graph_citeseer() -> Data:
+    # load data
+    data_name = 'CiteSeer'
+    dataset = Planetoid('./generated_dataset', data_name, transform=T.NormalizeFeatures())
+    data = dataset[0]
+    return data
+
+
+def load_text_citeseer() -> List[str]:
+
+    return None
+
+
+def load_tag_citeseer() -> Tuple[Data, List[str]]:
+    graph = load_graph_citeseer()
+    text = load_text_citeseer()
+    return graph, text
+
+
 # Test code
 if __name__ == '__main__':
+    graph = load_graph_citeseer()
+    print(type(graph))
+    graph, text = load_tag_citeseer()
+    print(type(text))
+
+
     graph = load_graph_arxiv23()
     # print(type(graph))
     graph, text = load_tag_arxiv23()
     print(type(graph))
     print(type(text))
 
-    graph, _ = load_graph_cora(True)
+    '''graph, _ = load_graph_cora(True)
     # print(type(graph))
     graph, text = load_tag_cora()
     print(type(graph))
@@ -461,4 +515,9 @@ if __name__ == '__main__':
     graph = load_graph_pubmed()
     graph, text = load_tag_pubmed()
     print(type(graph))
+    print(type(text))'''
+
+    graph = load_graph_citationv8()
+    print(type(graph))
+    graph, text = load_tag_citationv8()
     print(type(text))

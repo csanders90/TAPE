@@ -133,8 +133,15 @@ class Trainer_NeoGNN(Trainer):
             pos_loss = -torch.log(pos_out_feat_large + 1e-15).mean()
             neg_loss = -torch.log(1 - neg_out_feat_large + 1e-15).mean()
             loss2 = pos_loss + neg_loss
-            pos_loss = -torch.log(pos_out + 1e-15).mean()
-            neg_loss = -torch.log(1 - neg_out + 1e-15).mean()
+            eps = 1e-15  # Small constant to avoid log(0)
+
+            # Clamp the outputs to avoid log(0) or log(1 - 1) issues
+            pos_out = torch.clamp(pos_out, min=eps, max=1 - eps)
+            neg_out = torch.clamp(neg_out, min=eps, max=1 - eps)
+
+            # Calculate the losses
+            pos_loss = -torch.log(pos_out).mean()
+            neg_loss = -torch.log(1 - neg_out).mean()
             loss3 = pos_loss + neg_loss
             loss = loss1 + loss2 + loss3
             loss.backward()
@@ -147,7 +154,6 @@ class Trainer_NeoGNN(Trainer):
             total_loss += loss.item() * num_examples
             total_examples += num_examples
             count += 1
-
         return total_loss / total_examples
 
     def train(self):
@@ -181,63 +187,55 @@ class Trainer_NeoGNN(Trainer):
 
         return best_auc, best_hits
 
-    @torch.no_grad()
-    def _test(self, data: Data):
-        self.model.eval()
-        self.predictor.eval()
-        pos_edge = data['pos_edge_label_index'].to(self.device)
-        neg_edge = data['neg_edge_label_index'].to(self.device)
-        pos_pred,_,_,_ = self.model(pos_edge, self.data, self.data.A, self.predictor, emb=self.data.emb.weight)
-        pos_pred = pos_pred.squeeze()
-        neg_pred,_,_,_ = self.model(neg_edge, self.data, self.data.A, self.predictor, emb=self.data.emb.weight)
-        neg_pred = neg_pred.squeeze()
-
-        y_pred = torch.cat([pos_pred, neg_pred], dim=0)
-        hard_thres = (y_pred.max() + y_pred.min()) / 2
-        pos_y = torch.ones(pos_edge.size(1))
-        neg_y = torch.zeros(neg_edge.size(1))
-        y_true = torch.cat([pos_y, neg_y], dim=0)
-        '''self.save_pred(y_pred, y_true, data)'''
-
-        y_pred = torch.where(y_pred >= hard_thres, torch.tensor(1), torch.tensor(0))
-
-        y_true = y_true.clone().detach()
-        y_pred = y_pred.clone().detach()
-
-        y_pred, y_true = y_pred.detach().cpu().numpy(), y_true.detach().cpu().numpy()
-        fpr, tpr, thresholds = roc_curve(y_true, y_pred, pos_label=1)
-        return roc_auc_score(y_true, y_pred), average_precision_score(y_true, y_pred), auc(fpr, tpr)
 
     @torch.no_grad()
     def _evaluate(self, eval_data: Data):
-
         self.model.eval()
         self.predictor.eval()
+
         pos_edge = eval_data['pos_edge_label_index'].to(self.device)
         neg_edge = eval_data['neg_edge_label_index'].to(self.device)
-        pos_pred, _, _, _ = self.model(pos_edge, self.data, self.data.A, self.predictor, emb=self.data.emb.weight)
-        pos_pred = pos_pred.squeeze()
-        neg_pred, _, _, _ = self.model(neg_edge, self.data, self.data.A, self.predictor, emb=self.data.emb.weight)
-        neg_pred = neg_pred.squeeze()
+
+        pos_pred_list, neg_pred_list = [], []
+
+        with torch.no_grad():
+            for perm in DataLoader(range(pos_edge.size(1)), self.batch_size, shuffle=True):
+                # Positive edge prediction
+                edge = pos_edge[:, perm].to(self.device)
+                pos_pred, _, _, _ = self.model(edge, self.data, self.data.A, self.predictor, emb=self.data.emb.weight)
+                pos_pred = pos_pred.squeeze()
+                pos_pred_list.append(pos_pred.cpu())
+
+                # Negative edge prediction
+                edge = neg_edge[:, perm].to(self.device)
+                neg_pred, _, _, _ = self.model(edge, self.data, self.data.A, self.predictor, emb=self.data.emb.weight)
+                neg_pred = neg_pred.squeeze()
+                neg_pred_list.append(neg_pred.cpu())
+
+        # Concatenate predictions and create labels
+        pos_pred = torch.cat(pos_pred_list, dim=0)
+        neg_pred = torch.cat(neg_pred_list, dim=0)
         y_pred = torch.cat([pos_pred, neg_pred], dim=0)
+
         hard_thres = (y_pred.max() + y_pred.min()) / 2
-        pos_y = torch.ones(pos_edge.size(1))
-        neg_y = torch.zeros(neg_edge.size(1))
+
+        # Create true labels
+        pos_y = torch.ones(pos_pred.size(0))
+        neg_y = torch.zeros(neg_pred.size(0))
         y_true = torch.cat([pos_y, neg_y], dim=0)
-        '''self.save_pred(y_pred, y_true, eval_data)'''
 
-        pos_pred, neg_pred = y_pred[y_true == 1].cpu(), y_pred[y_true == 0].cpu()
-        y_pred = torch.where(y_pred >= hard_thres, torch.tensor(1), torch.tensor(0))
+        # Convert predictions to binary labels
+        y_pred_binary = torch.where(y_pred >= hard_thres, torch.tensor(1), torch.tensor(0))
 
-        y_true = y_true.clone().detach().cpu()
-        y_pred = y_pred.clone().detach().cpu()
+        # Move to CPU for evaluation
+        y_true = y_true.cpu()
+        y_pred_binary = y_pred_binary.cpu()
 
+        acc = torch.sum(y_true == y_pred_binary).item() / len(y_true)
 
-
-        acc = torch.sum(y_true == y_pred) / len(y_true)
-
+        # Assuming get_metric_score is defined elsewhere and computes metrics
         result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_pred, neg_pred)
-        result_mrr.update({'ACC': round(acc.tolist(), 5)})
+        result_mrr.update({'ACC': round(acc, 5)})
 
         return result_mrr
 

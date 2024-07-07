@@ -8,16 +8,22 @@ from data_utils.load_data_nc import (load_tag_cora,
                                      load_tag_product, 
                                      load_tag_ogbn_arxiv, 
                                      load_tag_product, 
-                                     load_tag_arxiv23)
+                                     load_tag_arxiv23,
+                                     load_tag_citeseer,
+                                     load_tag_citationv8)
 from data_utils.load_data_lp import (load_taglp_arxiv2023, 
                                     load_taglp_cora, 
                                     load_taglp_pubmed, 
                                     load_taglp_product, 
-                                    load_taglp_ogbn_arxiv)
+                                    load_taglp_ogbn_arxiv,
+                                    load_taglp_citeseer,
+                                     load_taglp_citationv8)
 from data_utils.load_data_lp import (load_graph_cora, 
                                      load_graph_arxiv23,
                                      load_graph_ogbn_arxiv,
-                                     load_graph_pubmed)
+                                     load_graph_pubmed,
+                                     load_graph_citeseer,
+                                     load_graph_citationv8)
 
 # TODO standarize the input and output
 load_data_nc = {
@@ -26,6 +32,8 @@ load_data_nc = {
     'arxiv_2023': load_tag_arxiv23,
     'ogbn-arxiv': load_tag_ogbn_arxiv,
     'ogbn-products': load_tag_product,
+    'citeseer': load_tag_citeseer,
+    'citationv8': load_tag_citationv8,
 }
 
 load_data_lp = {
@@ -34,6 +42,8 @@ load_data_lp = {
     'arxiv_2023': load_taglp_arxiv2023,
     'ogbn-arxiv': load_taglp_ogbn_arxiv,
     'ogbn-products': load_taglp_product,
+    'citeseer': load_taglp_citeseer,
+    'citationv8': load_taglp_citationv8,
 }
 
 load_graph_lp = {
@@ -41,6 +51,8 @@ load_graph_lp = {
     'pubmed': load_graph_pubmed,
     'arxiv_2023': load_graph_arxiv23,
     'ogbn-arxiv': load_graph_ogbn_arxiv,
+    'citeseer': load_graph_citeseer,
+    'citationv8': load_graph_citationv8,
 }
 
 
