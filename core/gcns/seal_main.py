@@ -13,8 +13,6 @@ import argparse
 import torch
 import scipy.sparse as ssp
 from torch_geometric import seed_everything
-from torch_geometric.graphgym.utils.device import auto_select_device
-from torch_geometric.data import InMemoryDataset, Dataset
 
 from graphgps.train.seal_train import Trainer_SEAL
 from graphgps.network.heart_gnn import DGCNN
@@ -25,7 +23,8 @@ from graphgps.utility.utils import (
     set_printing, 
     run_loop_settings, 
     create_logger,
-    config_device
+    config_device,
+    save_run_results_to_csv
 )
 
 from graphgps.encoder.seal import (
@@ -75,8 +74,10 @@ def parse_args() -> argparse.Namespace:
                         help='decoder name')
     parser.add_argument('--wandb', dest='if_wandb', required=False, 
                         help='data name')
-    parser.add_argument('--repeat', type=int, default=3,
+    parser.add_argument('--repeat', type=int, default=5,
                         help='The number of repeated jobs.')
+    parser.add_argument('--start_seed', type=int, default=0,
+                        help='The number of starting seed.')
     parser.add_argument('--mark_done', action='store_true',
                         help='Mark yaml as done after a job has finished.')
     parser.add_argument('opts', default=None, nargs=argparse.REMAINDER,
@@ -105,120 +106,120 @@ if __name__ == "__main__":
     best_acc = 0
     best_params = {}
     loggers = create_logger(args.repeat)
-    for batch_size in batch_sizes:
-        for run_id, seed, split_index in zip(
-                *run_loop_settings(cfg, args)):
-            custom_set_run_dir(cfg, run_id)
-            set_printing(cfg)
-            cfg.seed = seed
-            cfg.run_id = run_id
-            cfg = config_device(cfg)
-            seed_everything(cfg.seed)
-            if cfg.data.name == 'pubmed':
-                data = load_graph_pubmed(False)
-            elif cfg.data.name == 'cora':
-                data, _ = load_graph_cora(False)
-            elif cfg.data.name == 'arxiv_2023':
-                data, _ = load_tag_arxiv23()
-            elif cfg.data.name == 'ogbn-arxiv':
-                data = load_graph_ogbn_arxiv(False)
-            # i am not sure your split shares the same format with mine please visualize it and redo for the old split
-            splits = do_ogb_edge_split(copy.deepcopy(data), cfg.data.val_pct, cfg.data.test_pct)
-            
-            path = f'{os.path.dirname(__file__)}/seal_{cfg.data.name}'
-            dataset = {}
-            print_logger = set_printing(cfg)
-            
-            if cfg.train.dynamic_train == True:
-                dataset['train'] = SEALDynamicDataset(
-                    path,
-                    data,
-                    splits,
-                    num_hops=cfg.model.num_hops,
-                    split='train',
-                    node_label= cfg.model.node_label,
-                    directed=not cfg.data.undirected,
-                )
-                dataset['valid'] = SEALDynamicDataset(
-                    path,
-                    data,
-                    splits,
-                    num_hops=cfg.model.num_hops,
-                    split='valid',
-                    node_label= cfg.model.node_label,
-                    directed=not cfg.data.undirected,
-                )
-                dataset['test'] = SEALDynamicDataset(
-                    path,
-                    data,
-                    splits,
-                    num_hops=cfg.model.num_hops,
-                    split='test',
-                    node_label= cfg.model.node_label,
-                    directed=not cfg.data.undirected,
-                )
-            else:
-                dataset['train'] = SEALDataset(
-                    path,
-                    data,
-                    splits,
-                    num_hops=cfg.model.num_hops,
-                    split='train',
-                    node_label= cfg.model.node_label,
-                    directed=not cfg.data.undirected,
-                )
-                dataset['valid'] = SEALDataset(
-                    path,
-                    data,
-                    splits,
-                    num_hops=cfg.model.num_hops,
-                    split='valid',
-                    node_label= cfg.model.node_label,
-                    directed=not cfg.data.undirected,
-                )
-                dataset['test'] = SEALDataset(
-                    path,
-                    data,
-                    splits,
-                    num_hops=cfg.model.num_hops,
-                    split='test',
-                    node_label= cfg.model.node_label,
-                    directed=not cfg.data.undirected,
-                )
-            model = DGCNN(cfg.model.hidden_channels, cfg.model.num_layers, cfg.model.max_z, cfg.model.k,
-                          dataset['train'], False, use_feature=True)
-            optimizer = torch.optim.Adam(model.parameters(), lr=cfg.optimizer.base_lr)
+    for run_id in range(args.repeat):
+        seed = run_id + args.start_seed
+        custom_set_run_dir(cfg, run_id)
+        set_printing(cfg)
+        cfg.seed = seed
+        cfg.run_id = run_id
+        cfg = config_device(cfg)
+        seed_everything(cfg.seed)
+        if cfg.data.name == 'pubmed':
+            data = load_graph_pubmed(False)
+        elif cfg.data.name == 'cora':
+            data, _ = load_graph_cora(False)
+        elif cfg.data.name == 'arxiv_2023':
+            data, _ = load_tag_arxiv23()
+        elif cfg.data.name == 'ogbn-arxiv':
+            data = load_graph_ogbn_arxiv(False)
+        # i am not sure your split shares the same format with mine please visualize it and redo for the old split
+        splits = do_ogb_edge_split(copy.deepcopy(data), cfg.data.val_pct, cfg.data.test_pct)
 
-            trainer = Trainer_SEAL(FILE_PATH,
-                                   cfg,
-                                   model,
-                                   None,
-                                   optimizer,
-                                   dataset,
-                                   run_id,
-                                   args.repeat,
-                                   loggers,
-                                   print_logger,
-                                   cfg.device,
-                                   args.if_wandb)
-            
-            start = time.time()
-            trainer.train()
-            end = time.time()
-            print('Training time: ', end - start)
+        path = f'{os.path.dirname(__file__)}/seal_{cfg.data.name}'
+        dataset = {}
+        print_logger = set_printing(cfg)
 
-        print('All runs:')
+        if cfg.train.dynamic_train == True:
+            dataset['train'] = SEALDynamicDataset(
+                path,
+                data,
+                splits,
+                num_hops=cfg.model.num_hops,
+                split='train',
+                node_label= cfg.model.node_label,
+                directed=not cfg.data.undirected,
+            )
+            dataset['valid'] = SEALDynamicDataset(
+                path,
+                data,
+                splits,
+                num_hops=cfg.model.num_hops,
+                split='valid',
+                node_label= cfg.model.node_label,
+                directed=not cfg.data.undirected,
+            )
+            dataset['test'] = SEALDynamicDataset(
+                path,
+                data,
+                splits,
+                num_hops=cfg.model.num_hops,
+                split='test',
+                node_label= cfg.model.node_label,
+                directed=not cfg.data.undirected,
+            )
+        else:
+            dataset['train'] = SEALDataset(
+                path,
+                data,
+                splits,
+                num_hops=cfg.model.num_hops,
+                split='train',
+                node_label= cfg.model.node_label,
+                directed=not cfg.data.undirected,
+            )
+            dataset['valid'] = SEALDataset(
+                path,
+                data,
+                splits,
+                num_hops=cfg.model.num_hops,
+                split='valid',
+                node_label= cfg.model.node_label,
+                directed=not cfg.data.undirected,
+            )
+            dataset['test'] = SEALDataset(
+                path,
+                data,
+                splits,
+                num_hops=cfg.model.num_hops,
+                split='test',
+                node_label= cfg.model.node_label,
+                directed=not cfg.data.undirected,
+            )
+        model = DGCNN(cfg.model.hidden_channels, cfg.model.num_layers, cfg.model.max_z, cfg.model.k,
+                      dataset['train'], False, use_feature=True)
+        optimizer = torch.optim.Adam(model.parameters(), lr=cfg.optimizer.base_lr)
 
-        result_dict = {}
-        for key in loggers:
-            print(key)
-            _, _, _, valid_test, _, _ = trainer.loggers[key].calc_all_stats()
-            result_dict[key] = valid_test
+        trainer = Trainer_SEAL(FILE_PATH,
+                               cfg,
+                               model,
+                               None,
+                               optimizer,
+                               dataset,
+                               run_id,
+                               args.repeat,
+                               loggers,
+                               print_logger,
+                               cfg.device,
+                               args.if_wandb)
 
-        trainer.save_result(result_dict)
+        start = time.time()
+        trainer.train()
+        end = time.time()
+        print('Training time: ', end - start)
+        save_run_results_to_csv(cfg, loggers, seed, run_id)
 
-        cfg.model.params = params_count(model)
-        print_logger.info(f'Num parameters: {cfg.model.params}')
-        trainer.finalize()
-        print_logger.info(f"Inference time: {trainer.run_result['eval_time']}")
+    print('All runs:')
+
+    result_dict = {}
+    for key in loggers:
+        print(key)
+        _, _, _, valid_test, _, _ = trainer.loggers[key].calc_all_stats()
+        result_dict[key] = valid_test
+
+    trainer.save_result(result_dict)
+
+    cfg.model.params = params_count(model)
+    print_logger.info(f'Num parameters: {cfg.model.params}')
+    trainer.finalize()
+    print_logger.info(f"Inference time: {trainer.run_result['eval_time']}")
 
