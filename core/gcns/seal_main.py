@@ -67,9 +67,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--epochs', dest='epoch', type=int, required=True,
                         default=400,
                         help='data name')
-    parser.add_argument('--model', dest='model', type=str, required=True,
-                        default='GCN_Variant',
-                        help='model name')
     parser.add_argument('--score', dest='score', type=str, required=False, default='mlp_score',
                         help='decoder name')
     parser.add_argument('--wandb', dest='if_wandb', required=False, 
@@ -190,17 +187,16 @@ if __name__ == "__main__":
         optimizer = torch.optim.Adam(model.parameters(), lr=cfg.optimizer.base_lr)
 
         trainer = Trainer_SEAL(FILE_PATH,
-                               cfg,
-                               model,
-                               None,
-                               optimizer,
-                               dataset,
-                               run_id,
-                               args.repeat,
-                               loggers,
-                               print_logger,
-                               cfg.device,
-                               args.if_wandb)
+                              cfg,
+                              model,
+                              optimizer,
+                              data,
+                              splits,
+                              run_id,
+                              args.repeat,
+                              loggers,
+                              print_logger=print_logger,
+                              batch_size=cfg.train.batch_size)
 
         start = time.time()
         trainer.train()
