@@ -28,7 +28,8 @@ from graphgps.utility.utils import config_device, Logger
 from typing import Dict, Tuple
 from graphgps.train.opt_train import (Trainer)
 from graphgps.utility.ncn import PermIterator
-
+from torch.utils.tensorboard import SummaryWriter
+writer = SummaryWriter()
 
 class Trainer_Subgraph_Sketching(Trainer):
     def __init__(self,
@@ -75,6 +76,20 @@ class Trainer_Subgraph_Sketching(Trainer):
 
         self.name_tag = cfg.wandb.name_tag
         self.run_result = {}
+
+        self.tensorboard_writer = writer
+        self.out_dir = cfg.out_dir
+        self.run_dir = cfg.run_dir
+
+        report_step = {
+            'cora': 1,
+            'pubmed': 1,
+            'arxiv_2023': 1,
+            'ogbn-arxiv': 1,
+            'ogbn-products': 1,
+        }
+
+        self.report_step = report_step[cfg.data.name]
 
     def _train_elph(self):
         self.model.train()
@@ -137,15 +152,28 @@ class Trainer_Subgraph_Sketching(Trainer):
             if torch.isnan(torch.tensor(loss)):
                 print('Loss is nan')
                 break
-            if epoch % 10 == 0:
-                results_rank = self.merge_result_rank()
-                print(results_rank)
+            if epoch % int(self.report_step) == 0:
+                self.results_rank = self.merge_result_rank()
 
-                for key, result in results_rank.items():
-                    print(key, result)
+                for key, result in self.results_rank.items():
                     self.loggers[key].add_result(self.run, result)
-                    print(self.run)
-                    print(result)
+                    self.print_logger.info(
+                        f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {self.results_rank["AUC"][0]:.4f}, AP: {self.results_rank["AP"][0]:.4f}, MRR: {self.results_rank["MRR"][0]:.4f}, Hit@10 {self.results_rank["Hits@10"][0]:.4f}')
+                    self.print_logger.info(
+                        f'Epoch: {epoch:03d}, Loss_valid: {loss:.4f}, AUC: {self.results_rank["AUC"][1]:.4f}, AP: {self.results_rank["AP"][1]:.4f}, MRR: {self.results_rank["MRR"][1]:.4f}, Hit@10 {self.results_rank["Hits@10"][1]:.4f}')
+                    self.print_logger.info(
+                        f'Epoch: {epoch:03d}, Loss_test: {loss:.4f}, AUC: {self.results_rank["AUC"][2]:.4f}, AP: {self.results_rank["AP"][2]:.4f}, MRR: {self.results_rank["MRR"][2]:.4f}, Hit@10 {self.results_rank["Hits@10"][2]:.4f}')
+
+                    self.tensorboard_writer.add_scalar(f"Metrics/Train/{key}", result[0], epoch)
+                    self.tensorboard_writer.add_scalar(f"Metrics/Valid/{key}", result[1], epoch)
+                    self.tensorboard_writer.add_scalar(f"Metrics/Test/{key}", result[2], epoch)
+
+                    train_hits, valid_hits, test_hits = result
+                    self.print_logger.info(
+                        f'Run: {self.run + 1:02d}, Key: {key}, '
+                        f'Epoch: {epoch:02d}, Loss: {loss:.4f}, Train: {100 * train_hits:.2f}, Valid: {100 * valid_hits:.2f}, Test: {100 * test_hits:.2f}%')
+
+                self.print_logger.info('---')
 
         return best_auc, best_hits
 
@@ -187,6 +215,12 @@ class Trainer_Subgraph_Sketching(Trainer):
         result_mrr.update({'ACC': round(acc.tolist(), 5)})
 
         return result_mrr
+    def finalize(self):
+        import time
+        for _ in range(1):
+            start_train = time.time()
+            self._evaluate(self.test_data)
+            self.run_result['eval_time'] = time.time() - start_train
 
     def save_pred(self, pred, true, data):
         root = os.path.join(self.FILE_PATH, cfg.out_dir, 'pred_record')
