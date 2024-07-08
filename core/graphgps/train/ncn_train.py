@@ -27,14 +27,9 @@ from typing import Dict, Tuple
 from graphgps.train.opt_train import (Trainer)
 from graphgps.utility.ncn import PermIterator
 
-import torch
 from torch.utils.tensorboard import SummaryWriter
 writer = SummaryWriter()
 
-from torch.utils.tensorboard import SummaryWriter
-
-
-writer = SummaryWriter()
 
 class Trainer_NCN(Trainer):
     def __init__(self,
