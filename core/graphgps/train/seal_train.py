@@ -136,9 +136,7 @@ class Trainer_SEAL(Trainer):
                 
                     
                 self.print_logger.info('---')
-                
-            if self.if_wandb:
-                self.step += 1
+
                 
     @torch.no_grad()
     def _test(self, data: Data):
