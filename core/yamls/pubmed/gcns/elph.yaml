@@ -25,15 +25,15 @@ model:
   out_channels: 32
   in_channels: 1433
   hidden_channels: 128 #
-  num_layers: 2 #
+  num_layers: 3 #
   label_dropout: 0.1 #
-  feature_dropout: 0.1 #
-  sign_dropout: 0.3 #
+  feature_dropout: 0.3 #
+  sign_dropout: 0.5 #
   use_zero_one: 0
   floor_sf: 0
   hll_p: 8
   minhash_num_perm: 128
-  max_hash_hops: 2 #
+  max_hash_hops: 3 #
   use_feature: True
   feature_prop: gcn
   propagate_embeddings: False
