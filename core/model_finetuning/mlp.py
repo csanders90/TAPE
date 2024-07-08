@@ -32,6 +32,7 @@ from sklearn.neural_network import MLPClassifier
 import argparse
 import wandb
 from pdb import set_trace as st 
+import time 
 
 FILE_PATH = f'{get_git_repo_root_path()}/'
 
@@ -142,25 +143,28 @@ def project_main():
         test_dataset = load_npz(f'{root}/generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_test_dataset.npz')
         test_labels = np.array(torch.load(f'{root}/generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_test_labels.npz'))
 
-        if args.decoder == 'Ridge':
-            clf = RidgeClassifier(tol=1e-2, max_iter=args.max_iter, solver="sparse_cg")
-        elif args.decoder == 'MLP':
-            clf = MLPClassifier(random_state=run_id, max_iter=args.max_iter)
+        print(f"loaded dataset")
+        clf = MLPClassifier(random_state=run_id, max_iter=args.max_iter)
+        print(f"created model")
         
-        # clf.fit(train_dataset, train_labels)  
-        classes = np.unique(train_labels)
-        for i in range(args.max_iter):
-            clf.partial_fit(train_dataset, train_labels, classes=classes)
-        
+        if cfg.data.name in ['cora', 'arxiv_2023']:
+            clf.fit(train_dataset, train_labels)  
+        else:
+            classes = np.unique(train_labels)
+            for i in tqdm(range(args.max_iter)):
+                start = time.time()
+                clf.partial_fit(train_dataset, train_labels, classes=classes)
+                print(f'this epoch costs {time.time() - start}')
+            
         # Calculate and print metrics for test set
         test_metrics = get_metrics(clf, test_dataset, test_labels, evaluator_hit, evaluator_mrr)
-
+        print(test_metrics)
         # Calculate and print metrics for train set
         train_metrics = get_metrics(clf, train_dataset, train_labels, evaluator_hit, evaluator_mrr)
-
+        print(train_metrics)
         # Calculate and print metrics for validation set
         val_metrics = get_metrics(clf, val_dataset, val_labels, evaluator_hit, evaluator_mrr)
-
+        print(val_metrics)
 
         results_rank = {
             key: (train_metrics[key], val_metrics[key], test_metrics[key])
@@ -187,9 +191,9 @@ def project_main():
         run_result[key] = test_bvalid
     
     os.makedirs(root, exist_ok=True)
-    name_tag = cfg.wandb.name_tag = f'{cfg.data.name}_run{run_id}_{args.embedder}'
+    name_tag = cfg.wandb.name_tag = f'{cfg.data.name}_run{run_id}_{args.embedder}{args.decoder}{args.max_iter}'
     mvari_str2csv(name_tag, run_result, acc_file)
-
+    
     
 if __name__ == '__main__':
     project_main()

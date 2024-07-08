@@ -1,8 +1,8 @@
 #!/bin/sh
 
-#SBATCH --time=8:00:00
-#SBATCH --partition=cpuonly #normal 
-#SBATCH --job-name=tfidf-mlp
+#SBATCH --time=3-00:00:00
+#SBATCH --partition=cpuonly 
+#SBATCH --job-name=tfidf-mlp-pubmed
 
 
 #SBATCH --output=log/TAG_Benchmark_%j.output
@@ -28,9 +28,7 @@ module load compiler/gnu/12
 cd /hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/model_finetuning
 
 
-for data in  pubmed ; do
-    python mlp.py --data $data pubmed --decoder MLP --max_iter 20 
-done
-for data in pubmed ; do
-    python mlp.py --data $data pubmed --decoder Ridge --max_iter 20 
+for iter in 1000 2000; do
+    echo "python mlp.py --data pubmed --decoder MLP --max_iter $iter"
+    python mlp.py --data pubmed --decoder MLP --max_iter $iter
 done

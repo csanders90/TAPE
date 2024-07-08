@@ -12,7 +12,7 @@ import numpy as np
 from torch_geometric import seed_everything
 # Assuming other necessary imports from your script
 from graphgps.utility.utils import (
-    set_cfg, parse_args, get_git_repo_root_path, Logger, custom_set_out_dir,
+    set_cfg, get_git_repo_root_path, Logger, custom_set_out_dir,
     custom_set_run_dir, set_printing, run_loop_settings, create_optimizer,
     config_device, init_model_from_pretrained, create_logger, use_pretrained_llm_embeddings
 )
@@ -23,6 +23,35 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from gensim.models import Word2Vec
 from typing import List 
 import scipy
+import argparse
+import time 
+
+
+def parse_args() -> argparse.Namespace:
+    r"""Parses the command line arguments."""
+    parser = argparse.ArgumentParser(description='GraphGym')
+
+    parser.add_argument('--cfg', dest='cfg_file', type=str, required=False,
+                        default='core/yamls/cora/gcns/gae.yaml',
+                        help='The configuration file path.')
+    parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
+                        default='core/yamls/cora/gcns/gae_sp1.yaml',
+                        help='The configuration file path.')
+    parser.add_argument('--data', dest='data', type=str, required=False,
+                        default='cora',
+                        help='data name')
+    parser.add_argument('--seed', dest='seed', type=int, required=False,
+                        default=2,
+                        help='random seed')        
+    parser.add_argument('--repeat', type=int, default=1,
+                        help='The number of repeated jobs.')
+    parser.add_argument('--mark_done', action='store_true',
+                        help='Mark yaml as done after a job has finished.')
+    parser.add_argument('opts', default=None, nargs=argparse.REMAINDER,
+                        help='See graphgym/config.py for remaining options.')
+
+    return parser.parse_args()
+
 
 def get_word2vec_embeddings(model, text):
     words = text.split()
@@ -117,9 +146,9 @@ def main():
     cfg = config_device(cfg)
     torch.set_num_threads(cfg.run.num_threads)
     cfg.data.name = args.data
-    cfg.seed = 3
+    cfg.seed = args.seed
     for run_id, seed, split_index in zip(*run_loop_settings(cfg, args)):
-        print(f'run id : {run_id}')
+        print(f'run id : {run_id}, seed: {seed}, split_index: {split_index}')
         cfg.seed = seed
         cfg.run_id = run_id
         seed_everything(cfg.seed)
@@ -143,20 +172,39 @@ def main():
             )
             
             vectorizer = TfidfVectorizer()
-
+            
             os.makedirs(f'./generated_dataset/{cfg.data.name}/', exist_ok=True)
+            start_time = time.time()
             train_dataset = vectorizer.fit_transform(train_dataset)
+            print(f'fit_transform: {time.time() - start_time:.2f} seconds')
             ssp.save_npz(f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_train_dataset.npz', train_dataset)
-            torch.save(train_labels, 
-                         f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_train_labels.npz')
+            print(f'Saved train dataset to ./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_train_dataset.npz')
+            print(f'save data: {time.time() - start_time:.2f} seconds')
+            torch.save(train_labels, f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_train_labels.npz')
+            print(f'Saved train labels to ./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_train_labels.npz')
+            print(f'save label: {time.time() - start_time:.2f} seconds')
+            
             del train_dataset
+            start_time = time.time()
             val_dataset = vectorizer.transform(val_dataset)
+            print(f'fit_transform: {time.time() - start_time:.2f} seconds')
             ssp.save_npz(f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_val_dataset.npz', val_dataset)
+            print(f'save data: {time.time() - start_time:.2f} seconds')
+            print(f'Saved validation dataset to ./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_val_dataset.npz')
             torch.save(val_labels, f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_val_labels.npz')
+            print(f'save label: {time.time() - start_time:.2f} seconds')
+            print(f'Saved validation labels to ./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_val_labels.npz')
             del val_dataset
+
+            start_time = time.time()
             test_dataset = vectorizer.transform(test_dataset)
-            ssp.save_npz(f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_test_dataset.npz', test_dataset)  
-            torch.save(test_labels, f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_test_labels.npz')          
+            print(f'fit_transform: {time.time() - start_time:.2f} seconds')
+            ssp.save_npz(f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_test_dataset.npz', test_dataset)
+            print(f'save data: {time.time() - start_time:.2f} seconds')
+            print(f'Saved test dataset to ./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_test_dataset.npz')
+            torch.save(test_labels, f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_test_labels.npz')
+            print(f'save label: {time.time() - start_time:.2f} seconds')
+            print(f'Saved test labels to ./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_test_labels.npz')
             del test_dataset
 
         elif embedding_model_name == "word2vec":

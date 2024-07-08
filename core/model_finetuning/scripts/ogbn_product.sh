@@ -3,6 +3,8 @@
 #SBATCH --partition=cpuonly
 #SBATCH --job-name=gnn_wb
 
+
+
 #SBATCH --output=log/TAG_Benchmark_%j.output
 #SBATCH --error=error/TAG_Benchmark_%j.error
 
@@ -12,11 +14,10 @@
 # Notification settings:
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=cc7738@kit.edu
-
-source /hkfs/home/haicore/aifb/cc7738/anaconda3/etc/profile.d/conda.sh
+source /hkfs/home/project/hk-project-test-p0022257/cc7738/anaconda3/etc/profile.d/conda.sh
 
 conda activate base
-conda activate ss
+conda activate TAG-LP
 # <<< conda initialize <<<
 module purge
 module load devel/cmake/3.18
@@ -27,9 +28,6 @@ module load compiler/gnu/12
 cd /hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/model_finetuning
 
 
-for data in  cora arxiv_2023 pubmed ogbn-arxiv ogbn-products; do
-    python mlp.py --data $data --decoder MLP
-done
-for data in cora  arxiv_2023 pubmed ogbn-arxiv ogbn-products; do
-    python mlp.py --data $data --decoder Ridge
+for iter in  2 10 20 30; do
+    python mlp.py --data ogbn-products --decoder MLP --max_iter $iter 
 done

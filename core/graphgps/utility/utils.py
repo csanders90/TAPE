@@ -572,7 +572,7 @@ def parse_args() -> argparse.Namespace:
                         default='cora',
                         help='data name')
         
-    parser.add_argument('--repeat', type=int, default=3,
+    parser.add_argument('--repeat', type=int, default=5,
                         help='The number of repeated jobs.')
     parser.add_argument('--mark_done', action='store_true',
                         help='Mark yaml as done after a job has finished.')

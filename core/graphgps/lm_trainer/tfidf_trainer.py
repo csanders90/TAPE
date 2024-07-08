@@ -101,9 +101,9 @@ class Trainer_TFIDF():
                     self.loggers[key].add_result(self.run, result)
                     
                     train_hits, valid_hits, test_hits = result
-                    self.print_logger.info(
-                        f'Run: {self.run + 1:02d}, Key: {key}, '
-                        f'Epoch: {epoch:02d}, Loss: {loss:.4f}, Train: {100 * train_hits:.2f}, Valid: {100 * valid_hits:.2f}, Test: {100 * test_hits:.2f}%')
+                    # self.print_logger.info(
+                    #     f'Run: {self.run + 1:02d}, Key: {key}, '
+                    #     f'Epoch: {epoch:02d}, Loss: {loss:.4f}, Train: {100 * train_hits:.2f}, Valid: {100 * valid_hits:.2f}, Test: {100 * test_hits:.2f}%')
                     
                     if self.if_wandb:
                         self.writer.add_scalar(f"Metrics/Train/{key}", result[0], epoch)
@@ -137,16 +137,19 @@ class Trainer_TFIDF():
                 _, preds = torch.max(outputs, 1)
                 all_preds.extend(preds.cpu().numpy())
                 all_labels.extend(labels.cpu().numpy())
-                acc = self._acc(all_preds, all_labels)
-                
-                pos_pred, neg_pred = pos_pred.cpu(), neg_pred.cpu()
-                result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_pred, neg_pred)
-                result_mrr.update({'ACC': round(acc, 5)})
-            
-                return result_mrr
+        all_preds, all_labels = torch.tensor(all_preds), torch.tensor(all_labels)
+        pos_preds, neg_preds = all_preds[all_labels==1], all_preds[all_labels==0]
+        acc = self._acc(pos_preds, neg_preds)
         
+        pos_preds, neg_preds = pos_preds.cpu(), neg_preds.cpu()
+        result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_preds, neg_preds)
+        result_mrr.update({'ACC': round(acc, 5)})
+            
+        return result_mrr
+
         
     def _acc(self, pos_pred, neg_pred):
+
         if pos_pred.numel() == 0:
             hard_thres = (torch.max(neg_pred).item() + torch.min(neg_pred).item()) / 2
         else:
@@ -160,9 +163,9 @@ class Trainer_TFIDF():
 
         y_pred = torch.cat([y_pred, neg_y_pred], dim=0)
 
-        pos_y = torch.ones_like(pos_pred)
-        neg_y = torch.zeros_like(neg_pred)
-        y = torch.cat([pos_y, neg_y], dim=0)
+        pos_label = torch.ones_like(pos_pred)
+        neg_label = torch.zeros_like(neg_pred)
+        y = torch.cat([pos_label, neg_label], dim=0)
         y_logits = torch.cat([pos_pred, neg_pred], dim=0)
         # Calculate accuracy    
         return (y == y_pred).float().mean().item()
@@ -172,7 +175,7 @@ class Trainer_TFIDF():
         total_loss = 0
         for embeddings, labels in self.train_loader:
             embeddings = embeddings.to(self.device)
-            labels = labels.to(self.device).float()
+            labels = labels.to(self.device)
 
             self.optimizer.zero_grad()
             outputs = self.model(embeddings)
