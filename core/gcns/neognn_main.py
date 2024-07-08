@@ -3,6 +3,8 @@ import os, sys
 
 from torch_sparse import SparseTensor
 
+from torch_geometric.graphgym import params_count
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import argparse
 import time
@@ -22,29 +24,39 @@ import scipy.sparse as ssp
 from graphgps.network.neognn import NeoGNN, LinkPredictor
 from data_utils.load import load_data_lp
 from graphgps.train.neognn_train import Trainer_NeoGNN
+from graphgps.network.ncn import predictor_dict
+
 
 
 def parse_args() -> argparse.Namespace:
     r"""Parses the command line arguments."""
     parser = argparse.ArgumentParser(description='GraphGym')
-
     parser.add_argument('--cfg', dest='cfg_file', type=str, required=False,
-                        default='core/yamls/cora/gcns/seal.yaml',
+                        default='core/yamls/cora/gcns/ncn.yaml',
                         help='The configuration file path.')
-    parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
-                        default='core/yamls/cora/gcns/gae_sp1.yaml',
-                        help='The configuration file path.')
-    parser.add_argument('--data', dest='data', type=str, required=False,
-                        default='cora',
-                        help='data name')
 
+    parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
+                        default='core/yamls/cora/gcns/ncn.yaml',
+                        help='The configuration file path.')
+    parser.add_argument('--data', dest='data', type=str, required=True,
+                        default='pubmed',
+                        help='data name')
     parser.add_argument('--repeat', type=int, default=2,
                         help='The number of repeated jobs.')
+    parser.add_argument('--batch_size', dest='bs', type=int, required=False,
+                        default=2**15,
+                        help='data name')
+    parser.add_argument('--device', dest='device', required=True,
+                        help='device id')
+    parser.add_argument('--epochs', dest='epoch', type=int, required=True,
+                        default=400,
+                        help='data name')
+    parser.add_argument('--wandb', dest='wandb', required=False,
+                        help='data name')
     parser.add_argument('--mark_done', action='store_true',
                         help='Mark yaml as done after a job has finished.')
     parser.add_argument('opts', default=None, nargs=argparse.REMAINDER,
                         help='See graphgym/config.py for remaining options.')
-
     return parser.parse_args()
 
 def ngnn_dataset(data, splits):
@@ -69,18 +81,27 @@ if __name__ == "__main__":
     cfg = set_cfg(FILE_PATH, args.cfg_file)
     cfg.merge_from_list(args.opts)
 
+    cfg.data.name = args.data
+
+    cfg.data.device = args.device
+    cfg.model.device = args.device
+    cfg.device = args.device
+    cfg.train.epochs = args.epoch
+
     torch.set_num_threads(cfg.num_threads)
     batch_sizes = [cfg.train.batch_size]
 
     best_acc = 0
     best_params = {}
     loggers = create_logger(args.repeat)
+    cfg.device = args.device
 
     for batch_size in batch_sizes:
         for run_id, seed, split_index in zip(
                 *run_loop_settings(cfg, args)):
             custom_set_run_dir(cfg, run_id)
             set_printing(cfg)
+            print_logger = set_printing(cfg)
             cfg.seed = seed
             cfg.run_id = run_id
             seed_everything(cfg.seed)
@@ -113,7 +134,7 @@ if __name__ == "__main__":
                                    run_id,
                                    args.repeat,
                                    loggers,
-                                   print_logger=None,
+                                   print_logger=print_logger,
                                    batch_size=batch_size)
 
             start = time.time()
@@ -130,3 +151,8 @@ if __name__ == "__main__":
             result_dict[key] = valid_test
 
         trainer.save_result(result_dict)
+
+        cfg.model.params = params_count(model)
+        print_logger.info(f'Num parameters: {cfg.model.params}')
+        trainer.finalize()
+        print_logger.info(f"Inference time: {trainer.run_result['eval_time']}")
