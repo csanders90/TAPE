@@ -12,10 +12,10 @@ from sklearn.neural_network import MLPClassifier
 from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
 
 from heuristic.eval import get_metric_score
-from data_utils.load import data_loader_nc
+#from data_utils.load import data_loader_nc
 from embedding.tune_utils import parse_args, param_tune_acc_mrr 
 from core.graphgps.utility.utils import get_git_repo_root_path, append_acc_to_excel, append_mrr_to_excel, set_cfg
-from core.graphgps.visualization.adj import construct_sparse_adj, plot_coo_matrix, plot_pos_neg_adj
+from core.model_finetuning.adj import construct_sparse_adj, plot_coo_matrix, plot_pos_neg_adj
 
 method = 'nonlinear_mlp'
     

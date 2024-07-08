@@ -134,25 +134,15 @@ def process_texts(pos_edge_index, neg_edge_index, text):
     
     return dataset, labels
 
-def main():
+def save_dataset(embedding_model_name, cfg, args):
     # create dataset with 3 seeds
-    embedding_model_name = "tfidf"
-    file_path = f'{get_git_repo_root_path()}/'
-    args = parse_args()
-    cfg = set_cfg(file_path, args.cfg_file)
-    cfg.merge_from_list(args.opts)
-    custom_set_out_dir(cfg, args.cfg_file, cfg.wandb.name_tag)
-    dump_cfg(cfg)
-    cfg = config_device(cfg)
-    torch.set_num_threads(cfg.run.num_threads)
-    cfg.data.name = args.data
-    cfg.seed = args.seed
+    
     for run_id, seed, split_index in zip(*run_loop_settings(cfg, args)):
         print(f'run id : {run_id}, seed: {seed}, split_index: {split_index}')
         cfg.seed = seed
         cfg.run_id = run_id
         seed_everything(cfg.seed)
-        splits, text, data = load_data_lp[cfg.data.name](cfg.data)
+        splits, text, _ = load_data_lp[cfg.data.name](cfg.data)
 
         if embedding_model_name == "tfidf":
             train_dataset, train_labels = process_texts(
@@ -177,35 +167,16 @@ def main():
             start_time = time.time()
             train_dataset = vectorizer.fit_transform(train_dataset)
             print(f'fit_transform: {time.time() - start_time:.2f} seconds')
-            ssp.save_npz(f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_train_dataset.npz', train_dataset)
-            print(f'Saved train dataset to ./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_train_dataset.npz')
-            print(f'save data: {time.time() - start_time:.2f} seconds')
-            torch.save(train_labels, f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_train_labels.npz')
-            print(f'Saved train labels to ./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_train_labels.npz')
-            print(f'save label: {time.time() - start_time:.2f} seconds')
-            
-            del train_dataset
+
+            # del train_dataset
             start_time = time.time()
             val_dataset = vectorizer.transform(val_dataset)
             print(f'fit_transform: {time.time() - start_time:.2f} seconds')
-            ssp.save_npz(f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_val_dataset.npz', val_dataset)
-            print(f'save data: {time.time() - start_time:.2f} seconds')
-            print(f'Saved validation dataset to ./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_val_dataset.npz')
-            torch.save(val_labels, f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_val_labels.npz')
-            print(f'save label: {time.time() - start_time:.2f} seconds')
-            print(f'Saved validation labels to ./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_val_labels.npz')
-            del val_dataset
-
+            
             start_time = time.time()
             test_dataset = vectorizer.transform(test_dataset)
             print(f'fit_transform: {time.time() - start_time:.2f} seconds')
-            ssp.save_npz(f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_test_dataset.npz', test_dataset)
-            print(f'save data: {time.time() - start_time:.2f} seconds')
-            print(f'Saved test dataset to ./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_test_dataset.npz')
-            torch.save(test_labels, f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_test_labels.npz')
-            print(f'save label: {time.time() - start_time:.2f} seconds')
-            print(f'Saved test labels to ./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_test_labels.npz')
-            del test_dataset
+            
 
         elif embedding_model_name == "word2vec":
             sentences = [text[i].split() for i in range(len(text))]
@@ -254,26 +225,33 @@ def main():
                 embedding_model, 
                 "mpnet"
             )
+            
+        return train_dataset, train_labels, val_dataset, val_labels, test_dataset, test_labels
+        # ssp.save_npz(f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_train_dataset.npz', train_dataset)
+        # print(f'Saved train dataset to ./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_train_dataset.npz')
+        # print(f'save data: {time.time() - start_time:.2f} seconds')
+        # torch.save(train_labels, f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_train_labels.npz')
+        # print(f'Saved train labels to ./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_train_labels.npz')
+        # print(f'save label: {time.time() - start_time:.2f} seconds')
+        
+        # ssp.save_npz(f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_val_dataset.npz', val_dataset)
+        # print(f'save data: {time.time() - start_time:.2f} seconds')
+        # print(f'Saved validation dataset to ./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_val_dataset.npz')
+        # torch.save(val_labels, f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_val_labels.npz')
+        # print(f'save label: {time.time() - start_time:.2f} seconds')
+        # print(f'Saved validation labels to ./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_val_labels.npz')
+        # del val_dataset
+            
+        # ssp.save_npz(f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_test_dataset.npz', test_dataset)
+        # print(f'save data: {time.time() - start_time:.2f} seconds')
+        # print(f'Saved test dataset to ./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_test_dataset.npz')
+        # torch.save(test_labels, f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_test_labels.npz')
+        # print(f'save label: {time.time() - start_time:.2f} seconds')
+        # print(f'Saved test labels to ./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_test_labels.npz')
+        # del test_dataset
 
-
-        # Convert to tensors
-        # train_dataset = torch.tensor(train_dataset, dtype=torch.float32)
-        # train_labels = torch.tensor(train_labels, dtype=torch.long)
-        # val_dataset = torch.tensor(val_dataset, dtype=torch.float32)
-        # val_labels = torch.tensor(val_labels, dtype=torch.long)
-        # test_dataset = torch.tensor(test_dataset, dtype=torch.float32)
-        # test_labels = torch.tensor(test_labels, dtype=torch.long)
-
-        # # Save datasets
-        # os.makedirs(f'./generated_dataset/{cfg.data.name}/', exist_ok=True)
-        # torch.save(train_dataset, f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_train_dataset.pt')
-        # torch.save(train_labels, f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_train_labels.pt')
-        # torch.save(val_dataset, f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_val_dataset.pt')
-        # torch.save(val_labels, f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_val_labels.pt')
-        # torch.save(test_dataset, f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_test_dataset.pt')
-        # torch.save(test_labels, f'./generated_dataset/{cfg.data.name}/{embedding_model_name}_{cfg.seed}_test_labels.pt')
-
-
+    
+    
 def list2csr(lst: List):
     # Identify non-zero values and their positions
     data = []
@@ -288,5 +266,55 @@ def list2csr(lst: List):
 
     return sparse_matrix
 
+def create_tfidf(cfg, seed):
+    seed_everything(seed)
+    splits, text, _ = load_data_lp[cfg.data.name](cfg.data)
+    if cfg.embedder.type == 'tfidf':
+        train_dataset, train_labels = process_texts(
+            splits['train'].pos_edge_label_index, 
+            splits['train'].neg_edge_label_index, 
+            text
+        )
+        val_dataset, val_labels = process_texts(
+            splits['valid'].pos_edge_label_index, 
+            splits['valid'].neg_edge_label_index, 
+            text
+        )
+        test_dataset, test_labels = process_texts(
+            splits['test'].pos_edge_label_index, 
+            splits['test'].neg_edge_label_index, 
+            text
+        )
+        vectorizer = TfidfVectorizer()
+        
+        os.makedirs(f'./generated_dataset/{cfg.data.name}/', exist_ok=True)
+        start_time = time.time()
+        train_data = vectorizer.fit_transform(train_dataset)
+        print(f'fit_transform: {time.time() - start_time:.2f} seconds')
+
+        # del train_dataset
+        start_time = time.time()
+        val_data = vectorizer.transform(val_dataset)
+        print(f'fit_transform: {time.time() - start_time:.2f} seconds')
+        
+        start_time = time.time()
+        test_data = vectorizer.transform(test_dataset)
+        print(f'fit_transform: {time.time() - start_time:.2f} seconds')
+        
+    return train_data, train_labels, val_data, val_labels, test_data, test_labels
+
+
 if __name__ == "__main__":
-    main()
+    
+    file_path = f'{get_git_repo_root_path()}/'
+    args = parse_args()
+    cfg = set_cfg(file_path, args.cfg_file)
+    cfg.merge_from_list(args.opts)
+    # custom_set_out_dir(cfg, args.cfg_file, cfg.wandb.name_tag)
+    cfg = config_device(cfg)
+    cfg.data.name = args.data
+    cfg.seed = args.seed
+    
+    embedding_model_name = "tfidf"
+    create_tfidf(embed_type, cfg, args)
+    train_dataset, train_labels, val_dataset, val_labels, test_dataset, test_labels = save_dataset(embedding_model_name, cfg, args)

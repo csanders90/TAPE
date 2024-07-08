@@ -11,9 +11,8 @@ import json
 from torch_geometric.transforms import RandomLinkSplit
 import pandas as pd
 from torch_geometric.data import Data, InMemoryDataset
-from data_utils.load_data_lp import get_raw_text_pubmed, get_pubmed_lp
 import matplotlib.pyplot as plt
-from core.graphgps.visualization.adj import construct_sparse_adj, plot_coo_matrix, plot_pos_neg_adj
+from core.model_finetuning.adj import construct_sparse_adj, plot_coo_matrix, plot_pos_neg_adj
 import scipy.sparse as ssp
 
 from heuristic.lsf import CN, AA, RA, InverseRA

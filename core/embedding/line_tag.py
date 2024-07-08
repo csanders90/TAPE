@@ -29,7 +29,7 @@ import scipy.sparse as ssp
 
 from heuristic.eval import get_metric_score
 from data_utils.load import load_data_lp
-from graphgps.visualization.adj import plot_coo_matrix, construct_sparse_adj
+from core.model_finetuning.adj import plot_coo_matrix, construct_sparse_adj
 from core.embedding.tune_utils import (
     get_git_repo_root_path,
     param_tune_acc_mrr
