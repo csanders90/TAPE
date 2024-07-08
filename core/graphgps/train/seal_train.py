@@ -62,8 +62,8 @@ class Trainer_SEAL(Trainer):
         self.train_data = splits['train']
         self.valid_data = splits['valid']
         self.optimizer = optimizer
-        self.train_func = self._train_neognn
-        model_types = ['NeoGNN']
+        self.train_func = self._train_seal
+        model_types = ['SEAL']
         self.test_func = {model_type: self._test for model_type in model_types}
         self.evaluate_func = {model_type: self._evaluate for model_type in model_types}
 
