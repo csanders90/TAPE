@@ -28,7 +28,7 @@ model:
   num_layers: 2 #
   label_dropout: 0.1 #
   feature_dropout: 0.1 #
-  sign_dropout: 0.5 #
+  sign_dropout: 0.1 #
   use_zero_one: 0
   floor_sf: 0
   hll_p: 8
