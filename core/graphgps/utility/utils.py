@@ -354,7 +354,7 @@ class Logger(object):
         r = best_result[:, 3].float()
         valid_test_mean = round(r.mean().item(), 2)
         valid_test_var = round(r.std().item(), 2)
-        valid_test = f'{valid_train_mean:.2f} ± {valid_train_var:.2f}'
+        valid_test = f'{valid_test_mean:.2f} ± {valid_test_var:.2f}'
         
         # neglect best train and best valid
         mean_list = [valid_train_mean, best_valid_mean, valid_test_mean]
