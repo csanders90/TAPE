@@ -62,8 +62,8 @@ class Trainer_SEAL(Trainer):
         self.train_data = splits['train']
         self.valid_data = splits['valid']
         self.optimizer = optimizer
-        self.train_func = self._train_seal
-        model_types = ['SEAL']
+        self.train_func = self._train_neognn
+        model_types = ['NeoGNN']
         self.test_func = {model_type: self._test for model_type in model_types}
         self.evaluate_func = {model_type: self._evaluate for model_type in model_types}
 
@@ -136,7 +136,9 @@ class Trainer_SEAL(Trainer):
                 
                     
                 self.print_logger.info('---')
-
+                
+            if self.if_wandb:
+                self.step += 1
                 
     @torch.no_grad()
     def _test(self, data: Data):
