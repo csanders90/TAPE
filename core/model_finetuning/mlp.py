@@ -155,16 +155,17 @@ def project_main():
                 start = time.time()
                 clf.partial_fit(train_dataset, train_labels, classes=classes)
                 print(f'this epoch costs {time.time() - start}')
-            
-        # Calculate and print metrics for test set
-        test_metrics = get_metrics(clf, test_dataset, test_labels, evaluator_hit, evaluator_mrr)
-        print(test_metrics)
-        # Calculate and print metrics for train set
-        train_metrics = get_metrics(clf, train_dataset, train_labels, evaluator_hit, evaluator_mrr)
-        print(train_metrics)
-        # Calculate and print metrics for validation set
-        val_metrics = get_metrics(clf, val_dataset, val_labels, evaluator_hit, evaluator_mrr)
-        print(val_metrics)
+
+                if i % 100 == 0:
+                    # Calculate and print metrics for test set
+                    test_metrics = get_metrics(clf, test_dataset, test_labels, evaluator_hit, evaluator_mrr)
+                    print(test_metrics)
+                    # Calculate and print metrics for train set
+                    train_metrics = get_metrics(clf, train_dataset, train_labels, evaluator_hit, evaluator_mrr)
+                    print(train_metrics)
+                    # Calculate and print metrics for validation set
+                    val_metrics = get_metrics(clf, val_dataset, val_labels, evaluator_hit, evaluator_mrr)
+                    print(val_metrics)
 
         results_rank = {
             key: (train_metrics[key], val_metrics[key], test_metrics[key])

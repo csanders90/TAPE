@@ -12,6 +12,10 @@ import torch_geometric.transforms as T
 from torch_geometric.datasets import Planetoid
 from torch_geometric.data import Data, InMemoryDataset, Dataset
 from torch_geometric.transforms import RandomLinkSplit
+from torch_geometric.utils import to_undirected 
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning)
+
 from ogb.nodeproppred import PygNodePropPredDataset
 from sklearn.preprocessing import normalize
 from yacs.config import CfgNode as CN
@@ -28,6 +32,7 @@ from graphgps.utility.utils import get_git_repo_root_path, config_device, init_c
 from graphgps.utility.utils import time_logger
 from typing import Dict, Tuple, List, Union
 
+
 FILE = 'core/dataset/ogbn_products_orig/ogbn-products.csv'
 FILE_PATH = get_git_repo_root_path() + '/'
 
@@ -37,8 +42,10 @@ def load_taglp_arxiv2023(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
     # add one default argument
 
     data, text = load_tag_arxiv23()
-    undirected = data.is_directed()
-
+    if data.is_directed() is True:
+        data.edge_index = to_undirected(data.edge_index)
+        undirected = True
+        
     splits = get_edge_split(data,
                             undirected,
                             cfg.device,
@@ -56,7 +63,7 @@ def load_taglp_cora(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
     data, data_citeid = load_graph_cora(False)
     text = load_text_cora(data_citeid)
     # text = None
-    undirected = data.is_directed()
+    undirected = data.is_undirected()
 
     splits = get_edge_split(data,
                             undirected,
@@ -74,7 +81,7 @@ def load_taglp_ogbn_arxiv(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
 
     data = load_graph_ogbn_arxiv(False)
     text = load_text_ogbn_arxiv()
-    undirected = data.is_directed()
+    undirected = data.is_undirected()
 
     cfg = config_device(cfg)
 
@@ -115,7 +122,7 @@ def load_taglp_product(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
     # add one default argument
 
     data, text = load_tag_product()
-    undirected = data.is_directed()
+    undirected = data.is_undirected()
 
     cfg = config_device(cfg)
 
@@ -135,7 +142,7 @@ def load_taglp_pubmed(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
 
     data = load_graph_pubmed(False)
     text = load_text_pubmed()
-    undirected = data.is_directed()
+    undirected = data.is_undirected()
 
     splits = get_edge_split(data,
                             undirected,
@@ -152,7 +159,7 @@ def load_taglp_citeseer(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
 
     data = load_graph_citeseer()
     text = load_text_citeseer()
-    undirected = data.is_directed()
+    undirected = data.is_undirected()
 
     splits = get_edge_split(data,
                             undirected,
@@ -166,11 +173,15 @@ def load_taglp_citeseer(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
 
 def load_taglp_citationv8(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
     # add one default argument
-
+    
     data = load_graph_citationv8()
     text = load_text_citationv8()
-    undirected = data.is_directed()
-
+    if data.is_directed() is True:
+        data.edge_index  = to_undirected(data.edge_index)
+        undirected  = True 
+    else:
+        undirected = data.is_undirected()
+        
     splits = get_edge_split(data,
                             undirected,
                             cfg.device,
@@ -185,32 +196,44 @@ def load_taglp_citationv8(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
 # TEST CODE
 if __name__ == '__main__':
     args = init_cfg_test()
-    print(args)
-    '''data, text, __  = load_taglp_arxiv2023(args.data)
-    print(data)
-    print(type(text))
-    data, text = load_taglp_cora(args.data)
-    print(data)
-    print(type(text))
-
-    
-
-    data, text = load_taglp_product(args.data)
+    print('arxiv2023')
+    splits, text, data  = load_taglp_arxiv2023(args.data)
+    print(f'directed: {data.is_directed()}')
     print(data)
     print(type(text))
 
-    data, text = load_taglp_pubmed(args.data)
+    print('citationv8')
+    splits, text, data = load_taglp_citationv8(args.data)
+    print(f'directed: {data.is_directed()}')
     print(data)
-    print(type(text))'''
+    print(type(text))
+
+    exit(-1)
+    print('cora')
+    splits, text, data = load_taglp_cora(args.data)
+    print(f'directed: {data.is_directed()}')
+    print(data)
+    print(type(text))
+
+    print('product')
+    splits, text, data = load_taglp_product(args.data)
+    print(f'directed: {data.is_directed()}')
+    print(data)
+    print(type(text))
+
+    print('pubmed')
+    splits, text, data = load_taglp_pubmed(args.data)
+    print(f'directed: {data.is_directed()}')
+    print(data)
+    print(type(text))
 
     splits, text, data = load_taglp_citeseer(args.data)
+    print(f'directed: {data.is_directed()}')
     print(data)
     print(type(text))
-
-    splits, text, data = load_taglp_citationv8(args.data)
-    print(data)
-    print(type(text))
-
+    
+    print(args.data)
     splits, text, data = load_taglp_ogbn_arxiv(args.data)
+    print(f'directed: {data.is_directed()}')
     print(data)
     print(type(text))

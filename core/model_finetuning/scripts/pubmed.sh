@@ -28,7 +28,7 @@ module load compiler/gnu/12
 cd /hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/model_finetuning
 
 
-for iter in 1000 2000; do
+for iter in 1500; do
     echo "python mlp.py --data pubmed --decoder MLP --max_iter $iter"
     python mlp.py --data pubmed --decoder MLP --max_iter $iter
 done
