@@ -27,7 +27,7 @@ model:
   hidden_channels: 128 #
   num_layers: 3 #
   label_dropout: 0.1 #
-  feature_dropout: 0.2 #
+  feature_dropout: 0.3 #
   sign_dropout: 0.5 #
   use_zero_one: 0
   floor_sf: 0
