@@ -6,6 +6,7 @@ from os.path import abspath, dirname, join
 
 from torch.nn import BCEWithLogitsLoss
 
+
 sys.path.insert(0, abspath(join(dirname(dirname(__file__)))))
 
 import pandas as pd 
@@ -14,13 +15,14 @@ from ogb.linkproppred import Evaluator
 from torch_geometric.graphgym.config import cfg
 from sklearn.metrics import roc_auc_score, average_precision_score, roc_curve, auc
 from yacs.config import CfgNode as CN
+from graphgps.utility.utils import Logger, config_device
 
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
 from heuristic.eval import get_metric_score
 from graphgps.train.opt_train import Trainer
 from graphgps.train.heart_train import Trainer_Heart
-from typing import Any, List, Optional, Sequence, Union
+from typing import Any, List, Optional, Sequence, Union, Dict
 import torch
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
@@ -28,34 +30,20 @@ writer = SummaryWriter()
 
 
 class Trainer_SEAL(Trainer):
-    def __init__(self, 
-                 FILE_PATH,
+    def __init__(self,
+                 FILE_PATH: str,
                  cfg: CN,
                  model: torch.nn.Module,
-                 emb: None,
                  optimizer: torch.optim.Optimizer,
-                 splits: Optional[Data],
+                 data: Data,
+                 splits: Dict[str, Data],
                  run: int,
                  repeat: int,
-                 loggers: None,
+                 loggers: Dict[str, Logger],
                  print_logger: None,
-                 device,
-                 if_wandb=False):
-        super().__init__(FILE_PATH,
-            cfg,
-            model, 
-            emb,
-            None,
-            optimizer,
-            splits,
-            run, 
-            repeat, 
-            loggers,
-            print_logger,
-            device)
-                
-        self.device = cfg.device
+                 batch_size=None, ):
 
+        self.device = config_device(cfg).device
         self.model = model.to(self.device)
 
         self.model_name = cfg.model.type
@@ -66,16 +54,21 @@ class Trainer_SEAL(Trainer):
         self.run = run
         self.repeat = repeat
         self.loggers = loggers
-        self.batch_size = cfg.train.batch_size
+        self.print_logger = print_logger
+        self.batch_size = batch_size
+        self.data = data
 
         self.test_data = splits['test']
         self.train_data = splits['train']
         self.valid_data = splits['valid']
         self.optimizer = optimizer
-        self.train_func = self._train_seal
-        model_types = ['VGAE', 'GAE', 'GAT', 'GraphSage', 'GNNStack', 'SEAL']
+        self.train_func = self._train_neognn
+        model_types = ['NeoGNN']
         self.test_func = {model_type: self._test for model_type in model_types}
         self.evaluate_func = {model_type: self._evaluate for model_type in model_types}
+
+        self.evaluator_hit = Evaluator(name='ogbl-collab')
+        self.evaluator_mrr = Evaluator(name='ogbl-citation2')
 
         self.evaluator_hit = Evaluator(name='ogbl-collab')
         self.evaluator_mrr = Evaluator(name='ogbl-citation2')
@@ -84,12 +77,22 @@ class Trainer_SEAL(Trainer):
         self.repeat = repeat
         self.results_rank = {}
 
-        self.if_wandb = if_wandb
-        self.tensorboard_writer = writer 
-        if if_wandb:
-            self.step = 0
+        self.name_tag = cfg.wandb.name_tag
+        self.run_result = {}
+
+        self.tensorboard_writer = writer
         self.out_dir = cfg.out_dir
         self.run_dir = cfg.run_dir
+
+        report_step = {
+            'cora': 1,
+            'pubmed': 1,
+            'arxiv_2023': 1,
+            'ogbn-arxiv': 1,
+            'ogbn-products': 1,
+        }
+
+        self.report_step = report_step[cfg.data.name]
         
     def _train_seal(self):
         self.model.train()
