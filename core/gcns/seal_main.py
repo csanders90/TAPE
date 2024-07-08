@@ -191,7 +191,7 @@ if __name__ == "__main__":
                               model,
                               optimizer,
                               data,
-                              splits,
+                              dataset,
                               run_id,
                               args.repeat,
                               loggers,
