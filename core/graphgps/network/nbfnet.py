@@ -48,6 +48,31 @@ class NBFNet(nn.Module):
         mlp.append(nn.Linear(feature_dim, 1))
         self.mlp = nn.Sequential(*mlp)
 
+    def remove_easy_edges(self, data, h_index, t_index, r_index=None):
+        # we remove training edges (we need to predict them at training time) from the edge index
+        # think of it as a dynamic edge dropout
+        h_index_ext = torch.cat([h_index, t_index], dim=-1)
+        t_index_ext = torch.cat([t_index, h_index], dim=-1)
+        r_index_ext = torch.cat([r_index, r_index + self.num_relation // 2], dim=-1)
+        if self.remove_one_hop:
+            # we remove all existing immediate edges between heads and tails in the batch
+            edge_index = data.edge_index
+            easy_edge = torch.stack([h_index_ext, t_index_ext]).flatten(1)
+            index = edge_match(edge_index, easy_edge)[0]
+            mask = ~index_to_mask(index, data.num_edges)
+        else:
+            # we remove existing immediate edges between heads and tails in the batch with the given relation
+            edge_index = torch.cat([data.edge_index, data.edge_type.unsqueeze(0)])
+            # note that here we add relation types r_index_ext to the matching query
+            easy_edge = torch.stack([h_index_ext, t_index_ext, r_index_ext]).flatten(1)
+            index = edge_match(edge_index, easy_edge)[0]
+            mask = ~index_to_mask(index, data.num_edges)
+
+        data = copy.copy(data)
+        data.edge_index = data.edge_index[:, mask]
+        data.edge_type = data.edge_type[mask]
+        return data
+
     def negative_sample_to_tail(self, h_index, t_index, r_index):
         # convert p(h | t, r) to p(t' | h', r')
         # h' = t, r' = r^{-1}, t' = h
@@ -101,6 +126,12 @@ class NBFNet(nn.Module):
 
     def forward(self, data, batch):
         h_index, t_index, r_index = batch.unbind(-1)
+
+        if self.training:
+            # Edge dropout in the training mode
+            # here we want to remove immediate edges (head, relation, tail) from the edge_index and edge_types
+            # to make NBFNet iteration learn non-trivial paths
+            data = self.remove_easy_edges(data, h_index, t_index, r_index)
 
         shape = h_index.shape
         # turn all triples in a batch into a tail prediction mode

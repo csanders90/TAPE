@@ -27,6 +27,9 @@ from graphgps.utility.utils import config_device, Logger
 from typing import Dict, Tuple
 from graphgps.train.opt_train import (Trainer)
 from graphgps.utility.ncn import PermIterator
+from torch.utils.tensorboard import SummaryWriter
+
+writer = SummaryWriter()
 
 
 class Trainer_NeoGNN(Trainer):
@@ -72,12 +75,29 @@ class Trainer_NeoGNN(Trainer):
         self.evaluator_hit = Evaluator(name='ogbl-collab')
         self.evaluator_mrr = Evaluator(name='ogbl-citation2')
 
+        self.evaluator_hit = Evaluator(name='ogbl-collab')
+        self.evaluator_mrr = Evaluator(name='ogbl-citation2')
+
         self.run = run
         self.repeat = repeat
         self.results_rank = {}
 
         self.name_tag = cfg.wandb.name_tag
         self.run_result = {}
+
+        self.tensorboard_writer = writer
+        self.out_dir = cfg.out_dir
+        self.run_dir = cfg.run_dir
+
+        report_step = {
+            'cora': 1,
+            'pubmed': 1,
+            'arxiv_2023': 1,
+            'ogbn-arxiv': 1,
+            'ogbn-products': 1,
+        }
+
+        self.report_step = report_step[cfg.data.name]
 
     def _train_neognn(self):
         self.model.train()
@@ -113,8 +133,15 @@ class Trainer_NeoGNN(Trainer):
             pos_loss = -torch.log(pos_out_feat_large + 1e-15).mean()
             neg_loss = -torch.log(1 - neg_out_feat_large + 1e-15).mean()
             loss2 = pos_loss + neg_loss
-            pos_loss = -torch.log(pos_out + 1e-15).mean()
-            neg_loss = -torch.log(1 - neg_out + 1e-15).mean()
+            eps = 1e-15  # Small constant to avoid log(0)
+
+            # Clamp the outputs to avoid log(0) or log(1 - 1) issues
+            pos_out = torch.clamp(pos_out, min=eps, max=1 - eps)
+            neg_out = torch.clamp(neg_out, min=eps, max=1 - eps)
+
+            # Calculate the losses
+            pos_loss = -torch.log(pos_out).mean()
+            neg_loss = -torch.log(1 - neg_out).mean()
             loss3 = pos_loss + neg_loss
             loss = loss1 + loss2 + loss3
             loss.backward()
@@ -127,7 +154,6 @@ class Trainer_NeoGNN(Trainer):
             total_loss += loss.item() * num_examples
             total_examples += num_examples
             count += 1
-
         return total_loss / total_examples
 
     def train(self):
@@ -137,75 +163,79 @@ class Trainer_NeoGNN(Trainer):
             if torch.isnan(torch.tensor(loss)):
                 print('Loss is nan')
                 break
-            if epoch % 100 == 0:
-                results_rank = self.merge_result_rank()
-                print(results_rank)
-
-                for key, result in results_rank.items():
-                    print(key, result)
+            if epoch % int(self.report_step) == 0:
+                self.results_rank = self.merge_result_rank()
+                for key, result in self.results_rank.items():
                     self.loggers[key].add_result(self.run, result)
-                    print(self.run)
-                    print(result)
+                    self.print_logger.info(
+                        f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {self.results_rank["AUC"][0]:.4f}, AP: {self.results_rank["AP"][0]:.4f}, MRR: {self.results_rank["MRR"][0]:.4f}, Hit@10 {self.results_rank["Hits@10"][0]:.4f}')
+                    self.print_logger.info(
+                        f'Epoch: {epoch:03d}, Loss_valid: {loss:.4f}, AUC: {self.results_rank["AUC"][1]:.4f}, AP: {self.results_rank["AP"][1]:.4f}, MRR: {self.results_rank["MRR"][1]:.4f}, Hit@10 {self.results_rank["Hits@10"][1]:.4f}')
+                    self.print_logger.info(
+                        f'Epoch: {epoch:03d}, Loss_test: {loss:.4f}, AUC: {self.results_rank["AUC"][2]:.4f}, AP: {self.results_rank["AP"][2]:.4f}, MRR: {self.results_rank["MRR"][2]:.4f}, Hit@10 {self.results_rank["Hits@10"][2]:.4f}')
+
+                    self.tensorboard_writer.add_scalar(f"Metrics/Train/{key}", result[0], epoch)
+                    self.tensorboard_writer.add_scalar(f"Metrics/Valid/{key}", result[1], epoch)
+                    self.tensorboard_writer.add_scalar(f"Metrics/Test/{key}", result[2], epoch)
+
+                    train_hits, valid_hits, test_hits = result
+                    self.print_logger.info(
+                        f'Run: {self.run + 1:02d}, Key: {key}, '
+                        f'Epoch: {epoch:02d}, Loss: {loss:.4f}, Train: {100 * train_hits:.2f}, Valid: {100 * valid_hits:.2f}, Test: {100 * test_hits:.2f}%')
+
+                self.print_logger.info('---')
 
         return best_auc, best_hits
 
-    @torch.no_grad()
-    def _test(self, data: Data):
-        self.model.eval()
-        self.predictor.eval()
-        pos_edge = data['pos_edge_label_index'].to(self.device)
-        neg_edge = data['neg_edge_label_index'].to(self.device)
-        pos_pred,_,_,_ = self.model(pos_edge, self.data, self.data.A, self.predictor, emb=self.data.emb.weight)
-        pos_pred = pos_pred.squeeze()
-        neg_pred,_,_,_ = self.model(neg_edge, self.data, self.data.A, self.predictor, emb=self.data.emb.weight)
-        neg_pred = neg_pred.squeeze()
-
-        y_pred = torch.cat([pos_pred, neg_pred], dim=0)
-        hard_thres = (y_pred.max() + y_pred.min()) / 2
-        pos_y = torch.ones(pos_edge.size(1))
-        neg_y = torch.zeros(neg_edge.size(1))
-        y_true = torch.cat([pos_y, neg_y], dim=0)
-        '''self.save_pred(y_pred, y_true, data)'''
-
-        y_pred = torch.where(y_pred >= hard_thres, torch.tensor(1), torch.tensor(0))
-
-        y_true = y_true.clone().detach()
-        y_pred = y_pred.clone().detach()
-
-        y_pred, y_true = y_pred.detach().cpu().numpy(), y_true.detach().cpu().numpy()
-        fpr, tpr, thresholds = roc_curve(y_true, y_pred, pos_label=1)
-        return roc_auc_score(y_true, y_pred), average_precision_score(y_true, y_pred), auc(fpr, tpr)
 
     @torch.no_grad()
     def _evaluate(self, eval_data: Data):
-
         self.model.eval()
         self.predictor.eval()
+
         pos_edge = eval_data['pos_edge_label_index'].to(self.device)
         neg_edge = eval_data['neg_edge_label_index'].to(self.device)
-        pos_pred, _, _, _ = self.model(pos_edge, self.data, self.data.A, self.predictor, emb=self.data.emb.weight)
-        pos_pred = pos_pred.squeeze()
-        neg_pred, _, _, _ = self.model(neg_edge, self.data, self.data.A, self.predictor, emb=self.data.emb.weight)
-        neg_pred = neg_pred.squeeze()
+
+        pos_pred_list, neg_pred_list = [], []
+
+        with torch.no_grad():
+            for perm in DataLoader(range(pos_edge.size(1)), self.batch_size, shuffle=True):
+                # Positive edge prediction
+                edge = pos_edge[:, perm].to(self.device)
+                pos_pred, _, _, _ = self.model(edge, self.data, self.data.A, self.predictor, emb=self.data.emb.weight)
+                pos_pred = pos_pred.squeeze()
+                pos_pred_list.append(pos_pred.cpu())
+
+                # Negative edge prediction
+                edge = neg_edge[:, perm].to(self.device)
+                neg_pred, _, _, _ = self.model(edge, self.data, self.data.A, self.predictor, emb=self.data.emb.weight)
+                neg_pred = neg_pred.squeeze()
+                neg_pred_list.append(neg_pred.cpu())
+
+        # Concatenate predictions and create labels
+        pos_pred = torch.cat(pos_pred_list, dim=0)
+        neg_pred = torch.cat(neg_pred_list, dim=0)
         y_pred = torch.cat([pos_pred, neg_pred], dim=0)
+
         hard_thres = (y_pred.max() + y_pred.min()) / 2
-        pos_y = torch.ones(pos_edge.size(1))
-        neg_y = torch.zeros(neg_edge.size(1))
+
+        # Create true labels
+        pos_y = torch.ones(pos_pred.size(0))
+        neg_y = torch.zeros(neg_pred.size(0))
         y_true = torch.cat([pos_y, neg_y], dim=0)
-        '''self.save_pred(y_pred, y_true, eval_data)'''
 
-        pos_pred, neg_pred = y_pred[y_true == 1].cpu(), y_pred[y_true == 0].cpu()
-        y_pred = torch.where(y_pred >= hard_thres, torch.tensor(1), torch.tensor(0))
+        # Convert predictions to binary labels
+        y_pred_binary = torch.where(y_pred >= hard_thres, torch.tensor(1), torch.tensor(0))
 
-        y_true = y_true.clone().detach().cpu()
-        y_pred = y_pred.clone().detach().cpu()
+        # Move to CPU for evaluation
+        y_true = y_true.cpu()
+        y_pred_binary = y_pred_binary.cpu()
 
+        acc = torch.sum(y_true == y_pred_binary).item() / len(y_true)
 
-
-        acc = torch.sum(y_true == y_pred) / len(y_true)
-
+        # Assuming get_metric_score is defined elsewhere and computes metrics
         result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_pred, neg_pred)
-        result_mrr.update({'ACC': round(acc.tolist(), 5)})
+        result_mrr.update({'ACC': round(acc, 5)})
 
         return result_mrr
 
@@ -224,5 +254,11 @@ class Trainer_NeoGNN(Trainer):
                 pred_value = pred[idx]
                 true_value = true[idx]
                 f.write(f"{corresponding_node_ids[0].item()} {corresponding_node_ids[1].item()} {pred_value} {true_value}\n")
+    def finalize(self):
+        import time
+        for _ in range(1):
+            start_train = time.time()
+            self._evaluate(self.test_data)
+            self.run_result['eval_time'] = time.time() - start_train
 
 

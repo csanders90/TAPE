@@ -42,9 +42,9 @@ model:
   preedp: 0.0 #
 
 
-  probscale: 5.0 #
-  proboffset: 3.0 #
-  pt: 0.05 #
+  probscale: 2.0 #
+  proboffset: 2.0 #
+  pt: 0.1 #
 
 
 num_threads: 11

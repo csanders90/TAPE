@@ -45,11 +45,11 @@ num_threads: 11
 wandb:
   use: True
   project: gtblueprint
-  name_tag: elph-pubmed
+  name_tag: elph-arxiv_2023
 
 
 data:
-  name: pubmed
+  name: arxiv_2023
   undirected: True
   include_negatives: True
   val_pct: 0.15
