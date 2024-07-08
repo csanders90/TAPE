@@ -157,6 +157,13 @@ class Trainer_Subgraph_Sketching(Trainer):
 
                 for key, result in self.results_rank.items():
                     self.loggers[key].add_result(self.run, result)
+                    self.print_logger.info(
+                        f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {self.results_rank["AUC"][0]:.4f}, AP: {self.results_rank["AP"][0]:.4f}, MRR: {self.results_rank["MRR"][0]:.4f}, Hit@10 {self.results_rank["Hits@10"][0]:.4f}')
+                    self.print_logger.info(
+                        f'Epoch: {epoch:03d}, Loss_valid: {loss:.4f}, AUC: {self.results_rank["AUC"][1]:.4f}, AP: {self.results_rank["AP"][1]:.4f}, MRR: {self.results_rank["MRR"][1]:.4f}, Hit@10 {self.results_rank["Hits@10"][1]:.4f}')
+                    self.print_logger.info(
+                        f'Epoch: {epoch:03d}, Loss_test: {loss:.4f}, AUC: {self.results_rank["AUC"][2]:.4f}, AP: {self.results_rank["AP"][2]:.4f}, MRR: {self.results_rank["MRR"][2]:.4f}, Hit@10 {self.results_rank["Hits@10"][2]:.4f}')
+
                     self.tensorboard_writer.add_scalar(f"Metrics/Train/{key}", result[0], epoch)
                     self.tensorboard_writer.add_scalar(f"Metrics/Valid/{key}", result[1], epoch)
                     self.tensorboard_writer.add_scalar(f"Metrics/Test/{key}", result[2], epoch)
