@@ -12,7 +12,7 @@ run:
 
 train:
   mode: custom
-  batch_size: 1024 #
+  batch_size: 512 #
   gnn_batch_size: 8192 #
   eval_period: 1
   epochs: 500
@@ -25,8 +25,8 @@ model:
   type: NeoGNN
   out_channels: 32
   in_channels: 1433
-  hidden_channels: 256 #
-  num_layers: 2 #
+  hidden_channels: 128 #
+  num_layers: 3 #
   dropout: 0.3 #
   f_edge_dim: 8 #
   f_node_dim: 64 #
