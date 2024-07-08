@@ -1043,3 +1043,44 @@ def timeit(func):
             if not key.startswith('post_mp'):
                 param.requires_grad = False
     return model
+
+def save_run_results_to_csv(cfg, loggers, seed, run_id):
+    """
+    Save the results of the run to a csv file
+
+    Args:
+        cfg: Config object
+        loggers: List of logger objects
+        seed: Seed of the run
+        run_id: Index of the result in the logger
+    """
+    import pandas as pd
+    import os
+
+    # Create the results dataframe
+    result_dict = {}
+    for key in loggers:
+        result_dict['model'] = cfg.model.type
+        result_dict['seed'] = seed
+        _, _, _, test_bvalid = loggers[key].calc_run_stats(run_id)
+        result_dict[key] = test_bvalid
+
+
+    # Convert the result dictionary to a DataFrame
+    results = pd.DataFrame(result_dict, index=[0])
+
+    # Define the file path
+    FILE_PATH = get_git_repo_root_path() + '/'
+    root = os.path.join(FILE_PATH, 'results')
+    os.makedirs(root, exist_ok=True)  # Create the directory if it doesn't exist
+    file_path = os.path.join(root, f'{cfg.data.name}_final_results.csv')
+
+    # Check if file exists
+    file_exists = os.path.isfile(file_path)
+
+    # Save or append the results to the csv file
+    results.to_csv(file_path, mode='a', header=not file_exists, index=False)
+
+    # Also save with a unique filename for the specific run
+    unique_file_path = os.path.join(cfg.run_dir, f'results_seed_{seed}.csv')
+    results.to_csv(unique_file_path, index=False)
