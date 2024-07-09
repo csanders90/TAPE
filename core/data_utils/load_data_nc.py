@@ -498,6 +498,31 @@ def load_text_pwc_large() -> List[str]:
         f'Text: {ti}\n'
         for ti in zip(df['feat'])
     ]
+
+def load_graph_pwc_medium():
+    graph = torch.load(FILE_PATH+'core/dataset/pwc_medium/pwc_tfidf_large_undir.pt')
+    return graph 
+
+
+def load_text_pwc_medium() -> List[str]:
+    df = pd.read_csv(FILE_PATH + 'core/dataset/pwc_medium/pwc_large_papers.csv')
+    return [
+        f'Text: {ti}\n'
+        for ti in zip(df['feat'])
+    ]
+
+def load_graph_pwc_small():
+    graph = torch.load(FILE_PATH+'core/dataset/pwc_small/pwc_tfidf_large_undir.pt')
+    return graph 
+
+
+def load_text_pwc_small() -> List[str]:
+    df = pd.read_csv(FILE_PATH + 'core/dataset/pwc_small/pwc_large_papers.csv')
+    return [
+        f'Text: {ti}\n'
+        for ti in zip(df['feat'])
+    ]
+    
     
 def extract_lcc_pwc_undir() -> Data:
     # return the largest connected components with text attrs

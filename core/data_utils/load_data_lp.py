@@ -23,7 +23,8 @@ from data_utils.load_data_nc import load_tag_cora, load_tag_pubmed, \
     load_graph_arxiv23, load_graph_ogbn_arxiv, load_text_cora, \
     load_text_pubmed, load_text_arxiv23, load_text_ogbn_arxiv, \
     load_text_product, load_text_citeseer, load_text_citationv8, \
-    load_graph_citeseer, load_graph_citationv8, load_graph_pwc_large, load_text_pwc_large
+    load_graph_citeseer, load_graph_citationv8, load_graph_pwc_large, load_text_pwc_large, \
+    load_graph_pwc_medium, load_text_pwc_medium, load_text_pwc_small,  load_graph_pwc_small
 from graphgps.utility.utils import get_git_repo_root_path, config_device, init_cfg_test
 from typing import Dict, Tuple, List, Union
 import torch
@@ -230,8 +231,29 @@ def load_taplp_pwc_large(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
     return splits, text, data
 
 def load_taplp_pwc_medium(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
-    data = load_graph_pwc_large()
-    text = load_text_pwc_large()
+    data = load_graph_pwc_medium()
+    text = load_text_pwc_medium()
+    
+    if data.is_directed() is True:
+        data.edge_index  = to_undirected(data.edge_index)
+        undirected  = True 
+    else:
+        undirected = data.is_undirected()
+        
+    splits = get_edge_split(data,
+                            undirected,
+                            cfg.device,
+                            cfg.split_index[1],
+                            cfg.split_index[2],
+                            cfg.include_negatives,
+                            cfg.split_labels
+                            )
+    return splits, text, data
+
+
+def load_taplp_pwc_small(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
+    data = load_graph_pwc_small() 
+    text = load_text_pwc_small()
     
     if data.is_directed() is True:
         data.edge_index  = to_undirected(data.edge_index)
@@ -252,9 +274,6 @@ def load_taplp_pwc_medium(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
 
 
 
-
-
-
 # TEST CODE
 if __name__ == '__main__':
     args = init_cfg_test()
@@ -269,18 +288,46 @@ if __name__ == '__main__':
     print(f"valid dataset: {splits['valid'].pos_edge_label.shape[0]*2} edges.")
     print(f"test dataset: {splits['test'].pos_edge_label.shape[0]*2} edges.")
 
-
+    from lpda.lcc_3 import use_lcc
     # return the largest connected components with text attrs
-    # graph = torch.load(FILE_PATH+'core/dataset/pwc_large/pwc_tfidf_large_undir.pt')
-    # data_lcc = use_lcc(graph)
-    # root = '/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/'
-    # torch.save(data_lcc, root+'core/dataset/pwc_large/pwc_tfidf_medium_undir.pt')
-
+    graph = torch.load(FILE_PATH+'core/dataset/pwc_large/pwc_w2v_large_undir.pt')
+    data_lcc = use_lcc(graph)
+    root = '/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/'
+    torch.save(data_lcc, root+'core/dataset/pwc_medium/pwc_w2v_medium_undir.pt')
+    
+    exit(-1)
+    # large undirected graph to medium undirected graph
+    # w2v
+    text = load_text_pwc_large()
     graph = torch.load(FILE_PATH + 'core/dataset/pwc_large/pwc_w2v_large_undir.pt')
+    
+    largest_scc = find_scc_direc(graph)
+    # save id
+    # Print the nodes in the largest SCC
+    print("Nodes in the largest strongly connected component:", len(largest_scc))
+    
+    # Extract the subgraph corresponding to the largest SCC
+    subgraph = use_lcc_direc(data, largest_scc)
+    
+    # Print the subgraph details
+    print("Subgraph edge index:", subgraph.edge_index)
+    print("Subgraph node features:", subgraph.x)
+    
+    # save graph
+    root = '/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/dataset/pwc_medium/'
+    torch.save(subgraph, root+'pwc_w2v_medium_undir.pt')
+    # save text
+    # TODO
+    
+    
+    # large undirected graph to medium undirected graph
+    # tfidf
+    graph = torch.load(FILE_PATH + 'core/dataset/pwc_large/pwc_tfidf_large_undir.pt')
+    
     largest_scc = find_scc_direc(graph)
     
     # Print the nodes in the largest SCC
-    print("Nodes in the largest strongly connected component:", largest_scc)
+    print("Nodes in the largest strongly connected component:", len(largest_scc))
     
     # Extract the subgraph corresponding to the largest SCC
     subgraph = use_lcc_direc(data, largest_scc)
@@ -289,8 +336,11 @@ if __name__ == '__main__':
     print("Subgraph edge index:", subgraph.edge_index)
     print("Subgraph node features:", subgraph.x)
 
-    root = '/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/dataset/pwc_small/'
+    root = '/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/dataset/pwc_medium/'
     torch.save(subgraph, root+'pwc_w2v_medium_undir.pt')
+    # save text
+    #TODO
+    
     exit(-1)
     
     print('arxiv2023')
