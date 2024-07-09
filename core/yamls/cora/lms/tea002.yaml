@@ -1,6 +1,6 @@
 out_dir: results
 metric_best: acc
-cfg_dest: e5-large.yaml
+cfg_dest: tea002.yaml
 print: file
 seed: 0
 accelerator: auto
@@ -14,7 +14,7 @@ run:
 wandb:
   use: True
   project: gtblueprint
-  name_tag: e5-large-cora-origin
+  name_tag: tea002-cora-origin
 
 train:
   mode: custom
@@ -27,7 +27,7 @@ train:
   finetune: False
 
 embedder:
-  type: e5-large
+  type: text-embedding-ada-002
 
 data:
   name: cora
