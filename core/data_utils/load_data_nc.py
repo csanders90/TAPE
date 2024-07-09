@@ -483,7 +483,19 @@ def load_tag_citeseer() -> Tuple[Data, List[str]]:
     text = load_text_citeseer()
     return graph, text
 
+def load_graph_pwc_large():
+    graph = torch.load(FILE_PATH+'core/dataset/pwc_large')
+    return graph 
 
+
+def load_text_pwc_large() -> List[str]:
+    df = pd.read_csv(FILE_PATH + 'core/dataset/pwc_large/pwc_large_papers.csv')
+    return [
+        f'Text: {ti}\n'
+        for ti in zip(df['feat'])
+    ]
+    
+    
 # Test code
 if __name__ == '__main__':
     graph = load_graph_citeseer()

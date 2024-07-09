@@ -84,7 +84,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--score', dest='score', type=str, required=False, default='mlp_score',
                         help='decoder name')
 
-    parser.add_argument('--max_iter', dest='max_iter', type=int, required=False, default=1000,
+    parser.add_argument('--max_iter', dest='max_iter', type=int, required=False, default=10,
                         help='decoder name')
 
     parser.add_argument('--repeat', type=int, default=5,
@@ -167,7 +167,7 @@ def project_main():
                 clf.partial_fit(train_dataset, train_labels, classes=classes)
                 print(f'this epoch costs {time.time() - start}')
 
-                if i % 100 == 0:
+                if i % 10 == 0:
                     # Calculate and print metrics for test set
                     test_metrics = get_metrics(clf, test_dataset, test_labels, evaluator_hit, evaluator_mrr)
                     print(test_metrics)

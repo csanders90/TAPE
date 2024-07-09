@@ -192,6 +192,26 @@ def load_taglp_citationv8(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
                             )
     return splits, text, data
 
+def load_taplp_pwc_large(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
+    data = load_graph_pwc_large()
+    text = load_text_pwc_large()
+    
+    if data.is_directed() is True:
+        data.edge_index  = to_undirected(data.edge_index)
+        undirected  = True 
+    else:
+        undirected = data.is_undirected()
+        
+    splits = get_edge_split(data,
+                            undirected,
+                            cfg.device,
+                            cfg.split_index[1],
+                            cfg.split_index[2],
+                            cfg.include_negatives,
+                            cfg.split_labels
+                            )
+    return splits, text, data
+
 
 # TEST CODE
 if __name__ == '__main__':
