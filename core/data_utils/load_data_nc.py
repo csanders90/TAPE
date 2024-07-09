@@ -15,6 +15,8 @@ from torch_geometric.datasets import Planetoid
 from torch_geometric.transforms import RandomLinkSplit
 from graphgps.utility.utils import get_git_repo_root_path # type: ignore
 from typing import Tuple, List, Dict, Set, Any 
+from lpda.lcc_3 import use_lcc
+
 
 FILE = 'core/dataset/ogbn_products_orig/ogbn-products.csv'
 FILE_PATH = get_git_repo_root_path() + '/'
@@ -484,7 +486,7 @@ def load_tag_citeseer() -> Tuple[Data, List[str]]:
     return graph, text
 
 def load_graph_pwc_large():
-    graph = torch.load(FILE_PATH+'core/dataset/pwc_large')
+    graph = torch.load(FILE_PATH+'core/dataset/pwc_large/pwc_tfidf_large_undir.pt')
     return graph 
 
 
@@ -495,7 +497,14 @@ def load_text_pwc_large() -> List[str]:
         for ti in zip(df['feat'])
     ]
     
-    
+def extract_lcc_pwc() -> Data:
+    # return the largest connected components with text attrs
+    graph = torch.load(FILE_PATH+'core/dataset/pwc_large/pwc_tfidf_large_undir.pt')
+    data_lcc = use_lcc(graph)
+    from pdb import set_trace as st; st()
+    return 
+
+
 # Test code
 if __name__ == '__main__':
     graph = load_graph_citeseer()
