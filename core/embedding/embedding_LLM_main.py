@@ -1,11 +1,7 @@
 import copy
 import os, sys
-
-import transformers
 from sentence_transformers import SentenceTransformer
 from torch import Tensor, nn
-from transformers import BertTokenizer, BertModel
-
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import argparse
 import time
@@ -76,6 +72,39 @@ class LinkPredictor(torch.nn.Module):
         x = self.lins[-1](x)
         return torch.sigmoid(x)
 
+'''class LinkPredictor(nn.Module):
+    def __init__(self, input_dim, hidden_dim, output_dim, num_layers, dropout):
+        super(LinkPredictor, self).__init__()
+
+        self.lins = nn.ModuleList()
+        self.lins.append(nn.Linear(input_dim * 2, hidden_dim))  # Concatenate xi and xj
+        for _ in range(num_layers - 2):
+            self.lins.append(nn.Linear(hidden_dim, hidden_dim))
+        self.lins.append(nn.Linear(hidden_dim, output_dim))
+
+        self.dropout = nn.Dropout(dropout)
+        self.num_layers = num_layers
+
+
+        self.output_layer = nn.Linear(hidden_dim, 1)  # Output layer for binary classification
+
+        self.batch_norms = nn.ModuleList()
+        for _ in range(num_layers - 1):
+            self.batch_norms.append(nn.BatchNorm1d(hidden_dim))
+
+    def forward(self, xi, xj):
+        x = torch.cat((xi, xj), dim=1)  # Concatenate xi and xj
+        x = self.dropout(x)
+        h = x
+        for i in range(self.num_layers - 1):
+
+            h = F.relu(self.batch_norms[i](self.lins[i](h)))
+            h = self.dropout(h)
+
+        h = self.lins[-1](h)
+        output = torch.sigmoid(h)
+        return output
+'''
 if __name__ == '__main__':
     FILE_PATH = f'{get_git_repo_root_path()}/'
 
@@ -100,17 +129,11 @@ if __name__ == '__main__':
     elif cfg.embedder.type == 'e5-large':
         model = SentenceTransformer('intfloat/e5-large-v2')
         node_features = model.encode(text, normalize_embeddings=True)
-    elif cfg.embedder.type == 'llama':
-        model_id = "meta-llama/Meta-Llama-3-8B"
-        pipeline = transformers.pipeline(
-            "text-generation", model=model_id, model_kwargs={"torch_dtype": torch.bfloat16}, device_map="auto"
-        )
-        node_features = pipeline(text)
-    elif cfg.embedder.type == 'bert':
-        tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-        model = BertModel.from_pretrained("bert-base-uncased")
-        encoded_input = tokenizer(text, return_tensors='pt', padding=True, truncation=True, max_length=512)
-        node_features = model(**encoded_input)
+    '''elif cfg.embedder.type == 'text-embedding-ada-002':
+        tokenizer = GPT2TokenizerFast.from_pretrained('Xenova/text-embedding-ada-002')
+        for i in range(len(text)):
+            node_features.append(tokenizer.encode(text[i]))
+        node_features = torch.tensor(node_features)'''
     node_features = torch.tensor(node_features)
     print(node_features.shape)
 
