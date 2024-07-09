@@ -16,6 +16,8 @@ from torch_geometric.transforms import RandomLinkSplit
 from graphgps.utility.utils import get_git_repo_root_path # type: ignore
 from typing import Tuple, List, Dict, Set, Any 
 from lpda.lcc_3 import use_lcc
+import torch_geometric.utils as pyg_utils
+import networkx as nx 
 
 
 FILE = 'core/dataset/ogbn_products_orig/ogbn-products.csv'
@@ -497,10 +499,12 @@ def load_text_pwc_large() -> List[str]:
         for ti in zip(df['feat'])
     ]
     
-def extract_lcc_pwc() -> Data:
+def extract_lcc_pwc_undir() -> Data:
     # return the largest connected components with text attrs
     graph = torch.load(FILE_PATH+'core/dataset/pwc_large/pwc_tfidf_large_undir.pt')
     data_lcc = use_lcc(graph)
+    root = '/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/'
+    torch.save(data_lcc, root+'core/dataset/pwc_large/pwc_tfidf_medium_undir.pt')
     from pdb import set_trace as st; st()
     return 
 

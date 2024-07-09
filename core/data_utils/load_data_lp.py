@@ -9,15 +9,12 @@ import numpy as np
 import scipy.sparse as ssp
 import json
 import torch_geometric.transforms as T
-from torch_geometric.datasets import Planetoid
-from torch_geometric.data import Data, InMemoryDataset, Dataset
+from torch_geometric.data import Data
 from torch_geometric.transforms import RandomLinkSplit
 from torch_geometric.utils import to_undirected 
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
-from ogb.nodeproppred import PygNodePropPredDataset
-from sklearn.preprocessing import normalize
 from yacs.config import CfgNode as CN
 from data_utils.dataset import CustomLinkDataset
 from data_utils.load_data_nc import load_tag_cora, load_tag_pubmed, \
@@ -28,9 +25,9 @@ from data_utils.load_data_nc import load_tag_cora, load_tag_pubmed, \
     load_text_product, load_text_citeseer, load_text_citationv8, \
     load_graph_citeseer, load_graph_citationv8, load_graph_pwc_large, load_text_pwc_large
 from graphgps.utility.utils import get_git_repo_root_path, config_device, init_cfg_test
-from graphgps.utility.utils import time_logger
 from typing import Dict, Tuple, List, Union
-
+import torch
+from lpda.lcc_3 import find_scc_direc, use_lcc_direc
 
 FILE = 'core/dataset/ogbn_products_orig/ogbn-products.csv'
 FILE_PATH = get_git_repo_root_path() + '/'
@@ -232,6 +229,31 @@ def load_taplp_pwc_large(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
                             )
     return splits, text, data
 
+def load_taplp_pwc_medium(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
+    data = load_graph_pwc_large()
+    text = load_text_pwc_large()
+    
+    if data.is_directed() is True:
+        data.edge_index  = to_undirected(data.edge_index)
+        undirected  = True 
+    else:
+        undirected = data.is_undirected()
+        
+    splits = get_edge_split(data,
+                            undirected,
+                            cfg.device,
+                            cfg.split_index[1],
+                            cfg.split_index[2],
+                            cfg.include_negatives,
+                            cfg.split_labels
+                            )
+    return splits, text, data
+
+
+
+
+
+
 
 # TEST CODE
 if __name__ == '__main__':
@@ -247,9 +269,28 @@ if __name__ == '__main__':
     print(f"valid dataset: {splits['valid'].pos_edge_label.shape[0]*2} edges.")
     print(f"test dataset: {splits['test'].pos_edge_label.shape[0]*2} edges.")
 
-    from data_utils.load_data_nc import extract_lcc_pwc
-    data = extract_lcc_pwc()
+
+    # return the largest connected components with text attrs
+    # graph = torch.load(FILE_PATH+'core/dataset/pwc_large/pwc_tfidf_large_undir.pt')
+    # data_lcc = use_lcc(graph)
+    # root = '/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/'
+    # torch.save(data_lcc, root+'core/dataset/pwc_large/pwc_tfidf_medium_undir.pt')
+
+    graph = torch.load(FILE_PATH + 'core/dataset/pwc_large/pwc_w2v_large_undir.pt')
+    largest_scc = find_scc_direc(graph)
     
+    # Print the nodes in the largest SCC
+    print("Nodes in the largest strongly connected component:", largest_scc)
+    
+    # Extract the subgraph corresponding to the largest SCC
+    subgraph = use_lcc_direc(data, largest_scc)
+    
+    # Print the subgraph details
+    print("Subgraph edge index:", subgraph.edge_index)
+    print("Subgraph node features:", subgraph.x)
+
+    root = '/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/dataset/pwc_small/'
+    torch.save(subgraph, root+'pwc_w2v_medium_undir.pt')
     exit(-1)
     
     print('arxiv2023')
