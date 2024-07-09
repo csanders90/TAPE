@@ -211,8 +211,8 @@ def load_taglp_citationv8(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
 
  
 def load_taplp_pwc_large(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
-    data = load_graph_pwc_large()
-    text = load_text_pwc_large()
+    data = load_graph_pwc_large(cfg.method)
+    df, text = load_text_pwc_large()
     
     if data.is_directed() is True:
         data.edge_index  = to_undirected(data.edge_index)
@@ -228,11 +228,11 @@ def load_taplp_pwc_large(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
                             cfg.include_negatives,
                             cfg.split_labels
                             )
-    return splits, text, data
+    return splits, df, data
 
 def load_taplp_pwc_medium(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
-    data = load_graph_pwc_medium()
-    text = load_text_pwc_medium()
+    data = load_graph_pwc_medium(cfg.method)
+    text = load_text_pwc_medium(cfg.method)
     
     if data.is_directed() is True:
         data.edge_index  = to_undirected(data.edge_index)
@@ -252,15 +252,16 @@ def load_taplp_pwc_medium(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
 
 
 def load_taplp_pwc_small(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
-    data = load_graph_pwc_small() 
-    text = load_text_pwc_small()
+    data = load_graph_pwc_small(cfg.method) 
+    text = load_text_pwc_small(cfg.method)
     
     if data.is_directed() is True:
         data.edge_index  = to_undirected(data.edge_index)
         undirected  = True 
     else:
         undirected = data.is_undirected()
-        
+    
+
     splits = get_edge_split(data,
                             undirected,
                             cfg.device,
@@ -277,6 +278,41 @@ def load_taplp_pwc_small(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
 # TEST CODE
 if __name__ == '__main__':
     args = init_cfg_test()
+    args = config_device(args)
+    from lpda.lcc_3 import use_lcc
+    splits, text, data = load_taplp_pwc_small(args.data)
+    print(splits)
+    print(text.iloc[0])
+    print(data)
+    splits, text, data = load_taplp_pwc_medium(args.data)
+    print(splits)
+    print(text.iloc[0])
+    print(data)
+    splits, text, data = load_taplp_pwc_large(args.data)
+    print(splits)
+    print(text.iloc[0])
+    print(data)
+    exit(-1)
+    # return the largest connected components with text attrs
+    graph = torch.load(FILE_PATH+f'core/dataset/pwc_large/pwc_{method}_large_undirec.pt')
+    df, text = load_text_pwc_large()
+    
+    data_lcc, lcc = use_lcc(graph)
+    root = '/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/'
+    torch.save(data_lcc, root+f'core/dataset/pwc_medium/pwc_{method}_medium_undirec.pt')
+    df_lcc = df.iloc[lcc.tolist()]
+    df_lcc.to_csv(root+f'core/dataset/pwc_medium/pwc_{method}_medium_text.csv')
+
+    graph = torch.load(FILE_PATH + f'core/dataset/pwc_large/pwc_{method}_large_direc.pt')
+    
+    largest_scc = find_scc_direc(graph)
+    lcc = list(largest_scc)
+    print("Nodes in the largest strongly connected component:", len(lcc))
+    df_lcc_direc = df.iloc[lcc]
+    df_lcc_direc.to_csv(root+f'core/dataset/pwc_small/pwc_{method}_small_text.csv')
+    subgraph = use_lcc_direc(graph, largest_scc)
+    torch.save(subgraph, root+f'core/dataset/pwc_small/pwc_{method}_small_undirec.pt')
+    exit(-1)
 
     print('pwc_large')
     print(args.data)
@@ -288,60 +324,42 @@ if __name__ == '__main__':
     print(f"valid dataset: {splits['valid'].pos_edge_label.shape[0]*2} edges.")
     print(f"test dataset: {splits['test'].pos_edge_label.shape[0]*2} edges.")
 
-    from lpda.lcc_3 import use_lcc
-    # return the largest connected components with text attrs
-    graph = torch.load(FILE_PATH+'core/dataset/pwc_large/pwc_w2v_large_undir.pt')
-    data_lcc = use_lcc(graph)
     root = '/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/'
-    torch.save(data_lcc, root+'core/dataset/pwc_medium/pwc_w2v_medium_undir.pt')
-    
-    exit(-1)
-    # large undirected graph to medium undirected graph
-    # w2v
-    text = load_text_pwc_large()
-    graph = torch.load(FILE_PATH + 'core/dataset/pwc_large/pwc_w2v_large_undir.pt')
-    
-    largest_scc = find_scc_direc(graph)
-    # save id
-    # Print the nodes in the largest SCC
-    print("Nodes in the largest strongly connected component:", len(largest_scc))
-    
-    # Extract the subgraph corresponding to the largest SCC
-    subgraph = use_lcc_direc(data, largest_scc)
-    
-    # Print the subgraph details
-    print("Subgraph edge index:", subgraph.edge_index)
-    print("Subgraph node features:", subgraph.x)
-    
-    # save graph
-    root = '/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/dataset/pwc_medium/'
-    torch.save(subgraph, root+'pwc_w2v_medium_undir.pt')
-    # save text
-    # TODO
-    
-    
-    # large undirected graph to medium undirected graph
-    # tfidf
-    graph = torch.load(FILE_PATH + 'core/dataset/pwc_large/pwc_tfidf_large_undir.pt')
-    
-    largest_scc = find_scc_direc(graph)
-    
-    # Print the nodes in the largest SCC
-    print("Nodes in the largest strongly connected component:", len(largest_scc))
-    
-    # Extract the subgraph corresponding to the largest SCC
-    subgraph = use_lcc_direc(data, largest_scc)
-    
-    # Print the subgraph details
-    print("Subgraph edge index:", subgraph.edge_index)
-    print("Subgraph node features:", subgraph.x)
+    path_large_tfidf_undir = root + 'core/dataset/pwc_large/pwc_tfidf_large_undirec.pt'
+    path_large_tfidf_dir = root + 'core/dataset/pwc_large/pwc_tfidf_large_direc.pt'
 
-    root = '/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/dataset/pwc_medium/'
-    torch.save(subgraph, root+'pwc_w2v_medium_undir.pt')
-    # save text
-    #TODO
+    path_large_w2v_undir = root + 'core/dataset/pwc_large/pwc_w2v_large_undirec.pt'
+    path_large_w2v_dir = root + 'core/dataset/pwc_large/pwc_w2v_large_direc.pt'
+ 
+    path_medium_tfidf_undir = root + 'core/dataset/pwc_medium/pwc_tfidf_medium_undirec.pt'
+    path_medium_w2v_undir = root + 'core/dataset/pwc_medium/pwc_w2v_medium_undirec.pt'
+   
+    path_small_tfidf_undir = root + 'core/dataset/pwc_small/pwc_tfidf_small_undirec.pt'
+    path_small_w2v_undir = root + 'core/dataset/pwc_small/pwc_w2v_small_undirec.pt'
+     
+    graph = torch.load(path_large_tfidf_undir)
+    print(f'directed: {graph.is_directed()}')
     
-    exit(-1)
+    graph = torch.load(path_large_tfidf_dir)
+    print(f'directed: {graph.is_directed()}')
+    
+    graph = torch.load(path_large_w2v_undir)
+    print(f'directed: {graph.is_directed()}')
+    
+    graph = torch.load(path_large_w2v_dir)
+    print(f'directed: {graph.is_directed()}')
+    
+    graph = torch.load(path_medium_tfidf_undir)
+    print(f'directed: {graph.is_directed()}')
+    
+    graph = torch.load(path_medium_w2v_undir)
+    print(f'directed: {graph.is_directed()}')
+    
+    graph = torch.load(path_small_tfidf_undir)
+    print(f'directed: {graph.is_directed()}')
+    
+    graph = torch.load(path_small_w2v_undir)
+    print(f'directed: {graph.is_directed()}')
     
     print('arxiv2023')
     splits, text, data  = load_taglp_arxiv2023(args.data)

@@ -487,41 +487,33 @@ def load_tag_citeseer() -> Tuple[Data, List[str]]:
     text = load_text_citeseer()
     return graph, text
 
-def load_graph_pwc_large():
-    graph = torch.load(FILE_PATH+'core/dataset/pwc_large/pwc_tfidf_large_undir.pt')
+def load_graph_pwc_large(method):
+    graph = torch.load(FILE_PATH+f'core/dataset/pwc_large/pwc_{method}_large_undirec.pt')
     return graph 
 
 
 def load_text_pwc_large() -> List[str]:
-    df = pd.read_csv(FILE_PATH + 'core/dataset/pwc_large/pwc_large_papers.csv')
-    return [
-        f'Text: {ti}\n'
+    df = pd.read_csv(FILE_PATH + f'core/dataset/pwc_large/pwc_large_papers.csv')
+    return df, [
+        ti
         for ti in zip(df['feat'])
     ]
 
-def load_graph_pwc_medium():
-    graph = torch.load(FILE_PATH+'core/dataset/pwc_medium/pwc_tfidf_large_undir.pt')
-    return graph 
+def load_graph_pwc_medium(method):
+    return torch.load(FILE_PATH+f'core/dataset/pwc_medium/pwc_{method}_medium_undirec.pt')
 
 
-def load_text_pwc_medium() -> List[str]:
-    df = pd.read_csv(FILE_PATH + 'core/dataset/pwc_medium/pwc_large_papers.csv')
-    return [
-        f'Text: {ti}\n'
-        for ti in zip(df['feat'])
-    ]
+def load_text_pwc_medium(method) -> List[str]:
+    return pd.read_csv(FILE_PATH + f'core/dataset/pwc_medium/pwc_{method}_medium_text.csv')
+    
 
-def load_graph_pwc_small():
-    graph = torch.load(FILE_PATH+'core/dataset/pwc_small/pwc_tfidf_large_undir.pt')
-    return graph 
+def load_graph_pwc_small(method):
+    return torch.load(FILE_PATH+f'core/dataset/pwc_small/pwc_{method}_small_undirec.pt') 
 
 
-def load_text_pwc_small() -> List[str]:
-    df = pd.read_csv(FILE_PATH + 'core/dataset/pwc_small/pwc_large_papers.csv')
-    return [
-        f'Text: {ti}\n'
-        for ti in zip(df['feat'])
-    ]
+def load_text_pwc_small(method) -> List[str]:
+    return pd.read_csv(FILE_PATH + f'core/dataset/pwc_small/pwc_{method}_small_text.csv')
+    
     
     
 def extract_lcc_pwc_undir() -> Data:

@@ -244,7 +244,8 @@ def init_cfg_test():
             'test_pct': 0.1,
             'split_labels': True,
             'device': 'cpu',
-            'split_index': [0.8, 0.15, 0.05]
+            'split_index': [0.8, 0.15, 0.05],
+            'method':  'tfidf'
             },
         'train':  {
                 'device': 'cpu'

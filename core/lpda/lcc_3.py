@@ -112,7 +112,6 @@ def get_comp_data(adjacencyList: List[List[int]], start: int = 0) -> set:
 def use_lcc(dataset: InMemoryDataset) -> InMemoryDataset:
     lcc = get_largest_connected_component(dataset)
     
-    from pdb import set_trace as st; st()
     data = get_Data(dataset)
     x_new = data.x[lcc]
     # try:
@@ -141,7 +140,7 @@ def use_lcc(dataset: InMemoryDataset) -> InMemoryDataset:
     # dataset = InMemoryDataset(root='./dataset')
     # dataset._data = data
     
-    return data
+    return data, lcc
   
 
 def find_scc_direc(data) -> List:
@@ -154,7 +153,7 @@ def find_scc_direc(data) -> List:
     # Find the largest strongly connected component
     largest_scc = max(sccs, key=len)
     
-    return largest_scc
+    return list(largest_scc)
   
   
 def use_lcc_direc(data, lcc):
