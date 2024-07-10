@@ -451,7 +451,7 @@ def load_graph_citationv8() -> Data:
 def load_text_citationv8() -> List[str]:
     df = pd.read_csv(FILE_PATH + 'core/dataset/citationv8_orig/Citation-2015.csv')
     return [
-        f'Text: {ti}\n'
+        ti
         for ti in zip(df['text'])
     ]
 

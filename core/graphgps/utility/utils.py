@@ -245,7 +245,7 @@ def init_cfg_test():
             'split_labels': True,
             'device': 'cpu',
             'split_index': [0.8, 0.15, 0.05],
-            'method':  'tfidf'
+            'method':  'w2v'
             },
         'train':  {
                 'device': 'cpu'

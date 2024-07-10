@@ -29,6 +29,11 @@ from graphgps.utility.utils import get_git_repo_root_path, config_device, init_c
 from typing import Dict, Tuple, List, Union
 import torch
 from lpda.lcc_3 import find_scc_direc, use_lcc_direc
+import re
+from sklearn.feature_extraction.text import TfidfVectorizer
+from nltk.tokenize import word_tokenize
+from gensim.models import Word2Vec
+from tqdm import tqdm 
 
 FILE = 'core/dataset/ogbn_products_orig/ogbn-products.csv'
 FILE_PATH = get_git_repo_root_path() + '/'
@@ -206,6 +211,7 @@ def load_taglp_citationv8(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
                             cfg.include_negatives,
                             cfg.split_labels
                             )
+    
     return splits, text, data
 
 
@@ -274,11 +280,54 @@ def load_taplp_pwc_small(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
 
 
 
+def preprocess(text):
+    # Remove non-alphanumeric characters
+    text = re.sub(r'\W+', ' ', text)
+    # Tokenize and convert to lowercase
+    tokens = word_tokenize(text.lower())
+    return ' '.join(tokens)
 
+# Function to get the average embedding for a whole text (e.g., title and abstract combined)
+def get_average_embedding(text, model):
+    tokens = preprocess(text)
+    embeddings = [model.wv[token] for token in tokens if token in model.wv]
+    if embeddings:
+        return np.mean(embeddings, axis=0)
+    else:
+        # Return a zero vector if none of the tokens are in the vocabulary
+        return np.zeros(model.vector_size)
+    
 # TEST CODE
 if __name__ == '__main__':
+    exit(-1)
     args = init_cfg_test()
     args = config_device(args)
+    
+    splits, text, data = load_taglp_citationv8(args.data)
+    
+    print(data)
+    from pdb import set_trace as st; st()
+    preprocessed_texts = [preprocess(t[0]) for t in tqdm(text)]
+    print(len(preprocessed_texts))
+    # Train a Word2Vec model
+    
+    model = Word2Vec(sentences=preprocessed_texts, vector_size=128, window=5, min_count=1, workers=10)
+
+    w2v_nodefeat = np.array([get_average_embedding(t[0], model) for t in text])
+    
+    x = torch.tensor(w2v_nodefeat, dtype=torch.float)
+    
+    data.x = x
+    torch.save(data, f'citationv8_{args.data.method}.pt')
+    exit(-1)
+    vectorizer = TfidfVectorizer(max_features=128)
+    tfidf_matrix = vectorizer.fit_transform(preprocessed_texts)
+    from pdb import set_trace as st; st()
+    x = torch.tensor(tfidf_matrix.toarray(), dtype=torch.float)
+    
+    data.x = x
+    torch.save(data, f'citationv8_{args.data.method}.pt')
+    exit(-1)
     from lpda.lcc_3 import use_lcc
     splits, text, data = load_taplp_pwc_small(args.data)
     print(splits)
