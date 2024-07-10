@@ -441,12 +441,17 @@ def load_tag_product() -> Tuple[Data, List[str]]:
 
 
 def load_graph_citationv8() -> Data:
+    
     graph = dgl.load_graphs(FILE_PATH + 'core/dataset/citationv8/Citation-2015.pt')[0][0]
     graph = dgl.to_bidirected(graph)
     from torch_geometric.utils import from_dgl
     graph = from_dgl(graph)
     return graph
 
+def load_embedded_citationv8(method) -> Data:
+    return torch.load(FILE_PATH + f'core/dataset/citationv8/citationv8_{method}.pt')
+    
+    
 
 def load_text_citationv8() -> List[str]:
     df = pd.read_csv(FILE_PATH + 'core/dataset/citationv8_orig/Citation-2015.csv')

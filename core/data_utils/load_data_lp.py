@@ -24,7 +24,9 @@ from data_utils.load_data_nc import load_tag_cora, load_tag_pubmed, \
     load_text_pubmed, load_text_arxiv23, load_text_ogbn_arxiv, \
     load_text_product, load_text_citeseer, load_text_citationv8, \
     load_graph_citeseer, load_graph_citationv8, load_graph_pwc_large, load_text_pwc_large, \
-    load_graph_pwc_medium, load_text_pwc_medium, load_text_pwc_small,  load_graph_pwc_small
+    load_graph_pwc_medium, load_text_pwc_medium, load_text_pwc_small,  load_graph_pwc_small, \
+    load_embedded_citationv8
+    
 from graphgps.utility.utils import get_git_repo_root_path, config_device, init_cfg_test
 from typing import Dict, Tuple, List, Union
 import torch
@@ -195,7 +197,7 @@ def load_taglp_citeseer(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
 def load_taglp_citationv8(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
     # add one default argument
     
-    data = load_graph_citationv8()
+    data = load_graph_citationv8(cfg.method)
     text = load_text_citationv8()
     if data.is_directed() is True:
         data.edge_index  = to_undirected(data.edge_index)
@@ -299,13 +301,14 @@ def get_average_embedding(text, model):
     
 # TEST CODE
 if __name__ == '__main__':
-    exit(-1)
+    
     args = init_cfg_test()
     args = config_device(args)
     
-    splits, text, data = load_taglp_citationv8(args.data)
-    
+    data = load_embedded_citationv8(args.data.method)
+   
     print(data)
+    exit(-1)
     from pdb import set_trace as st; st()
     preprocessed_texts = [preprocess(t[0]) for t in tqdm(text)]
     print(len(preprocessed_texts))
