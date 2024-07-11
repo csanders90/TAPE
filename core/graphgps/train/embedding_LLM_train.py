@@ -55,7 +55,7 @@ class Trainer_embedding_LLM(Trainer):
         self.train_data = splits['train'].to(self.device)
         self.valid_data = splits['valid'].to(self.device)
         self.optimizer = optimizer
-        model_types = ['MLP']
+        model_types = ['MLP-minilm','MLP-bert','MLP-llama','MLP-e5-large']
         self.test_func = {model_type: self._test for model_type in model_types}
         self.evaluate_func = {model_type: self._evaluate for model_type in model_types}
 
