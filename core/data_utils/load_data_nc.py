@@ -451,7 +451,6 @@ def load_graph_citationv8() -> Data:
 def load_embedded_citationv8(method) -> Data:
     return torch.load(FILE_PATH + f'core/dataset/citationv8/citationv8_{method}.pt')
     
-    
 
 def load_text_citationv8() -> List[str]:
     df = pd.read_csv(FILE_PATH + 'core/dataset/citationv8_orig/Citation-2015.csv')
@@ -492,6 +491,7 @@ def load_tag_citeseer() -> Tuple[Data, List[str]]:
     text = load_text_citeseer()
     return graph, text
 
+
 def load_graph_pwc_large(method):
     graph = torch.load(FILE_PATH+f'core/dataset/pwc_large/pwc_{method}_large_undirec.pt')
     return graph 
@@ -503,6 +503,7 @@ def load_text_pwc_large() -> List[str]:
         ti
         for ti in zip(df['feat'])
     ]
+
 
 def load_graph_pwc_medium(method):
     return torch.load(FILE_PATH+f'core/dataset/pwc_medium/pwc_{method}_medium_undirec.pt')
