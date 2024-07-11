@@ -1,4 +1,3 @@
-import copy
 import itertools
 import os, sys
 
@@ -11,15 +10,10 @@ import time
 import logging
 import wandb
 import torch
-from functools import partial
 from torch_geometric.graphgym.utils.comp_budget import params_count
 from torch_geometric import seed_everything
-from torch_geometric.graphgym.utils.device import auto_select_device
 from graphgps.utility.utils import set_cfg, parse_args, get_git_repo_root_path, custom_set_run_dir, set_printing, run_loop_settings, \
           create_optimizer, config_device,  create_logger, custom_set_out_dir
-
-from torch_geometric.data import InMemoryDataset, Dataset
-from data_utils.load_data_nc import load_graph_cora, load_graph_pubmed, load_tag_arxiv23, load_graph_ogbn_arxiv
 import scipy.sparse as ssp
 from graphgps.config import (dump_cfg, dump_run_cfg)
 from graphgps.network.neognn import NeoGNN, LinkPredictor
