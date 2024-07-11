@@ -58,7 +58,6 @@ def get_node_mask_ogb(num_nodes: int, idx_splits: Dict[str, torch.Tensor]) -> tu
     return train_mask, val_mask, test_mask
 
 
-
 # Function to parse Cora dataset
 def load_graph_arxiv23() -> Data:
     return torch.load(FILE_PATH + 'core/dataset/arxiv_2023/graph.pt')
@@ -205,16 +204,17 @@ def load_text_cora(data_citeid) -> List[str]:
 
 
 # Function to parse PubMed dataset
-
 def load_graph_product():
     raise NotImplementedError
     # Add your implementation here
+    
     
 def load_text_product() -> List[str]:
     text = pd.read_csv(FILE_PATH + 'core/dataset/ogbn_products_orig/ogbn-products_subset.csv')
     text = [f'Product:{ti}; Description: {cont}\n'for ti,
             cont in zip(text['title'], text['content'])]
     return text
+
 
 # Function to parse PubMed dataset
 def load_tag_product() -> Tuple[Data, List[str]]:
@@ -345,6 +345,7 @@ def load_graph_pubmed(use_mask) -> Data:
             edge_attrs = None, 
             graph_attrs = None
         )
+      
         
 # Function to parse PubMed dataset
 def load_text_pubmed() -> List[str]:
@@ -379,8 +380,7 @@ def load_text_ogbn_arxiv():
         'Title: ' + ti + '\n' + 'Abstract: ' + ab
         for ti, ab in zip(df['title'], df['abs'])
     ]
-    
-    
+      
     
 def load_graph_ogbn_arxiv(use_mask):
     dataset = PygNodePropPredDataset(root='./generated_dataset',
@@ -447,6 +447,7 @@ def load_graph_citationv8() -> Data:
     from torch_geometric.utils import from_dgl
     graph = from_dgl(graph)
     return graph
+
 
 def load_embedded_citationv8(method) -> Data:
     return torch.load(FILE_PATH + f'core/dataset/citationv8/citationv8_{method}.pt')
@@ -519,7 +520,6 @@ def load_graph_pwc_small(method):
 
 def load_text_pwc_small(method) -> List[str]:
     return pd.read_csv(FILE_PATH + f'core/dataset/pwc_small/pwc_{method}_small_text.csv')
-    
     
     
 def extract_lcc_pwc_undir() -> Data:
