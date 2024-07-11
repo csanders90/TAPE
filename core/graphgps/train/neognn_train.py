@@ -1,32 +1,21 @@
 import os
 import sys
-import os
-import sys
 import time
 from os.path import abspath, dirname, join
 
-from torch.nn import BCEWithLogitsLoss
-from torch_sparse import SparseTensor
 
 sys.path.insert(0, abspath(join(dirname(dirname(__file__)))))
-from torch_geometric.utils import negative_sampling
 
 import torch
-import wandb
 from ogb.linkproppred import Evaluator
 from torch_geometric.graphgym.config import cfg
-from sklearn.metrics import roc_auc_score, average_precision_score, roc_curve, auc
 from yacs.config import CfgNode as CN
-import torch.nn.functional as F
-import numpy as np
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
-from embedding.tune_utils import param_tune_acc_mrr
 from heuristic.eval import get_metric_score
 from graphgps.utility.utils import config_device, Logger
 from typing import Dict, Tuple
 from graphgps.train.opt_train import (Trainer)
-from graphgps.utility.ncn import PermIterator
 from torch.utils.tensorboard import SummaryWriter
 
 writer = SummaryWriter()
@@ -133,15 +122,8 @@ class Trainer_NeoGNN(Trainer):
             pos_loss = -torch.log(pos_out_feat_large + 1e-15).mean()
             neg_loss = -torch.log(1 - neg_out_feat_large + 1e-15).mean()
             loss2 = pos_loss + neg_loss
-            eps = 1e-15  # Small constant to avoid log(0)
-
-            # Clamp the outputs to avoid log(0) or log(1 - 1) issues
-            pos_out = torch.clamp(pos_out, min=eps, max=1 - eps)
-            neg_out = torch.clamp(neg_out, min=eps, max=1 - eps)
-
-            # Calculate the losses
-            pos_loss = -torch.log(pos_out).mean()
-            neg_loss = -torch.log(1 - neg_out).mean()
+            pos_loss = -torch.log(pos_out + 1e-15).mean()
+            neg_loss = -torch.log(1 - neg_out + 1e-15).mean()
             loss3 = pos_loss + neg_loss
             loss = loss1 + loss2 + loss3
             loss.backward()
@@ -154,8 +136,8 @@ class Trainer_NeoGNN(Trainer):
             total_loss += loss.item() * num_examples
             total_examples += num_examples
             count += 1
-        return total_loss / total_examples
 
+        return total_loss / total_examples
     def train(self):
         best_auc, best_hits, best_hit100 = 0, 0, 0
         for epoch in range(1, self.epochs + 1):
