@@ -3,7 +3,7 @@ import itertools
 import os, sys
 
 import transformers
-from pytorch_lightning.loggers import wandb
+import wandb
 from sentence_transformers import SentenceTransformer
 from torch import Tensor, nn
 from transformers import BertTokenizer, BertModel
@@ -45,7 +45,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--device', dest='device', required=True,
                         help='device id')
     parser.add_argument('--epochs', dest='epoch', type=int, required=True,
-                        default=1000,
+                        default=300,
                         help='data name')
     parser.add_argument('--wandb', dest='wandb', required=False,
                         help='data name')

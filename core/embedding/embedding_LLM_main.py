@@ -1,4 +1,5 @@
 import copy
+import gc
 import os, sys
 
 import transformers
@@ -109,8 +110,13 @@ if __name__ == '__main__':
     elif cfg.embedder.type == 'bert':
         tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
         model = BertModel.from_pretrained("bert-base-uncased")
-        encoded_input = tokenizer(text, return_tensors='pt', padding=True, truncation=True, max_length=512)
-        node_features = model(**encoded_input)
+        node_features = []
+        for i in range(len(text)):
+            encoded_input = tokenizer(text[i], return_tensors='pt', padding=True, truncation=True, max_length=512)
+            node_feature = model(**encoded_input).pooler_output[0]
+            node_features.append(node_feature)
+            del encoded_input
+            gc.collect()
     node_features = torch.tensor(node_features)
     print(node_features.shape)
 
