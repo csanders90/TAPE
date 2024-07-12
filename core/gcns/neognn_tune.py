@@ -89,10 +89,6 @@ def parse_args() -> argparse.Namespace:
 def ngnn_dataset(splits):
     for data in splits.values():
         edge_index = data.edge_index
-        data['pos_edge_label_index'] = torch.cat([data['pos_edge_label_index'], data['pos_edge_label_index'].flip(0)], dim=0)
-        data['neg_edge_label_index'] = torch.cat([data['neg_edge_label_index'], data['neg_edge_label_index'].flip(0)], dim=0)
-        data['pos_edge_label'] = torch.cat([data['pos_edge_label'], data['pos_edge_label']], dim=0)
-        data['neg_edge_label'] = torch.cat([data['neg_edge_label'], data['neg_edge_label']], dim=0)
         data.num_nodes = data.x.shape[0]
         data.edge_weight = None
         data.adj_t = SparseTensor.from_edge_index(edge_index, sparse_sizes=(data.num_nodes, data.num_nodes))
@@ -152,9 +148,9 @@ if __name__ == "__main__":
         hyperparameter_search = {'hidden_channels': [128, 256], 'num_layers': [2, 3],
                                  'f_edge_dim': [8, 16, 32], 'f_node_dim': [64, 128], 'dropout': [0.0, 0.1, 0.3],
                              "batch_size": [256, 512, 1024], "lr": [0.01, 0.001]}
-        splits = ngnn_dataset(splits)
+
         print_logger.info(f"hypersearch space: {hyperparameter_search}")
-        for hidden_channels, num_layers, f_node_dim, f_edge_dim, dropout, batch_size, lr in tqdm(
+        for hidden_channels, num_layers, f_edge_dim, f_node_dim, dropout, batch_size, lr in tqdm(
                 itertools.product(*hyperparameter_search.values())):
             cfg.model.hidden_channels = hidden_channels
             cfg.train.batch_size = batch_size
@@ -163,6 +159,7 @@ if __name__ == "__main__":
             cfg.model.f_node_dim = f_node_dim
             cfg.model.f_edge_dim = f_edge_dim
             cfg.model.dropout = dropout
+            splits = ngnn_dataset(splits)
 
             print_logger.info(
                 f"hidden_channels: {hidden_channels}, num_layers: {num_layers}, f_node_dim: {f_node_dim}, "
@@ -226,6 +223,7 @@ if __name__ == "__main__":
             trainer.save_tune(run_result, to_file)
 
             print_logger.info(f"runing time {time.time() - start_time}")
+            torch.cuda.empty_cache()
 
 
 

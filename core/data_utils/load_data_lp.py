@@ -197,7 +197,7 @@ def load_taglp_citeseer(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
 def load_taglp_citationv8(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
     # add one default argument
     
-    data = load_graph_citationv8(cfg.method)
+    data = load_graph_citationv8()
     text = load_text_citationv8()
     if data.is_directed() is True:
         data.edge_index  = to_undirected(data.edge_index)

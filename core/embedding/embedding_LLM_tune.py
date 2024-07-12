@@ -138,7 +138,7 @@ if __name__ == '__main__':
         seed_everything(cfg.seed)
         cfg = config_device(cfg)
 
-        hyperparameter_search = {'base_lr': [0.01, 0.001, 0.0001], 'batch_size': [64, 128, 256, 512, 1024]}
+        hyperparameter_search = {'base_lr': [0.01, 0.001], 'batch_size': [64, 128, 256, 512]}
         print_logger.info(f"hypersearch space: {hyperparameter_search}")
         for base_lr, batch_size in tqdm(itertools.product(*hyperparameter_search.values())):
             cfg.optimizer.base_lr = base_lr
