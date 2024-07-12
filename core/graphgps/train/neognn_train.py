@@ -97,24 +97,19 @@ class Trainer_NeoGNN(Trainer):
         # permute the edges
         total_loss = total_examples = 0
         count = 0
-        for perm, perm_large in zip(DataLoader(range(pos_train_edge.size(0)), self.batch_size,
-                                               shuffle=True),
-                                    DataLoader(range(pos_train_edge.size(0)), self.gnn_batch_size,
-                                               shuffle=True)):
+        for perm in DataLoader(range(pos_train_edge.size(0)), self.batch_size,
+                                               shuffle=True):
             self.optimizer.zero_grad()
             # compute scores of positive edges
             edge = pos_train_edge[perm].t()
-            edge_large = pos_train_edge[perm_large].t()
             pos_out, pos_out_struct, _, _ = self.model(edge, self.train_data, self.train_data.A, self.predictor, emb=self.train_data.emb.weight)
-            _, _, pos_out_feat_large = self.model(edge_large, self.train_data, self.train_data.A, self.predictor, emb=self.train_data.emb.weight, only_feature=True)
+            _, _, pos_out_feat_large = self.model(edge, self.train_data, self.train_data.A, self.predictor, emb=self.train_data.emb.weight, only_feature=True)
 
             # compute scores of negative edges
             # Just do some trivial random sampling.
             edge = neg_train_edge[perm].t()
-
-            edge_large = neg_train_edge[perm_large].t()
             neg_out, neg_out_struct, _, _ = self.model(edge, self.train_data, self.train_data.A, self.predictor, emb=self.train_data.emb.weight)
-            _, _, neg_out_feat_large = self.model(edge_large, self.train_data, self.train_data.A, self.predictor, emb=self.train_data.emb.weight, only_feature=True)
+            _, _, neg_out_feat_large = self.model(edge, self.train_data, self.train_data.A, self.predictor, emb=self.train_data.emb.weight, only_feature=True)
 
             pos_loss = -torch.log(pos_out_struct + 1e-15).mean()
             neg_loss = -torch.log(1 - neg_out_struct + 1e-15).mean()
