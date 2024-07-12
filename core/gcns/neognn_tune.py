@@ -39,7 +39,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--device', dest='device', required=True,
                         help='device id')
     parser.add_argument('--epochs', dest='epoch', type=int, required=False,
-                        default=100,
+                        default=30,
                         help='data name')
     parser.add_argument('--repeat', type=int, default=2,
                         help='The number of repeated jobs.')
@@ -50,18 +50,19 @@ def parse_args() -> argparse.Namespace:
 
     return parser.parse_args()
 
-def ngnn_dataset(data, splits):
-    edge_index = data.edge_index
-    data.num_nodes = data.x.shape[0]
-    data.edge_weight = None
-    data.adj_t = SparseTensor.from_edge_index(edge_index, sparse_sizes=(data.num_nodes, data.num_nodes))
-    data.emb = torch.nn.Embedding(data.num_nodes, cfg.model.hidden_channels)
-    edge_weight = torch.ones(edge_index.size(1), dtype=float)
-    edge_index = edge_index.cpu()
-    edge_weight = edge_weight.cpu()
-    data.A = ssp.csr_matrix((edge_weight, (edge_index[0], edge_index[1])),
-                       shape=(data.num_nodes, data.num_nodes))
-    return data
+def ngnn_dataset(splits):
+    for data in splits.values():
+        edge_index = data.edge_index
+        data.num_nodes = data.x.shape[0]
+        data.edge_weight = None
+        data.adj_t = SparseTensor.from_edge_index(edge_index, sparse_sizes=(data.num_nodes, data.num_nodes))
+        data.emb = torch.nn.Embedding(data.num_nodes, cfg.model.hidden_channels)
+        edge_weight = torch.ones(edge_index.size(1), dtype=float)
+        edge_index = edge_index.cpu()
+        edge_weight = edge_weight.cpu()
+        data.A = ssp.csr_matrix((edge_weight, (edge_index[0], edge_index[1])),
+                           shape=(data.num_nodes, data.num_nodes))
+    return splits
 
 
 
@@ -95,8 +96,6 @@ if __name__ == "__main__":
         seed_everything(cfg.seed)
         cfg = config_device(cfg)
         splits, text, data = load_data_lp[cfg.data.name](cfg.data)
-        data.edge_index = splits['train']['pos_edge_label_index']
-
         path = f'{os.path.dirname(__file__)}/neognn_{cfg.data.name}'
         print_logger = set_printing(cfg)
         print_logger.info(
@@ -123,7 +122,7 @@ if __name__ == "__main__":
                 f"hidden_channels: {hidden_channels}, num_layers: {num_layers}, f_node_dim: {f_node_dim}, "
                 f"f_global_dim: {f_global_dim}, dropout: {dropout}, batch_size: {batch_size}, gnn_batch_size: {gnn_batch_size}, lr: {lr}")
             start_time = time.time()
-            data = ngnn_dataset(data, splits).to(cfg.device)
+            splits = ngnn_dataset(splits)
             model = NeoGNN(cfg.model.hidden_channels, cfg.model.hidden_channels,
                            cfg.model.hidden_channels, cfg.model.num_layers,
                            cfg.model.dropout, args=cfg.model)
@@ -132,7 +131,7 @@ if __name__ == "__main__":
                                       cfg.model.num_layers, cfg.model.dropout)
 
             optimizer = torch.optim.Adam(
-                list(model.parameters()) + list(data.emb.parameters()) +
+                list(model.parameters()) + list(splits['train'].emb.parameters()) +
                 list(predictor.parameters()), lr=cfg.optimizer.lr, weight_decay=cfg.optimizer.weight_decay)
 
             logging.info(f"{model} on {next(model.parameters()).device}")

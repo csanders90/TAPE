@@ -108,7 +108,7 @@ if __name__ == "__main__":
         seed_everything(cfg.seed)
         cfg = config_device(cfg)
         splits, text, data = load_data_lp[cfg.data.name](cfg.data)
-        data.edge_index = splits['train']['pos_edge_label_index']
+        data.edge_index = splits['train']['edge_index']
         data = ngnn_dataset(data, splits).to(cfg.device)
         path = f'{os.path.dirname(__file__)}/neognn_{cfg.data.name}'
         dataset = {}
