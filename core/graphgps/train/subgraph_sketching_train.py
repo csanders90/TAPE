@@ -101,7 +101,7 @@ class Trainer_Subgraph_Sketching(Trainer):
 
         for perm in PermIterator(self.device, links.shape[0], self.batch_size):
             self.optimizer.zero_grad()
-            node_features, hashes, cards = self.model(self.data.x, self.data.edge_index)
+            node_features, hashes, cards = self.model(self.train_data.x, self.train_data.edge_index)
             curr_links = links[perm]
             batch_node_features = node_features[curr_links]
             batch_emb = None
@@ -180,7 +180,7 @@ class Trainer_Subgraph_Sketching(Trainer):
 
 
         if self.model_name == 'ELPH':
-            node_features, hashes, cards = self.model(self.data.x, self.data.edge_index)
+            node_features, hashes, cards = self.model(self.train_data.x, self.train_data.edge_index)
             subgraph_features = self.model.elph_hashes.get_subgraph_features(links, hashes, cards).to(self.device)
             y_pred = self.model.predictor(subgraph_features, node_features[links], None)
         elif self.model_name == 'BUDDY':
