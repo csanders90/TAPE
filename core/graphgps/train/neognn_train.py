@@ -105,16 +105,16 @@ class Trainer_NeoGNN(Trainer):
             # compute scores of positive edges
             edge = pos_train_edge[perm].t()
             edge_large = pos_train_edge[perm_large].t()
-            pos_out, pos_out_struct, _, _ = self.model(edge, self.data, self.data.A, self.predictor, emb=self.data.emb.weight)
-            _, _, pos_out_feat_large = self.model(edge_large, self.data, self.data.A, self.predictor, emb=self.data.emb.weight, only_feature=True)
+            pos_out, pos_out_struct, _, _ = self.model(edge, self.train_data, self.train_data.A, self.predictor, emb=self.train_data.emb.weight)
+            _, _, pos_out_feat_large = self.model(edge_large, self.train_data, self.train_data.A, self.predictor, emb=self.train_data.emb.weight, only_feature=True)
 
             # compute scores of negative edges
             # Just do some trivial random sampling.
             edge = neg_train_edge[perm].t()
 
             edge_large = neg_train_edge[perm_large].t()
-            neg_out, neg_out_struct, _, _ = self.model(edge, self.data, self.data.A, self.predictor, emb=self.data.emb.weight)
-            _, _, neg_out_feat_large = self.model(edge_large, self.data, self.data.A, self.predictor, emb=self.data.emb.weight, only_feature=True)
+            neg_out, neg_out_struct, _, _ = self.model(edge, self.train_data, self.train_data.A, self.predictor, emb=self.train_data.emb.weight)
+            _, _, neg_out_feat_large = self.model(edge_large, self.train_data, self.train_data.A, self.predictor, emb=self.train_data.emb.weight, only_feature=True)
 
             pos_loss = -torch.log(pos_out_struct + 1e-15).mean()
             neg_loss = -torch.log(1 - neg_out_struct + 1e-15).mean()
@@ -127,7 +127,7 @@ class Trainer_NeoGNN(Trainer):
             loss3 = pos_loss + neg_loss
             loss = loss1 + loss2 + loss3
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.data.emb.weight, 1.0)
+            torch.nn.utils.clip_grad_norm_(self.train_data.emb.weight, 1.0)
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
             torch.nn.utils.clip_grad_norm_(self.predictor.parameters(), 1.0)
             self.optimizer.step()
@@ -177,13 +177,13 @@ class Trainer_NeoGNN(Trainer):
             for perm in DataLoader(range(pos_edge.size(1)), self.batch_size, shuffle=True):
                 # Positive edge prediction
                 edge = pos_edge[:, perm].to(self.device)
-                pos_pred, _, _, _ = self.model(edge, self.data, self.data.A, self.predictor, emb=self.data.emb.weight)
+                pos_pred, _, _, _ = self.model(edge, eval_data, eval_data.A, self.predictor, emb=eval_data.emb.weight)
                 pos_pred = pos_pred.squeeze()
                 pos_pred_list.append(pos_pred.cpu())
 
                 # Negative edge prediction
                 edge = neg_edge[:, perm].to(self.device)
-                neg_pred, _, _, _ = self.model(edge, self.data, self.data.A, self.predictor, emb=self.data.emb.weight)
+                neg_pred, _, _, _ = self.model(edge, eval_data, eval_data.A, self.predictor, emb=eval_data.emb.weight)
                 neg_pred = neg_pred.squeeze()
                 neg_pred_list.append(neg_pred.cpu())
 
