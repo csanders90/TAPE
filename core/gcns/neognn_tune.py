@@ -21,6 +21,42 @@ from graphgps.network.neognn import NeoGNN, LinkPredictor
 from data_utils.load import load_data_lp
 from graphgps.train.neognn_train import Trainer_NeoGNN
 
+def check_data_leakage(splits):
+    sets = ['train', 'valid', 'test']
+    leakage = False
+
+    # Extract indices
+    train_pos_index = set(map(tuple, splits['train'].pos_edge_label_index.t().tolist()))
+    train_neg_index = set(map(tuple, splits['train'].neg_edge_label_index.t().tolist()))
+    valid_pos_index = set(map(tuple, splits['valid'].pos_edge_label_index.t().tolist()))
+    valid_neg_index = set(map(tuple, splits['valid'].neg_edge_label_index.t().tolist()))
+    test_pos_index = set(map(tuple, splits['test'].pos_edge_label_index.t().tolist()))
+    test_neg_index = set(map(tuple, splits['test'].neg_edge_label_index.t().tolist()))
+
+    # Check for leakage
+    if train_pos_index & valid_pos_index:
+        print("Data leakage found between train and valid positive samples.")
+        leakage = True
+    if train_pos_index & test_pos_index:
+        print("Data leakage found between train and test positive samples.")
+        leakage = True
+    if valid_pos_index & test_pos_index:
+        print("Data leakage found between valid and test positive samples.")
+        leakage = True
+    if train_neg_index & valid_neg_index:
+        print("Data leakage found between train and valid negative samples.")
+        leakage = True
+    if train_neg_index & test_neg_index:
+        print("Data leakage found between train and test negative samples.")
+        leakage = True
+    if valid_neg_index & test_neg_index:
+        print("Data leakage found between valid and test negative samples.")
+        leakage = True
+
+    if not leakage:
+        print("No data leakage found.")
+
+    return leakage
 
 
 def parse_args() -> argparse.Namespace:
@@ -53,6 +89,10 @@ def parse_args() -> argparse.Namespace:
 def ngnn_dataset(splits):
     for data in splits.values():
         edge_index = data.edge_index
+        data['pos_edge_label_index'] = torch.cat([data['pos_edge_label_index'], data['pos_edge_label_index'].flip(0)], dim=0)
+        data['neg_edge_label_index'] = torch.cat([data['neg_edge_label_index'], data['neg_edge_label_index'].flip(0)], dim=0)
+        data['pos_edge_label'] = torch.cat([data['pos_edge_label'], data['pos_edge_label']], dim=0)
+        data['neg_edge_label'] = torch.cat([data['neg_edge_label'], data['neg_edge_label']], dim=0)
         data.num_nodes = data.x.shape[0]
         data.edge_weight = None
         data.adj_t = SparseTensor.from_edge_index(edge_index, sparse_sizes=(data.num_nodes, data.num_nodes))
@@ -62,6 +102,8 @@ def ngnn_dataset(splits):
         edge_weight = edge_weight.cpu()
         data.A = ssp.csr_matrix((edge_weight, (edge_index[0], edge_index[1])),
                            shape=(data.num_nodes, data.num_nodes))
+        A2 = data.A * data.A
+        data.A = data.A + cfg.model.beta * A2
     return splits
 
 
@@ -96,6 +138,9 @@ if __name__ == "__main__":
         seed_everything(cfg.seed)
         cfg = config_device(cfg)
         splits, text, data = load_data_lp[cfg.data.name](cfg.data)
+
+        check_data_leakage(splits)
+
         path = f'{os.path.dirname(__file__)}/neognn_{cfg.data.name}'
         print_logger = set_printing(cfg)
         print_logger.info(
@@ -118,6 +163,7 @@ if __name__ == "__main__":
             cfg.model.f_node_dim = f_node_dim
             cfg.model.f_global_dim = f_global_dim
             cfg.model.dropout = dropout
+
             print_logger.info(
                 f"hidden_channels: {hidden_channels}, num_layers: {num_layers}, f_node_dim: {f_node_dim}, "
                 f"f_global_dim: {f_global_dim}, dropout: {dropout}, batch_size: {batch_size}, gnn_batch_size: {gnn_batch_size}, lr: {lr}")
@@ -181,4 +227,7 @@ if __name__ == "__main__":
             trainer.save_tune(run_result, to_file)
 
             print_logger.info(f"runing time {time.time() - start_time}")
+
+
+
 

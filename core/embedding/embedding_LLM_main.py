@@ -103,11 +103,11 @@ if __name__ == '__main__':
     seed_everything(cfg.seed)
     cfg = config_device(cfg)
     if cfg.embedder.type == 'minilm':
-        model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
-        node_features = model.encode(text)
+        model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2', device=cfg.device)
+        node_features = model.encode(text, batch_size=256)
     elif cfg.embedder.type == 'e5-large':
-        model = SentenceTransformer('intfloat/e5-large-v2')
-        node_features = model.encode(text, normalize_embeddings=True)
+        model = SentenceTransformer('intfloat/e5-large-v2', device=cfg.device)
+        node_features = model.encode(text, normalize_embeddings=True, batch_size=256)
     elif cfg.embedder.type == 'llama':
         model_id = "meta-llama/Meta-Llama-3-8B"
         pipeline = transformers.pipeline(
@@ -116,14 +116,18 @@ if __name__ == '__main__':
         node_features = pipeline(text)
     elif cfg.embedder.type == 'bert':
         tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-        model = BertModel.from_pretrained("bert-base-uncased")
-        print_logger.info(f"loaded bert model")
+        model = BertModel.from_pretrained("bert-base-uncased").to(cfg.device)
         node_features = []
-        for i in range(len(text)):
-            encoded_input = tokenizer(text[i], return_tensors='pt', padding=True, truncation=True, max_length=512)
+        batch_size = 256  # Adjust batch size as needed to avoid OOM errors
+        for i in range(0, len(text), batch_size):
+            batch_texts = text[i:i + batch_size]
+            encoded_input = tokenizer(batch_texts, return_tensors='pt', padding=True, truncation=True,
+                                      max_length=512).to(cfg.device)
             with torch.no_grad():
-                node_feature = model(**encoded_input).pooler_output[0]
-            node_features.append(node_feature)
+                outputs = model(**encoded_input)
+                batch_features = outputs.pooler_output
+                node_features.append(batch_features)
+        node_features = torch.cat(node_features, dim=0)
     node_features = torch.tensor(node_features)
     print_logger.info(node_features.shape)
 
