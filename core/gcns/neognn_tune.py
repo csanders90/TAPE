@@ -151,7 +151,7 @@ if __name__ == "__main__":
         dump_cfg(cfg)
         hyperparameter_search = {'hidden_channels': [128, 256], 'num_layers': [2, 3],
                                  'f_edge_dim': [8, 16, 32], 'f_node_dim': [64, 128], 'dropout': [0.0, 0.1, 0.3],
-                             "batch_size": [256, 512, 1024, 2048], "lr": [0.01, 0.001]}
+                             "batch_size": [256, 512, 1024], "lr": [0.01, 0.001]}
         print_logger.info(f"hypersearch space: {hyperparameter_search}")
         for hidden_channels, num_layers, f_node_dim, f_edge_dim, dropout, batch_size, lr in tqdm(
                 itertools.product(*hyperparameter_search.values())):
