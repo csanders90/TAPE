@@ -61,19 +61,19 @@ def parse_args() -> argparse.Namespace:
                         help='See graphgym/config.py for remaining options.')
     return parser.parse_args()
 
-def ngnn_dataset(data, splits):
-    edge_index = data.edge_index
-    data.num_nodes = data.x.shape[0]
-    data.edge_weight = None
-    data.adj_t = SparseTensor.from_edge_index(edge_index, sparse_sizes=(data.num_nodes, data.num_nodes))
-    data.emb = torch.nn.Embedding(data.num_nodes, cfg.model.hidden_channels)
-    edge_weight = torch.ones(edge_index.size(1), dtype=float)
-    edge_index = edge_index.cpu()
-    edge_weight = edge_weight.cpu()
-    data.A = ssp.csr_matrix((edge_weight, (edge_index[0], edge_index[1])),
-                       shape=(data.num_nodes, data.num_nodes))
-    return data
-
+def ngnn_dataset(splits):
+    for data in splits.values():
+        edge_index = data.edge_index
+        data.num_nodes = data.x.shape[0]
+        data.edge_weight = None
+        data.adj_t = SparseTensor.from_edge_index(edge_index, sparse_sizes=(data.num_nodes, data.num_nodes))
+        data.emb = torch.nn.Embedding(data.num_nodes, cfg.model.hidden_channels)
+        edge_weight = torch.ones(edge_index.size(1), dtype=float)
+        edge_index = edge_index.cpu()
+        edge_weight = edge_weight.cpu()
+        data.A = ssp.csr_matrix((edge_weight, (edge_index[0], edge_index[1])),
+                           shape=(data.num_nodes, data.num_nodes))
+    return splits
 
 
 if __name__ == "__main__":
@@ -108,8 +108,7 @@ if __name__ == "__main__":
         seed_everything(cfg.seed)
         cfg = config_device(cfg)
         splits, text, data = load_data_lp[cfg.data.name](cfg.data)
-        data.edge_index = splits['train']['edge_index']
-        data = ngnn_dataset(data, splits).to(cfg.device)
+        splits = ngnn_dataset(splits)
         path = f'{os.path.dirname(__file__)}/neognn_{cfg.data.name}'
         dataset = {}
 
@@ -121,7 +120,7 @@ if __name__ == "__main__":
                                   cfg.model.num_layers, cfg.model.dropout)
 
         optimizer = torch.optim.Adam(
-            list(model.parameters()) + list(data.emb.parameters()) +
+            list(model.parameters()) + list(splits['train'].emb.parameters()) +
             list(predictor.parameters()), lr=cfg.optimizer.lr, weight_decay=cfg.optimizer.weight_decay)
 
         # Execute experiment

@@ -39,7 +39,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--device', dest='device', required=True,
                         help='device id')
     parser.add_argument('--epochs', dest='epoch', type=int, required=False,
-                        default=30,
+                        default=100,
                         help='data name')
     parser.add_argument('--repeat', type=int, default=2,
                         help='The number of repeated jobs.')
