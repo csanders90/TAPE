@@ -31,6 +31,7 @@ model:
   f_edge_dim: 8 #
   f_node_dim: 128 #
   g_phi_dim: 128 #
+  beta: 0.1
 
 num_threads: 11
 
