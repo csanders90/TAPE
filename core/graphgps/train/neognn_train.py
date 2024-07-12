@@ -50,11 +50,11 @@ class Trainer_NeoGNN(Trainer):
         self.print_logger = print_logger
         self.batch_size = batch_size
         self.gnn_batch_size = cfg.train.gnn_batch_size
-        self.data = data
+        self.data = data.to(self.device)
 
-        self.test_data = splits['test']
-        self.train_data = splits['train']
-        self.valid_data = splits['valid']
+        self.test_data = splits['test'].to(self.device)
+        self.train_data = splits['train'].to(self.device)
+        self.valid_data = splits['valid'].to(self.device)
         self.optimizer = optimizer
         self.train_func = self._train_neognn
         model_types = ['NeoGNN']

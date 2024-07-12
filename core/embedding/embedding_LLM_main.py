@@ -1,7 +1,6 @@
 import copy
-import gc
 import os, sys
-
+import gc
 import transformers
 from sentence_transformers import SentenceTransformer
 from torch import Tensor, nn
@@ -95,6 +94,14 @@ if __name__ == '__main__':
     loggers = create_logger(args.repeat)
     cfg.device = args.device
     splits, text, data = load_data_lp[cfg.data.name](cfg.data)
+    seed = 0 + args.start_seed
+    custom_set_run_dir(cfg, 0)
+    set_printing(cfg)
+    print_logger = set_printing(cfg)
+    cfg.seed = seed
+    cfg.run_id = 0
+    seed_everything(cfg.seed)
+    cfg = config_device(cfg)
     if cfg.embedder.type == 'minilm':
         model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
         node_features = model.encode(text)
@@ -110,15 +117,15 @@ if __name__ == '__main__':
     elif cfg.embedder.type == 'bert':
         tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
         model = BertModel.from_pretrained("bert-base-uncased")
+        print_logger.info(f"loaded bert model")
         node_features = []
         for i in range(len(text)):
             encoded_input = tokenizer(text[i], return_tensors='pt', padding=True, truncation=True, max_length=512)
-            node_feature = model(**encoded_input).pooler_output[0]
+            with torch.no_grad():
+                node_feature = model(**encoded_input).pooler_output[0]
             node_features.append(node_feature)
-            del encoded_input
-            gc.collect()
     node_features = torch.tensor(node_features)
-    print(node_features.shape)
+    print_logger.info(node_features.shape)
 
     for run_id in range(args.repeat):
         seed = run_id + args.start_seed
@@ -129,6 +136,8 @@ if __name__ == '__main__':
         cfg.run_id = run_id
         seed_everything(cfg.seed)
         cfg = config_device(cfg)
+
+        print_logger.info("start training")
 
         model = LinkPredictor(node_features.shape[1], cfg.model.hidden_channels, 1, cfg.model.num_layers, cfg.model.dropout)
         optimizer = torch.optim.Adam(params=model.parameters(), lr=cfg.optimizer.base_lr, weight_decay=cfg.optimizer.weight_decay)
