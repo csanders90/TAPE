@@ -18,7 +18,7 @@ from torch_geometric import seed_everything
 from torch_geometric.graphgym.utils.device import auto_select_device
 from graphgps.utility.utils import set_cfg, get_git_repo_root_path, custom_set_run_dir, set_printing, run_loop_settings, \
     create_optimizer, config_device, \
-    create_logger
+    create_logger, custom_set_out_dir
 from torch_geometric.graphgym.utils.comp_budget import params_count
 from data_utils.load import load_data_lp, load_graph_lp
 from graphgps.train.embedding_LLM_train import Trainer_embedding_LLM
@@ -98,6 +98,9 @@ if __name__ == '__main__':
     best_params = {}
     loggers = create_logger(args.repeat)
     cfg.device = args.device
+    custom_set_out_dir(cfg, args.cfg_file, cfg.wandb.name_tag)
+
+
     splits, text, data = load_data_lp[cfg.data.name](cfg.data)
     if cfg.embedder.type == 'minilm':
         model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2', device=cfg.device)
@@ -143,6 +146,10 @@ if __name__ == '__main__':
         for base_lr, batch_size in tqdm(itertools.product(*hyperparameter_search.values())):
             cfg.optimizer.base_lr = base_lr
             cfg.train.batch_size = batch_size
+
+
+            model = LinkPredictor(node_features.shape[1], cfg.model.hidden_channels, 1, cfg.model.num_layers, cfg.model.dropout)
+            optimizer = torch.optim.Adam(params=model.parameters(), lr=cfg.optimizer.base_lr, weight_decay=cfg.optimizer.weight_decay)
             logging.info(f"{model} on {next(model.parameters()).device}")
             logging.info(cfg)
             cfg.params = params_count(model)
@@ -155,9 +162,6 @@ if __name__ == '__main__':
             dump_run_cfg(cfg)
             print_logger.info(f"config saved into {cfg.run_dir}")
             print_logger.info(f'Run {run_id} with seed {seed} on device {cfg.device}')
-
-            model = LinkPredictor(node_features.shape[1], cfg.model.hidden_channels, 1, cfg.model.num_layers, cfg.model.dropout)
-            optimizer = torch.optim.Adam(params=model.parameters(), lr=cfg.optimizer.base_lr, weight_decay=cfg.optimizer.weight_decay)
             trainer = Trainer_embedding_LLM(FILE_PATH,
                                                  cfg,
                                                  model,
