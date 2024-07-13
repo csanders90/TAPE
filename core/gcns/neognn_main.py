@@ -64,12 +64,6 @@ def parse_args() -> argparse.Namespace:
 def ngnn_dataset(splits):
     for data in splits.values():
         edge_index = data.edge_index
-        data['pos_edge_label_index'] = torch.cat([data['pos_edge_label_index'], data['pos_edge_label_index'].flip(0)],
-                                                 dim=0)
-        data['neg_edge_label_index'] = torch.cat([data['neg_edge_label_index'], data['neg_edge_label_index'].flip(0)],
-                                                 dim=0)
-        data['pos_edge_label'] = torch.cat([data['pos_edge_label'], data['pos_edge_label']], dim=0)
-        data['neg_edge_label'] = torch.cat([data['neg_edge_label'], data['neg_edge_label']], dim=0)
         data.num_nodes = data.x.shape[0]
         data.edge_weight = None
         data.adj_t = SparseTensor.from_edge_index(edge_index, sparse_sizes=(data.num_nodes, data.num_nodes))
