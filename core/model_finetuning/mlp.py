@@ -128,7 +128,7 @@ def project_main():
     evaluator_hit = Evaluator(name='ogbl-collab')
     evaluator_mrr = Evaluator(name='ogbl-citation2')
     
-    
+
     custom_set_out_dir(cfg, args.cfg_file, cfg.wandb.name_tag)
     # torch.set_num_threads(20)
     loggers = create_logger(args.repeat)

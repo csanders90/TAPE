@@ -14,8 +14,8 @@
 			"justMyCode": false,
 			"python.tensorboard.logDirectory": "/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/gcns/runs", 
 			"args": [
-				"--data",
-				"pubmed",
+				// "--data",
+				// "pubmed",
 				// "--device",
 				// "cpu",
 				// "--epochs",

@@ -1,8 +1,8 @@
 #!/bin/sh
-#SBATCH --time=3-00:00:00
-#SBATCH --partition=cpuonly
-#SBATCH --job-name=tfidf-mlp-ogbn_arxiv
 
+#SBATCH --time=3-00:00:00
+#SBATCH --partition=cpuonly 
+#SBATCH --job-name=tfidf-mlp-arxiv_2023
 
 
 #SBATCH --output=log/TAG_Benchmark_%j.output
@@ -24,15 +24,12 @@ module load devel/cmake/3.18
 module load devel/cuda/11.8
 module load compiler/gnu/12
 
+
 cd /hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/model_finetuning
 
-# test 
+python adj.py --data 'citationv8' --scale 100000
 
-# for iter in 2 10 20 30 40; do
-#     echo "python mlp.py --data ogbn-arxiv --decoder MLP --max_iter $iter"
-#     python mlp.py --data ogbn-arxiv --decoder MLP --max_iter $iter
-# done
+python adj.py --data 'citationv8' --scale 10000
 
-python adj.py --data 'ogbn-arxiv' --scale 1000
-
+python adj.py --data 'citationv8' --scale 1000
 

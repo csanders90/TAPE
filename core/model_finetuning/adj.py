@@ -9,20 +9,34 @@ import os
 from torch_geometric.datasets import Planetoid
 import torch_geometric.transforms as T
 from torch_geometric.utils import to_torch_coo_tensor
-from ogb.nodeproppred import NodePropPredDataset
-from scipy.sparse import csc_array
-
-from data_utils.load import load_data_nc, load_graph_lp
-
+from torch_sparse import SparseTensor
 import matplotlib.pyplot as plt
 from scipy.sparse import coo_matrix
 import matspy as spy  # https://github.com/alugowski/matspy
 import math
 import argparse
+from graphgps.utility.utils import get_git_repo_root_path, config_device, init_cfg_test
+import os.path as osp
+import numpy as np
 
+from data_utils.load import load_data_lp
+from tqdm import tqdm 
+import timeit 
+import time 
 
+def time_function(func):
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        end_time = time.time()
+        execution_time = end_time - start_time
+        print(f"{func.__name__} executed in {execution_time:.5f} seconds")
+        return result
+    return wrapper
+
+@time_function
 def calculate_heterogeneity(graph):
-    degrees = [degree for node, degree in graph.degree()]
+    degrees = [degree for _, degree in graph.degree()]
     average_degree = sum(degrees) / len(degrees)
     variance_degree = sum((degree - average_degree) ** 2 for degree in degrees) / len(degrees)
     return math.log10(math.sqrt(variance_degree) / average_degree)
@@ -64,8 +78,6 @@ def draw_adjacency_matrix(adj: np.array, name: str) -> None:
                   interpolation="none")
     pyplot.savefig(f'{name}')
 
-
-import os.path as osp
 
 
 def compare_adj(data_name, data_edges):
@@ -131,7 +143,6 @@ def plot_coo_matrix(m: coo_matrix, name: str):
     ax.set_yticks([])
     fig.savefig(name)
     return ax
-from torch_sparse import SparseTensor
 
 def coo_tensor_to_coo_matrix(coo_tensor: SparseTensor):
     coo = coo_tensor.coo()
@@ -228,106 +239,153 @@ def avg_degree(G):
     average_value = total_sum / num_values
     return average_value, avg_deg
 
+import networkx as nx
+from itertools import combinations
+
+def calc_avg_cluster(G, name):
+    # name pwc_large scale 100
+    
+    if name in ['cora', 'pwc_small', 'arxiv_2023', 'pubmed']:
+        avg_cluster = nx.average_clustering(G)
+    else:
+        avg_cluster =  []
+        for i, n in tqdm(enumerate(G.nodes())):
+            if i % int(scale/10) == 0:
+                avg_cluster.append(nx.clustering(G, n))
+                
+        # Optionally, to compute the average clustering coefficient of the entire graph:
+        avg_cluster = sum(avg_cluster) / len(avg_cluster) if avg_cluster else 0
+    return avg_cluster
+
+def calc_avg_shortest_path(G, data, name):
+    all_avg_shortest_paths = []
+    if name in ['cora', 'pwc_small', 'arxiv_2023', 'pubmed']:
+        all_avg_shortest_paths = nx.average_shortest_path_length(G)
+    else:
+        for i, j in G.edges():
+            if i % scale == 0:
+                try:
+                    all_avg_shortest_paths.append(nx.shortest_path_length(G, source=i, target=j)) 
+                except:
+                    all_avg_shortest_paths.append(0)
+                    
+        all_avg_shortest_paths = sum(all_avg_shortest_paths) / len(all_avg_shortest_paths) if all_avg_shortest_paths else 0
+    return all_avg_shortest_paths
+
+
+def calc_diameters(G, name):
+    avg_all_diameters = []
+    if name in ['cora', 'pwc_small', 'arxiv_2023', 'pubmed']:
+        avg_diameters = nx.diameter(G)
+    else:
+        for i in G.nodes():
+            if i % int(scale/10) == 0:
+                avg_all_diameters.append(nx.eccentricity(G, v=i))
+    avg_diameters = max(avg_all_diameters) if avg_all_diameters else 0
+    return avg_diameters 
+    
+def print_data_stats(data, name, scale):
+
+    m = construct_sparse_adj(data.edge_index.numpy())
+    G = nx.from_scipy_sparse_array(m)
+
+    heterogeneity = calculate_heterogeneity(G)
+    num_nodes = data.num_nodes
+    num_edges = data.edge_index.shape[1]
+    avg_degree_arithmetic = int(num_edges / num_nodes)
+    avg_degree_G, avg_degree_dict = avg_degree(G)
+    avg_degree_G2 = avg_degree2(G, avg_degree_dict)
+
+    print(f"------ Dataset {name}------ : Whole")
+    print("Num nodes: ", data.num_nodes)
+    print("Num edges: ", data.edge_index.shape[1])
+    print(f"heterogeneity: {heterogeneity}")
+    print(f"avg degree arithmetic {avg_degree_arithmetic}")
+    print(f"avg degree G {avg_degree_G}, avg degree G2 {avg_degree_G2}.")
+
+
+    all_diameters, avg_cluster, all_avg_shortest_paths= None, None, None
+    if not nx.is_connected(G):
+        # who?
+        print("Graph is not connected. Cannot calculate average shortest path length.")
+        all_avg_shortest_paths = 0  # Or handle it in a way that suits your needs
+        all_diameters = 0
+    elif name in ['cora', 'pwc_small', 'arxiv_2023', 'pubmed', 'arxiv_2023', 'pwc_large', 'pwc_medium', 'citationv8']:
+        all_diameters = calc_diameters(G, name)
+        all_avg_shortest_paths = calc_avg_shortest_path(G, data, name)
+    avg_cluster = calc_avg_cluster(G, name)
+            
+    
+    for dataset_name, dataset_data in splits.items():
+        print()
+        print(f"------ Dataset {name}------ : {dataset_name}")
+        # print("Node attributes: ", dataset_data.node_attrs())
+        print("Positive edge labels: ", dataset_data.pos_edge_label.shape[0])
+        print("Negative edge labels: ", dataset_data.neg_edge_label.shape[0])
+        
+
+    print(f"clustering {avg_cluster}.")    
+    print("avg. of avg. shortest paths: ", np.mean(all_avg_shortest_paths))
+    print("std. of avg. shortest paths: ", np.std(all_avg_shortest_paths))
+    print("avg. diameter: ", np.mean(all_diameters))
+    print("std. diameter: ", np.std(all_diameters))
+    
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', type=str, default='ogbn-arxiv',
-                        help='Dataset name.')
+    cfg = init_cfg_test()
+    cfg = config_device(cfg)
+
+    name_list = ['pwc_small', 'cora', 'pubmed', 'arxiv_2023', 'pwc_medium', 'ogbn-arxiv', 'citationv8', 'pwc_large']
+
+    parser = argparse.ArgumentParser(description='GraphGym')
+
+    parser.add_argument('--data', dest='data', type=str, required=False,
+                        help='data name', default='ogbn-arxiv')
+    parser.add_argument('--scale', dest='scale', type=int, required=False,
+                        help='data name')
     args = parser.parse_args()
+    
+    scale = 1000
+    name = args.data
+    
+    if name == 'pwc_small':
+        splits, text, data = load_data_lp[name](cfg.data)
 
-    scale = 100000
-    name_list = ['cora', 'pubmed', 'arxiv_2023', 'ogbn-arxiv', 'citationv8']
+        print_data_stats(data, name, scale)
 
-    for name in name_list:
-        if name == 'cora':
-            data, text = load_graph_lp[name](use_mask=False)
-            raise NotImplementedError
+    if name == 'pwc_medium':
+        splits, text, data = load_data_lp[name](cfg.data)
+        print_data_stats(data, name, scale)
+        
+    if name == 'pwc_large':
+        splits, text, data = load_data_lp[name](cfg.data)
+        print_data_stats(data, name, scale)
+    
+    if name == 'ogbn-arxiv':        
+        splits, text, data = load_data_lp[name](cfg.data)
+        print_data_stats(data, name)
 
-        if name == 'pubmed':
-            data, text = load_data_nc[name](use_mask=False)
-            G = nx.from_scipy_sparse_array(m)
-
-            compare_adj(name, data.edge_index.numpy())
-            m = construct_sparse_adj(data.edge_index.numpy())
-            fig, ax = spy.spy_to_mpl(m)
-            fig.savefig(f"{name}_data_index_spy.png", bbox_inches='tight')
-
-            heterogeneity = calculate_heterogeneity(G)
-            num_nodes = data.num_nodes
-            num_edges = data.edge_index.shape[1]
-            avg_degree_arithmetic = int(num_edges / num_nodes)
-            avg_degree_G, avg_degree_dict = avg_degree(G)
-            avg_degree_G2 = avg_degree2(G, avg_degree_dict)
-            print(f"{name}, heterogeneity: {heterogeneity}. num_node: {num_nodes}, num_edges: {num_edges}, \
-                      avg degree arithmetic {avg_degree_arithmetic},  \
-                      avg degree G {avg_degree_G}, avg degree G2 {avg_degree_G2}, clustering {nx.average_clustering(G)}.")
-
-
-        if name == 'arxiv_2023':
-            data, text = load_data_nc[name]()
-            m = construct_sparse_adj(data.edge_index.numpy())
-            G = nx.from_scipy_sparse_array(m)
-
-            plot_coo_matrix(m, f'{name}_data_index.png')
-
-            fig, ax = spy.spy_to_mpl(m)
-            fig.savefig(f"{name}_data_index_spy.png", bbox_inches='tight')
-
-            heterogeneity = calculate_heterogeneity(G)
-            num_nodes = data.num_nodes
-            num_edges = data.edge_index.shape[1]
-            avg_degree_arithmetic = int(num_edges / num_nodes)
-            avg_degree_G, avg_degree_dict = avg_degree(G)
-            avg_degree_G2 = avg_degree2(G, avg_degree_dict)
-            print(f"{name}, heterogeneity: {heterogeneity}. num_node: {num_nodes}, num_edges: {num_edges}, \
-                      avg degree arithmetic {avg_degree_arithmetic},  \
-                      avg degree G {avg_degree_G}, avg degree G2 {avg_degree_G2}, clustering {nx.average_clustering(G)}.")
-
-            
-        if name == 'ogbn-arxiv':
-            dataset = NodePropPredDataset(name)
-            edge_index = dataset[0][0]['edge_index']
-
-            m = construct_sparse_adj(edge_index[:, ::2])
-            G = nx.from_scipy_sparse_array(m)
-
-            plot_coo_matrix(m, f'{name}_data_edges.png')
-
-            fig, ax = spy.spy_to_mpl(m)
-            fig.savefig(f"{name}_data_edges_spy.png", bbox_inches='tight')
-
-            heterogeneity = calculate_heterogeneity(G)
-            num_nodes = dataset[0][0]['num_nodes']
-            num_edges = dataset[0][0]['edge_index'].shape[1]
-            avg_degree_arithmetic = int(num_edges / num_nodes)
-            avg_degree_G, avg_degree_dict = avg_degree(G)
-            avg_degree_G2 = avg_degree2(G, avg_degree_dict)
-            print(f"{name}, heterogeneity: {heterogeneity}. num_node: {num_nodes}, num_edges: {num_edges}, \
-                      avg degree arithmetic {avg_degree_arithmetic},  \
-                      avg degree G {avg_degree_G}, avg degree G2 {avg_degree_G2}, clustering {nx.average_clustering(G)}.")
+    if name == 'citationv8':
+        splits, text, data = load_data_lp[name](cfg.data)
+        print_data_stats(data, name, scale)
+        
+    exit(-1)
 
 
-        if name == 'citationv8':
-            dataset = NodePropPredDataset(name)
-            edge_index = dataset[0][0]['edge_index']
+    # name = 'cora'
+    if name == 'cora':
+        splits, text, data = load_data_lp[name](cfg.data)
+        print_data_stats(data)
 
-            # edge index to sparse matrix
-            edge_index = edge_index[:, ::scale]
-            m = construct_sparse_adj(edge_index)
+    # name = 'arxiv_2023'
+    if name == 'arxiv_2023':
+        splits, text, data = load_data_lp[name](cfg.data)
+        print_data_stats(G)
 
-            G = nx.from_scipy_sparse_array(m)
-            plot_coo_matrix(m, f'{name}_data_edges.png')
+    # name = 'pubmed'
+    if name == 'pubmed':
+        splits, text, data = load_data_lp[name](cfg.data)
+        print_data_stats(data)
 
-            fig, ax = spy.spy_to_mpl(m)
-            fig.savefig(f"{name}_data_edges_spy.png", bbox_inches='tight')
 
-            data, text = load_data_nc[name]()
-            m = construct_sparse_adj(data.edge_index.coo())
-            plot_coo_matrix(m, f'{name}_data_index.png')
-
-            fig, ax = spy.spy_to_mpl(m)
-            fig.savefig(f"{name}_data_index_spy.png", bbox_inches='tight')
-
-            heterogeneity = calculate_heterogeneity(G)
-            print(f"{name}, heterogeneity: {heterogeneity}. num_node: {dataset[0].num_node}")
