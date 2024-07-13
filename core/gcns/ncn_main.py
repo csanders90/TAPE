@@ -25,6 +25,8 @@ from graphgps.utility.ncn import PermIterator
 from graphgps.network.ncn import predictor_dict, convdict, GCN
 from data_utils.load import load_data_lp, load_graph_lp
 from graphgps.train.ncn_train import Trainer_NCN
+from graphgps.utility.utils import save_run_results_to_csv
+
 
 
 
@@ -41,8 +43,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--data', dest='data', type=str, required=True,
                         default='pubmed',
                         help='data name')
-    parser.add_argument('--repeat', type=int, default=2,
+    parser.add_argument('--repeat', type=int, default=5,
                         help='The number of repeated jobs.')
+    parser.add_argument('--start_seed', type=int, default=0,
+                        help='The number of starting seed.')
     parser.add_argument('--batch_size', dest='bs', type=int, required=False,
                         default=2**15,
                         help='data name')
@@ -104,64 +108,66 @@ if __name__ == "__main__":
         predfn = partial(predfn)
     if cfg.model.type == 'NCNC':
         predfn = partial(predfn, scale=cfg.model.probscale, offset=cfg.model.proboffset, pt=cfg.model.pt)
-    for batch_size in batch_sizes:
-        for run_id, seed, split_index in zip(
-                *run_loop_settings(cfg, args)):
-            custom_set_run_dir(cfg, run_id)
-            print_logger = set_printing(cfg)
-            cfg.seed = seed
-            cfg.run_id = run_id
-            seed_everything(cfg.seed)
-            cfg = config_device(cfg)
-            start = time.time()
-            splits, __, data = load_data_lp[cfg.data.name](cfg.data)
 
-            data.edge_index = splits['train']['pos_edge_label_index']
-            data = ncn_dataset(data, splits).to(cfg.device)
-            path = f'{os.path.dirname(__file__)}/ncn_{cfg.data.name}'
-            dataset = {}
+    for run_id in range(args.repeat):
+        seed = run_id + args.start_seed
+        custom_set_run_dir(cfg, run_id)
+        print_logger = set_printing(cfg)
+        cfg.seed = seed
+        cfg.run_id = run_id
+        seed_everything(cfg.seed)
+        cfg = config_device(cfg)
+        start = time.time()
+        splits, __, data = load_data_lp[cfg.data.name](cfg.data)
 
-            model = GCN(data.num_features, cfg.model.hiddim, cfg.model.hiddim, cfg.model.mplayers,
-                        cfg.model.gnndp, cfg.model.ln, cfg.model.res, cfg.data.max_x,
-                        cfg.model.model, cfg.model.jk, cfg.model.gnnedp, xdropout=cfg.model.xdp, taildropout=cfg.model.tdp,
-                        noinputlin=False)
+        data.edge_index = splits['train']['pos_edge_label_index']
+        data = ncn_dataset(data, splits).to(cfg.device)
+        path = f'{os.path.dirname(__file__)}/ncn_{cfg.data.name}'
+        dataset = {}
 
-            predictor = predfn(cfg.model.hiddim, cfg.model.hiddim, 1, cfg.model.nnlayers,
-                               cfg.model.predp, cfg.model.preedp, cfg.model.lnnn)
+        model = GCN(data.num_features, cfg.model.hiddim, cfg.model.hiddim, cfg.model.mplayers,
+                    cfg.model.gnndp, cfg.model.ln, cfg.model.res, cfg.data.max_x,
+                    cfg.model.model, cfg.model.jk, cfg.model.gnnedp, xdropout=cfg.model.xdp, taildropout=cfg.model.tdp,
+                    noinputlin=False)
 
-            optimizer = torch.optim.Adam([{'params': model.parameters(), "lr": cfg.optimizer.gnnlr},
-                                          {'params': predictor.parameters(), 'lr': cfg.optimizer.prelr}])
+        predictor = predfn(cfg.model.hiddim, cfg.model.hiddim, 1, cfg.model.nnlayers,
+                           cfg.model.predp, cfg.model.preedp, cfg.model.lnnn)
 
-            # Execute experiment
-            trainer = Trainer_NCN(FILE_PATH,
-                                   cfg,
-                                   model,
-                                   predictor,
-                                   optimizer,
-                                   data,
-                                   splits,
-                                   run_id,
-                                   args.repeat,
-                                   loggers,
-                                   print_logger=print_logger,
-                                   batch_size=batch_size)
+        optimizer = torch.optim.Adam([{'params': model.parameters(), "lr": cfg.optimizer.gnnlr},
+                                      {'params': predictor.parameters(), 'lr': cfg.optimizer.prelr}])
 
-            start = time.time()
-            trainer.train()
-            end = time.time()
-            print('Training time: ', end - start)
+        # Execute experiment
+        trainer = Trainer_NCN(FILE_PATH,
+                               cfg,
+                               model,
+                               predictor,
+                               optimizer,
+                               data,
+                               splits,
+                               run_id,
+                               args.repeat,
+                               loggers,
+                               print_logger=print_logger,
+                               batch_size=cfg.train.batch_size)
 
-        print('All runs:')
+        start = time.time()
+        trainer.train()
+        end = time.time()
+        print('Training time: ', end - start)
+        save_run_results_to_csv(cfg, loggers, seed, run_id)
 
-        result_dict = {}
-        for key in loggers:
-            print(key)
-            _, _, _, valid_test, _, _ = trainer.loggers[key].calc_all_stats()
-            result_dict[key] = valid_test
 
-        trainer.save_result(result_dict)
+    print('All runs:')
 
-        cfg.model.params = params_count(model)
-        print_logger.info(f'Num parameters: {cfg.model.params}')
-        trainer.finalize()
-        print_logger.info(f"Inference time: {trainer.run_result['eval_time']}")
+    result_dict = {}
+    for key in loggers:
+        print(key)
+        _, _, _, valid_test, _, _ = trainer.loggers[key].calc_all_stats()
+        result_dict[key] = valid_test
+
+    trainer.save_result(result_dict)
+
+    cfg.model.params = params_count(model)
+    print_logger.info(f'Num parameters: {cfg.model.params}')
+    trainer.finalize()
+    print_logger.info(f"Inference time: {trainer.run_result['eval_time']}")
