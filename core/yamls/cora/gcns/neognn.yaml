@@ -12,7 +12,7 @@ run:
 
 train:
   mode: custom
-  batch_size: 256 #
+  batch_size: 1024 #
   gnn_batch_size: 4096 #
   eval_period: 1
   epochs: 500
@@ -28,7 +28,7 @@ model:
   hidden_channels: 256 #
   num_layers: 1 #
   mlp_num_layers: 2 #
-  dropout: 0.1 #
+  dropout: 0.3 #
   f_edge_dim: 32 #
   f_node_dim: 128 #
   g_phi_dim: 128 #
@@ -55,5 +55,5 @@ data:
 
 optimizer:
   type: adam
-  lr: 0.01 #
+  lr: 0.001 #
   weight_decay: 0.0005
