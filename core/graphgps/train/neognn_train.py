@@ -3,6 +3,8 @@ import sys
 import time
 from os.path import abspath, dirname, join
 
+import numpy as np
+from torch_scatter import scatter_add
 
 sys.path.insert(0, abspath(join(dirname(dirname(__file__)))))
 
@@ -97,32 +99,43 @@ class Trainer_NeoGNN(Trainer):
         # permute the edges
         total_loss = total_examples = 0
         count = 0
-        for perm in DataLoader(range(pos_train_edge.size(0)), self.batch_size,
-                                               shuffle=True):
+        for perm in DataLoader(range(pos_train_edge.size(0)), self.batch_size, shuffle=True):
             self.optimizer.zero_grad()
             # compute scores of positive edges
             edge = pos_train_edge[perm].t()
-            pos_out, pos_out_struct, _, _ = self.model(edge, self.train_data, self.train_data.A, self.predictor, emb=self.train_data.emb.weight)
-            _, _, pos_out_feat_large = self.model(edge, self.train_data, self.train_data.A, self.predictor, emb=self.train_data.emb.weight, only_feature=True)
+            pos_out, pos_out_struct, _, _ = self.model(edge, self.train_data, self.train_data.A, self.predictor,
+                                                       emb=self.train_data.emb)
+            _, _, pos_out_feat_large = self.model(edge, self.train_data, self.train_data.A, self.predictor,
+                                                  emb=self.train_data.emb, only_feature=True)
 
             # compute scores of negative edges
             # Just do some trivial random sampling.
             edge = neg_train_edge[perm].t()
-            neg_out, neg_out_struct, _, _ = self.model(edge, self.train_data, self.train_data.A, self.predictor, emb=self.train_data.emb.weight)
-            _, _, neg_out_feat_large = self.model(edge, self.train_data, self.train_data.A, self.predictor, emb=self.train_data.emb.weight, only_feature=True)
+            neg_out, neg_out_struct, _, _ = self.model(edge, self.train_data, self.train_data.A, self.predictor,
+                                                       emb=self.train_data.emb)
+            _, _, neg_out_feat_large = self.model(edge, self.train_data, self.train_data.A, self.predictor,
+                                                  emb=self.train_data.emb, only_feature=True)
 
-            pos_loss = -torch.log(pos_out_struct + 1e-15).mean()
-            neg_loss = -torch.log(1 - neg_out_struct + 1e-15).mean()
-            loss1 = pos_loss + neg_loss
-            pos_loss = -torch.log(pos_out_feat_large + 1e-15).mean()
-            neg_loss = -torch.log(1 - neg_out_feat_large + 1e-15).mean()
-            loss2 = pos_loss + neg_loss
-            pos_loss = -torch.log(pos_out + 1e-15).mean()
-            neg_loss = -torch.log(1 - neg_out + 1e-15).mean()
-            loss3 = pos_loss + neg_loss
+            if pos_out_struct != None:
+                pos_loss = -torch.log(pos_out_struct + 1e-15).mean()
+                neg_loss = -torch.log(1 - neg_out_struct + 1e-15).mean()
+                loss1 = pos_loss + neg_loss
+            else:
+                loss1 = 0
+            if pos_out_feat_large != None:
+                pos_loss = -torch.log(pos_out_feat_large + 1e-15).mean()
+                neg_loss = -torch.log(1 - neg_out_feat_large + 1e-15).mean()
+                loss2 = pos_loss + neg_loss
+            else:
+                loss2 = 0
+            if pos_out != None:
+                pos_loss = -torch.log(pos_out + 1e-15).mean()
+                neg_loss = -torch.log(1 - neg_out + 1e-15).mean()
+                loss3 = pos_loss + neg_loss
+            else:
+                loss3 = 0
             loss = loss1 + loss2 + loss3
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.train_data.emb.weight, 1.0)
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
             torch.nn.utils.clip_grad_norm_(self.predictor.parameters(), 1.0)
             self.optimizer.step()
@@ -163,24 +176,46 @@ class Trainer_NeoGNN(Trainer):
         self.model.eval()
         self.predictor.eval()
 
+        h = self.model.forward_feature(eval_data.x, eval_data.adj_t)
+
         pos_edge = eval_data['pos_edge_label_index'].to(self.device)
         neg_edge = eval_data['neg_edge_label_index'].to(self.device)
 
         pos_pred_list, neg_pred_list = [], []
 
+        edge_weight = torch.from_numpy(eval_data.A.data).to(h.device)
+        edge_weight = self.model.f_edge(edge_weight.unsqueeze(-1))
+
+        row, col = eval_data.A.nonzero()
+        edge_index = torch.stack([torch.from_numpy(row), torch.from_numpy(col)]).type(torch.LongTensor).to(h.device)
+        row, col = edge_index[0], edge_index[1]
+        deg = scatter_add(edge_weight, col, dim=0, dim_size=self.data.num_nodes)
+        deg = self.model.f_node(deg).squeeze()
+        deg = deg.cpu().numpy()
+        A_ = eval_data.A.multiply(deg).tocsr()
+
+        alpha = torch.softmax(self.model.alpha, dim=0).cpu()
+        print(alpha)
+
         with torch.no_grad():
             for perm in DataLoader(range(pos_edge.size(1)), self.batch_size, shuffle=True):
                 # Positive edge prediction
-                edge = pos_edge[:, perm].to(self.device)
-                pos_pred, _, _, _ = self.model(edge, eval_data, eval_data.A, self.predictor, emb=eval_data.emb.weight)
-                pos_pred = pos_pred.squeeze()
-                pos_pred_list.append(pos_pred.cpu())
+                edge = pos_edge[:, perm]
+                gnn_scores = self.predictor(h[edge[0]], h[edge[1]]).squeeze().cpu()
+                src, dst = edge.cpu()
+                cur_scores = torch.from_numpy(np.sum(A_[src].multiply(A_[dst]), 1)).to(h.device)
+                cur_scores = torch.sigmoid(self.model.g_phi(cur_scores).squeeze().cpu())
+                cur_scores = alpha[0] * cur_scores + alpha[1] * gnn_scores
+                pos_pred_list += [cur_scores]
 
                 # Negative edge prediction
-                edge = neg_edge[:, perm].to(self.device)
-                neg_pred, _, _, _ = self.model(edge, eval_data, eval_data.A, self.predictor, emb=eval_data.emb.weight)
-                neg_pred = neg_pred.squeeze()
-                neg_pred_list.append(neg_pred.cpu())
+                edge = neg_edge[:, perm]
+                gnn_scores = self.predictor(h[edge[0]], h[edge[1]]).squeeze().cpu()
+                src, dst = edge.cpu()
+                cur_scores = torch.from_numpy(np.sum(A_[src].multiply(A_[dst]), 1)).to(h.device)
+                cur_scores = torch.sigmoid(self.model.g_phi(cur_scores).squeeze().cpu())
+                cur_scores = alpha[0] * cur_scores + alpha[1] * gnn_scores
+                neg_pred_list += [cur_scores]
 
         # Concatenate predictions and create labels
         pos_pred = torch.cat(pos_pred_list, dim=0)

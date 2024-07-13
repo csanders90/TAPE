@@ -92,7 +92,7 @@ def ngnn_dataset(splits):
         data.num_nodes = data.x.shape[0]
         data.edge_weight = None
         data.adj_t = SparseTensor.from_edge_index(edge_index, sparse_sizes=(data.num_nodes, data.num_nodes))
-        data.emb = torch.nn.Embedding(data.num_nodes, cfg.model.hidden_channels)
+        data.emb = data.x
         edge_weight = torch.ones(edge_index.size(1), dtype=float)
         edge_index = edge_index.cpu()
         edge_weight = edge_weight.cpu()
@@ -145,36 +145,36 @@ if __name__ == "__main__":
             f"\n Valid: {2 * splits['train']['pos_edge_label'].shape[0]} samples,"
             f"\n Test: {2 * splits['test']['pos_edge_label'].shape[0]} samples")
         dump_cfg(cfg)
-        hyperparameter_search = {'hidden_channels': [128, 256], 'num_layers': [2, 3],
-                                 'f_edge_dim': [8, 16, 32], 'f_node_dim': [64, 128], 'dropout': [0.0, 0.1, 0.3],
-                             "batch_size": [256, 512, 1024], "lr": [0.01, 0.001]}
+        hyperparameter_search = {'hidden_channels': [256], 'num_layers': [1, 2, 3], 'mlp_num_layers': [2, 3],
+                                 'f_edge_dim': [8], 'f_node_dim': [128], 'dropout': [0, 0.1, 0.3],
+                             "batch_size": [256, 512, 1024], "lr": [0.01, 0.001, 0.0001]}
 
         print_logger.info(f"hypersearch space: {hyperparameter_search}")
-        for hidden_channels, num_layers, f_edge_dim, f_node_dim, dropout, batch_size, lr in tqdm(
+        for hidden_channels, num_layers, mlp_num_layers, f_edge_dim, f_node_dim, dropout, batch_size, lr in tqdm(
                 itertools.product(*hyperparameter_search.values())):
             cfg.model.hidden_channels = hidden_channels
             cfg.train.batch_size = batch_size
             cfg.optimizer.lr = lr
             cfg.model.num_layers = num_layers
+            cfg.model.mlp_num_layers = mlp_num_layers
             cfg.model.f_node_dim = f_node_dim
             cfg.model.f_edge_dim = f_edge_dim
             cfg.model.dropout = dropout
             splits = ngnn_dataset(splits)
 
             print_logger.info(
-                f"hidden_channels: {hidden_channels}, num_layers: {num_layers}, f_node_dim: {f_node_dim}, "
+                f"hidden_channels: {hidden_channels}, num_layers: {num_layers}, mlp_num_layers:{mlp_num_layers}, f_node_dim: {f_node_dim}, "
                 f"f_edge_dim: {f_edge_dim}, dropout: {dropout}, batch_size: {batch_size}, lr: {lr}")
             start_time = time.time()
-            model = NeoGNN(cfg.model.hidden_channels, cfg.model.hidden_channels,
+            model = NeoGNN(data.x.shape[1], cfg.model.hidden_channels,
                            cfg.model.hidden_channels, cfg.model.num_layers,
                            cfg.model.dropout, args=cfg.model)
 
             predictor = LinkPredictor(cfg.model.hidden_channels, cfg.model.hidden_channels, 1,
-                                      cfg.model.num_layers, cfg.model.dropout)
+                                      cfg.model.mlp_num_layers, cfg.model.dropout)
 
             optimizer = torch.optim.Adam(
-                list(model.parameters()) + list(splits['train'].emb.parameters()) +
-                list(predictor.parameters()), lr=cfg.optimizer.lr, weight_decay=cfg.optimizer.weight_decay)
+                list(model.parameters()) + list(predictor.parameters()), lr=cfg.optimizer.lr, weight_decay=cfg.optimizer.weight_decay)
 
             logging.info(f"{model} on {next(model.parameters()).device}")
             logging.info(cfg)
@@ -215,8 +215,8 @@ if __name__ == "__main__":
                     run_result[key] = test_bvalid
 
             run_result.update(
-                {'hidden_channels': hidden_channels,' num_layers': num_layers, 'f_node_dim': f_node_dim,
-                'f_edge_dim': f_edge_dim, 'dropout': dropout, 'batch_size': batch_size, 'lr': lr})
+                {'hidden_channels': hidden_channels,' num_layers': num_layers, 'mlp_num_layers': mlp_num_layers,
+                 'f_node_dim': f_node_dim, 'f_edge_dim': f_edge_dim, 'dropout': dropout, 'batch_size': batch_size, 'lr': lr})
             print_logger.info(run_result)
 
             to_file = f'{cfg.data.name}_{cfg.model.type}_tune_result.csv'

@@ -46,6 +46,8 @@ class NeoGNN(torch.nn.Module):
         self.g_phi = torch.nn.Sequential(torch.nn.Linear(1, args.g_phi_dim).double(),
                                          torch.nn.ReLU(),
                                          torch.nn.Linear(args.g_phi_dim, 1).double()) # similarity function
+        self.alpha = torch.nn.Parameter(torch.FloatTensor([0, 0]))
+
 
     def reset_parameters(self):
         for conv in self.convs:
