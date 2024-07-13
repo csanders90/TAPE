@@ -19,13 +19,8 @@ import pdb
 
 
 class NeoGNN(torch.nn.Module):
-    def __init__(self,
-                 in_channels,
-                 hidden_channels,
-                 out_channels,
-                 num_layers,
-                 dropout,
-                 args):
+    def __init__(self, in_channels, hidden_channels, out_channels, num_layers,
+                 dropout, args):
         super(NeoGNN, self).__init__()
 
         self.args = args
@@ -53,7 +48,6 @@ class NeoGNN(torch.nn.Module):
                                          torch.nn.Linear(args.g_phi_dim, 1).double()) # similarity function
 
     def reset_parameters(self):
-        # reset parameters of GNNs
         for conv in self.convs:
             conv.reset_parameters()
         torch.nn.init.constant_(self.alpha, 0)
@@ -65,14 +59,7 @@ class NeoGNN(torch.nn.Module):
         if isinstance(m, nn.Linear):
             m.reset_parameters()
 
-    def forward(self,
-                edge,
-                data,
-                A,
-                predictor=None,
-                emb=None,
-                only_feature=False,
-                only_structure=False,
+    def forward(self, edge, data, A, predictor=None, emb=None, only_feature=False, only_structure=False,
                 node_struct_feat=None):
         batch_size = edge.shape[-1]
         # 1. compute similarity scores of node pairs via conventionl GNNs (feature + adjacency matrix)
@@ -98,53 +85,43 @@ class NeoGNN(torch.nn.Module):
         # 2. compute similarity scores of node pairs via Neo-GNNs
         # 2-1. Structural feature generation
         if node_struct_feat is None:
-            # If node structure features are not already computed, extract non-zero entries of sparse matrix A.
             row_A, col_A = A.nonzero()
             tmp_A = torch.stack([torch.from_numpy(row_A), torch.from_numpy(col_A)]).type(torch.LongTensor).to(
                 edge.device)
             row_A, col_A = tmp_A[0], tmp_A[1]
             edge_weight_A = torch.from_numpy(A.data).to(edge.device)
             edge_weight_A = self.f_edge(edge_weight_A.unsqueeze(-1))
-            # Aggregate the edge weights by column index to form node structure features.
             node_struct_feat = scatter_add(edge_weight_A, col_A, dim=0, dim_size=data.num_nodes)
 
-        # Extract source node indices and their corresponding edges from A.
         indexes_src = edge[0].cpu().numpy()
         row_src, col_src = A[indexes_src].nonzero()
         edge_index_src = torch.stack([torch.from_numpy(row_src), torch.from_numpy(col_src)]).type(torch.LongTensor).to(
             edge.device)
         edge_weight_src = torch.from_numpy(A[indexes_src].data).to(edge.device)
-        # Adjust edge weights by applying the node feature transformation function to the column (neighbor) features.
         edge_weight_src = edge_weight_src * self.f_node(node_struct_feat[col_src]).squeeze()
 
-        # Extract destination node indices and their corresponding edges from A.
         indexes_dst = edge[1].cpu().numpy()
         row_dst, col_dst = A[indexes_dst].nonzero()
         edge_index_dst = torch.stack([torch.from_numpy(row_dst), torch.from_numpy(col_dst)]).type(torch.LongTensor).to(
             edge.device)
         edge_weight_dst = torch.from_numpy(A[indexes_dst].data).to(edge.device)
-        # Adjust edge weights similarly for the destination nodes.
         edge_weight_dst = edge_weight_dst * self.f_node(node_struct_feat[col_dst]).squeeze()
 
-        # Create sparse tensors for source and destination nodes with updated edge weights.
+
         mat_src = SparseTensor.from_edge_index(edge_index_src, edge_weight_src, [batch_size, data.num_nodes])
         mat_dst = SparseTensor.from_edge_index(edge_index_dst, edge_weight_dst, [batch_size, data.num_nodes])
-        # Compute the structural relationship by taking the diagonal of the product of source and destination matrices.
         out_struct = (mat_src @ mat_dst.to_dense().t()).diag()
 
-        # Apply the final transformation function and sigmoid activation to the structural output.
         out_struct = self.g_phi(out_struct.unsqueeze(-1))
         out_struct_raw = out_struct
         out_struct = torch.sigmoid(out_struct)
 
-        # Combine structural output with other features if not using structure only.
         if not only_structure:
             alpha = torch.softmax(self.alpha, dim=0)
             out = alpha[0] * out_struct + alpha[1] * out_feat + 1e-15
         else:
             out = None
 
-        # Clean up and release resources.
         del edge_weight_src, edge_weight_dst, node_struct_feat
         torch.cuda.empty_cache()
 
@@ -161,11 +138,7 @@ class NeoGNN(torch.nn.Module):
 
 
 class LinkPredictor(torch.nn.Module):
-    def __init__(self,
-                 in_channels,
-                 hidden_channels,
-                 out_channels,
-                 num_layers,
+    def __init__(self, in_channels, hidden_channels, out_channels, num_layers,
                  dropout):
         super(LinkPredictor, self).__init__()
 
@@ -211,13 +184,8 @@ def gcn_norm(edge_index, edge_weight=None, num_nodes=None, improved=False,
     pass
 
 
-def gcn_norm(edge_index,
-             edge_weight=None,
-             num_nodes=None,
-             improved=False,
-             add_self_loops=True,
-             dtype=None):
-    # Applies a symmetric normalization to the edge weights of a
+def gcn_norm(edge_index, edge_weight=None, num_nodes=None, improved=False,
+             add_self_loops=True, dtype=None):
     fill_value = 2. if improved else 1.
 
     if isinstance(edge_index, SparseTensor):

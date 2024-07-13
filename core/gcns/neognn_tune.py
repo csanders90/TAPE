@@ -1,4 +1,3 @@
-import copy
 import itertools
 import os, sys
 
@@ -11,15 +10,10 @@ import time
 import logging
 import wandb
 import torch
-from functools import partial
 from torch_geometric.graphgym.utils.comp_budget import params_count
 from torch_geometric import seed_everything
-from torch_geometric.graphgym.utils.device import auto_select_device
 from graphgps.utility.utils import set_cfg, parse_args, get_git_repo_root_path, custom_set_run_dir, set_printing, run_loop_settings, \
           create_optimizer, config_device,  create_logger, custom_set_out_dir
-
-from torch_geometric.data import InMemoryDataset, Dataset
-from data_utils.load_data_nc import load_graph_cora, load_graph_pubmed, load_tag_arxiv23, load_graph_ogbn_arxiv
 import scipy.sparse as ssp
 from graphgps.config import (dump_cfg, dump_run_cfg)
 from graphgps.network.neognn import NeoGNN, LinkPredictor
@@ -27,6 +21,42 @@ from graphgps.network.neognn import NeoGNN, LinkPredictor
 from data_utils.load import load_data_lp
 from graphgps.train.neognn_train import Trainer_NeoGNN
 
+def check_data_leakage(splits):
+    sets = ['train', 'valid', 'test']
+    leakage = False
+
+    # Extract indices
+    train_pos_index = set(map(tuple, splits['train'].pos_edge_label_index.t().tolist()))
+    train_neg_index = set(map(tuple, splits['train'].neg_edge_label_index.t().tolist()))
+    valid_pos_index = set(map(tuple, splits['valid'].pos_edge_label_index.t().tolist()))
+    valid_neg_index = set(map(tuple, splits['valid'].neg_edge_label_index.t().tolist()))
+    test_pos_index = set(map(tuple, splits['test'].pos_edge_label_index.t().tolist()))
+    test_neg_index = set(map(tuple, splits['test'].neg_edge_label_index.t().tolist()))
+
+    # Check for leakage
+    if train_pos_index & valid_pos_index:
+        print("Data leakage found between train and valid positive samples.")
+        leakage = True
+    if train_pos_index & test_pos_index:
+        print("Data leakage found between train and test positive samples.")
+        leakage = True
+    if valid_pos_index & test_pos_index:
+        print("Data leakage found between valid and test positive samples.")
+        leakage = True
+    if train_neg_index & valid_neg_index:
+        print("Data leakage found between train and valid negative samples.")
+        leakage = True
+    if train_neg_index & test_neg_index:
+        print("Data leakage found between train and test negative samples.")
+        leakage = True
+    if valid_neg_index & test_neg_index:
+        print("Data leakage found between valid and test negative samples.")
+        leakage = True
+
+    if not leakage:
+        print("No data leakage found.")
+
+    return leakage
 
 
 def parse_args() -> argparse.Namespace:
@@ -45,9 +75,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--device', dest='device', required=True,
                         help='device id')
     parser.add_argument('--epochs', dest='epoch', type=int, required=False,
-                        default=100,
+                        default=50,
                         help='data name')
-    parser.add_argument('--repeat', type=int, default=2,
+    parser.add_argument('--repeat', type=int, default=1,
                         help='The number of repeated jobs.')
     parser.add_argument('--mark_done', action='store_true',
                         help='Mark yaml as done after a job has finished.')
@@ -56,18 +86,21 @@ def parse_args() -> argparse.Namespace:
 
     return parser.parse_args()
 
-def ngnn_dataset(data, splits):
-    edge_index = data.edge_index
-    data.num_nodes = data.x.shape[0]
-    data.edge_weight = None
-    data.adj_t = SparseTensor.from_edge_index(edge_index, sparse_sizes=(data.num_nodes, data.num_nodes))
-    data.emb = torch.nn.Embedding(data.num_nodes, cfg.model.hidden_channels)
-    edge_weight = torch.ones(edge_index.size(1), dtype=float)
-    edge_index = edge_index.cpu()
-    edge_weight = edge_weight.cpu()
-    data.A = ssp.csr_matrix((edge_weight, (edge_index[0], edge_index[1])),
-                       shape=(data.num_nodes, data.num_nodes))
-    return data
+def ngnn_dataset(splits):
+    for data in splits.values():
+        edge_index = data.edge_index
+        data.num_nodes = data.x.shape[0]
+        data.edge_weight = None
+        data.adj_t = SparseTensor.from_edge_index(edge_index, sparse_sizes=(data.num_nodes, data.num_nodes))
+        data.emb = torch.nn.Embedding(data.num_nodes, cfg.model.hidden_channels)
+        edge_weight = torch.ones(edge_index.size(1), dtype=float)
+        edge_index = edge_index.cpu()
+        edge_weight = edge_weight.cpu()
+        data.A = ssp.csr_matrix((edge_weight, (edge_index[0], edge_index[1])),
+                           shape=(data.num_nodes, data.num_nodes))
+        A2 = data.A * data.A
+        data.A = data.A + cfg.model.beta * A2
+    return splits
 
 
 
@@ -101,7 +134,8 @@ if __name__ == "__main__":
         seed_everything(cfg.seed)
         cfg = config_device(cfg)
         splits, text, data = load_data_lp[cfg.data.name](cfg.data)
-        data.edge_index = splits['train']['pos_edge_label_index']
+
+        check_data_leakage(splits)
 
         path = f'{os.path.dirname(__file__)}/neognn_{cfg.data.name}'
         print_logger = set_printing(cfg)
@@ -111,25 +145,26 @@ if __name__ == "__main__":
             f"\n Valid: {2 * splits['train']['pos_edge_label'].shape[0]} samples,"
             f"\n Test: {2 * splits['test']['pos_edge_label'].shape[0]} samples")
         dump_cfg(cfg)
-        hyperparameter_search = {'hidden_channels': [64, 128, 256], 'num_layers': [2, 3],
-                                 'f_node_dim': [64, 128], 'f_global_dim': [64, 128], 'dropout': [0.0, 0.1, 0.3, 0.5],
-                             "batch_size": [512, 1024], "gnn_batch_size": [4096, 8192], "lr": [0.01, 0.001]}
+        hyperparameter_search = {'hidden_channels': [128, 256], 'num_layers': [2, 3],
+                                 'f_edge_dim': [8, 16, 32], 'f_node_dim': [64, 128], 'dropout': [0.0, 0.1, 0.3],
+                             "batch_size": [256, 512, 1024], "lr": [0.01, 0.001]}
+
         print_logger.info(f"hypersearch space: {hyperparameter_search}")
-        for hidden_channels, num_layers, f_node_dim, f_global_dim, dropout, batch_size, gnn_batch_size, lr in tqdm(
+        for hidden_channels, num_layers, f_edge_dim, f_node_dim, dropout, batch_size, lr in tqdm(
                 itertools.product(*hyperparameter_search.values())):
             cfg.model.hidden_channels = hidden_channels
             cfg.train.batch_size = batch_size
-            cfg.train.gnn_batch_size = gnn_batch_size
             cfg.optimizer.lr = lr
             cfg.model.num_layers = num_layers
             cfg.model.f_node_dim = f_node_dim
-            cfg.model.f_global_dim = f_global_dim
+            cfg.model.f_edge_dim = f_edge_dim
             cfg.model.dropout = dropout
+            splits = ngnn_dataset(splits)
+
             print_logger.info(
                 f"hidden_channels: {hidden_channels}, num_layers: {num_layers}, f_node_dim: {f_node_dim}, "
-                f"f_global_dim: {f_global_dim}, dropout: {dropout}, batch_size: {batch_size}, gnn_batch_size: {gnn_batch_size}, lr: {lr}")
+                f"f_edge_dim: {f_edge_dim}, dropout: {dropout}, batch_size: {batch_size}, lr: {lr}")
             start_time = time.time()
-            data = ngnn_dataset(data, splits).to(cfg.device)
             model = NeoGNN(cfg.model.hidden_channels, cfg.model.hidden_channels,
                            cfg.model.hidden_channels, cfg.model.num_layers,
                            cfg.model.dropout, args=cfg.model)
@@ -138,7 +173,7 @@ if __name__ == "__main__":
                                       cfg.model.num_layers, cfg.model.dropout)
 
             optimizer = torch.optim.Adam(
-                list(model.parameters()) + list(data.emb.parameters()) +
+                list(model.parameters()) + list(splits['train'].emb.parameters()) +
                 list(predictor.parameters()), lr=cfg.optimizer.lr, weight_decay=cfg.optimizer.weight_decay)
 
             logging.info(f"{model} on {next(model.parameters()).device}")
@@ -181,11 +216,15 @@ if __name__ == "__main__":
 
             run_result.update(
                 {'hidden_channels': hidden_channels,' num_layers': num_layers, 'f_node_dim': f_node_dim,
-                'f_global_dim': f_global_dim, 'dropout': dropout, 'batch_size': batch_size, 'gnn_batch_size': gnn_batch_size, 'lr': lr})
+                'f_edge_dim': f_edge_dim, 'dropout': dropout, 'batch_size': batch_size, 'lr': lr})
             print_logger.info(run_result)
 
             to_file = f'{cfg.data.name}_{cfg.model.type}_tune_result.csv'
             trainer.save_tune(run_result, to_file)
 
             print_logger.info(f"runing time {time.time() - start_time}")
+            torch.cuda.empty_cache()
+
+
+
 

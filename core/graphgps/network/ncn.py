@@ -9,10 +9,6 @@ import torch_sparse
 from torch_scatter import scatter_add
 from typing import Iterable, Final
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from core.model_finetuning.adj import (plot_coo_matrix, 
-                                        coo_matrix, 
-                                        construct_sparse_adj, 
-                                        coo_tensor_to_coo_matrix)
 from graphgps.utility.ncn import adjoverlap
 
 

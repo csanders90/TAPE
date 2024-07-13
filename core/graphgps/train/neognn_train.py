@@ -1,32 +1,21 @@
 import os
 import sys
-import os
-import sys
 import time
 from os.path import abspath, dirname, join
 
-from torch.nn import BCEWithLogitsLoss
-from torch_sparse import SparseTensor
 
 sys.path.insert(0, abspath(join(dirname(dirname(__file__)))))
-from torch_geometric.utils import negative_sampling
 
 import torch
-import wandb
 from ogb.linkproppred import Evaluator
 from torch_geometric.graphgym.config import cfg
-from sklearn.metrics import roc_auc_score, average_precision_score, roc_curve, auc
 from yacs.config import CfgNode as CN
-import torch.nn.functional as F
-import numpy as np
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
-from embedding.tune_utils import param_tune_acc_mrr
 from heuristic.eval import get_metric_score
 from graphgps.utility.utils import config_device, Logger
 from typing import Dict, Tuple
 from graphgps.train.opt_train import (Trainer)
-from graphgps.utility.ncn import PermIterator
 from torch.utils.tensorboard import SummaryWriter
 
 writer = SummaryWriter()
@@ -61,11 +50,11 @@ class Trainer_NeoGNN(Trainer):
         self.print_logger = print_logger
         self.batch_size = batch_size
         self.gnn_batch_size = cfg.train.gnn_batch_size
-        self.data = data
+        self.data = data.to(self.device)
 
-        self.test_data = splits['test']
-        self.train_data = splits['train']
-        self.valid_data = splits['valid']
+        self.test_data = splits['test'].to(self.device)
+        self.train_data = splits['train'].to(self.device)
+        self.valid_data = splits['valid'].to(self.device)
         self.optimizer = optimizer
         self.train_func = self._train_neognn
         model_types = ['NeoGNN']
@@ -108,24 +97,19 @@ class Trainer_NeoGNN(Trainer):
         # permute the edges
         total_loss = total_examples = 0
         count = 0
-        for perm, perm_large in zip(DataLoader(range(pos_train_edge.size(0)), self.batch_size,
-                                               shuffle=True),
-                                    DataLoader(range(pos_train_edge.size(0)), self.gnn_batch_size,
-                                               shuffle=True)):
+        for perm in DataLoader(range(pos_train_edge.size(0)), self.batch_size,
+                                               shuffle=True):
             self.optimizer.zero_grad()
             # compute scores of positive edges
             edge = pos_train_edge[perm].t()
-            edge_large = pos_train_edge[perm_large].t()
-            pos_out, pos_out_struct, _, _ = self.model(edge, self.data, self.data.A, self.predictor, emb=self.data.emb.weight)
-            _, _, pos_out_feat_large = self.model(edge_large, self.data, self.data.A, self.predictor, emb=self.data.emb.weight, only_feature=True)
+            pos_out, pos_out_struct, _, _ = self.model(edge, self.train_data, self.train_data.A, self.predictor, emb=self.train_data.emb.weight)
+            _, _, pos_out_feat_large = self.model(edge, self.train_data, self.train_data.A, self.predictor, emb=self.train_data.emb.weight, only_feature=True)
 
             # compute scores of negative edges
             # Just do some trivial random sampling.
             edge = neg_train_edge[perm].t()
-
-            edge_large = neg_train_edge[perm_large].t()
-            neg_out, neg_out_struct, _, _ = self.model(edge, self.data, self.data.A, self.predictor, emb=self.data.emb.weight)
-            _, _, neg_out_feat_large = self.model(edge_large, self.data, self.data.A, self.predictor, emb=self.data.emb.weight, only_feature=True)
+            neg_out, neg_out_struct, _, _ = self.model(edge, self.train_data, self.train_data.A, self.predictor, emb=self.train_data.emb.weight)
+            _, _, neg_out_feat_large = self.model(edge, self.train_data, self.train_data.A, self.predictor, emb=self.train_data.emb.weight, only_feature=True)
 
             pos_loss = -torch.log(pos_out_struct + 1e-15).mean()
             neg_loss = -torch.log(1 - neg_out_struct + 1e-15).mean()
@@ -133,19 +117,12 @@ class Trainer_NeoGNN(Trainer):
             pos_loss = -torch.log(pos_out_feat_large + 1e-15).mean()
             neg_loss = -torch.log(1 - neg_out_feat_large + 1e-15).mean()
             loss2 = pos_loss + neg_loss
-            eps = 1e-15  # Small constant to avoid log(0)
-
-            # Clamp the outputs to avoid log(0) or log(1 - 1) issues
-            pos_out = torch.clamp(pos_out, min=eps, max=1 - eps)
-            neg_out = torch.clamp(neg_out, min=eps, max=1 - eps)
-
-            # Calculate the losses
-            pos_loss = -torch.log(pos_out).mean()
-            neg_loss = -torch.log(1 - neg_out).mean()
+            pos_loss = -torch.log(pos_out + 1e-15).mean()
+            neg_loss = -torch.log(1 - neg_out + 1e-15).mean()
             loss3 = pos_loss + neg_loss
             loss = loss1 + loss2 + loss3
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.data.emb.weight, 1.0)
+            torch.nn.utils.clip_grad_norm_(self.train_data.emb.weight, 1.0)
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
             torch.nn.utils.clip_grad_norm_(self.predictor.parameters(), 1.0)
             self.optimizer.step()
@@ -154,8 +131,8 @@ class Trainer_NeoGNN(Trainer):
             total_loss += loss.item() * num_examples
             total_examples += num_examples
             count += 1
-        return total_loss / total_examples
 
+        return total_loss / total_examples
     def train(self):
         best_auc, best_hits, best_hit100 = 0, 0, 0
         for epoch in range(1, self.epochs + 1):
@@ -167,13 +144,6 @@ class Trainer_NeoGNN(Trainer):
                 self.results_rank = self.merge_result_rank()
                 for key, result in self.results_rank.items():
                     self.loggers[key].add_result(self.run, result)
-                    self.print_logger.info(
-                        f'Epoch: {epoch:03d}, Loss_train: {loss:.4f}, AUC: {self.results_rank["AUC"][0]:.4f}, AP: {self.results_rank["AP"][0]:.4f}, MRR: {self.results_rank["MRR"][0]:.4f}, Hit@10 {self.results_rank["Hits@10"][0]:.4f}')
-                    self.print_logger.info(
-                        f'Epoch: {epoch:03d}, Loss_valid: {loss:.4f}, AUC: {self.results_rank["AUC"][1]:.4f}, AP: {self.results_rank["AP"][1]:.4f}, MRR: {self.results_rank["MRR"][1]:.4f}, Hit@10 {self.results_rank["Hits@10"][1]:.4f}')
-                    self.print_logger.info(
-                        f'Epoch: {epoch:03d}, Loss_test: {loss:.4f}, AUC: {self.results_rank["AUC"][2]:.4f}, AP: {self.results_rank["AP"][2]:.4f}, MRR: {self.results_rank["MRR"][2]:.4f}, Hit@10 {self.results_rank["Hits@10"][2]:.4f}')
-
                     self.tensorboard_writer.add_scalar(f"Metrics/Train/{key}", result[0], epoch)
                     self.tensorboard_writer.add_scalar(f"Metrics/Valid/{key}", result[1], epoch)
                     self.tensorboard_writer.add_scalar(f"Metrics/Test/{key}", result[2], epoch)
@@ -202,13 +172,13 @@ class Trainer_NeoGNN(Trainer):
             for perm in DataLoader(range(pos_edge.size(1)), self.batch_size, shuffle=True):
                 # Positive edge prediction
                 edge = pos_edge[:, perm].to(self.device)
-                pos_pred, _, _, _ = self.model(edge, self.data, self.data.A, self.predictor, emb=self.data.emb.weight)
+                pos_pred, _, _, _ = self.model(edge, eval_data, eval_data.A, self.predictor, emb=eval_data.emb.weight)
                 pos_pred = pos_pred.squeeze()
                 pos_pred_list.append(pos_pred.cpu())
 
                 # Negative edge prediction
                 edge = neg_edge[:, perm].to(self.device)
-                neg_pred, _, _, _ = self.model(edge, self.data, self.data.A, self.predictor, emb=self.data.emb.weight)
+                neg_pred, _, _, _ = self.model(edge, eval_data, eval_data.A, self.predictor, emb=eval_data.emb.weight)
                 neg_pred = neg_pred.squeeze()
                 neg_pred_list.append(neg_pred.cpu())
 

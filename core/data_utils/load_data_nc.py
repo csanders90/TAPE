@@ -455,10 +455,7 @@ def load_embedded_citationv8(method) -> Data:
 
 def load_text_citationv8() -> List[str]:
     df = pd.read_csv(FILE_PATH + 'core/dataset/citationv8_orig/Citation-2015.csv')
-    return [
-        ti
-        for ti in zip(df['text'])
-    ]
+    return df['text'].tolist()
 
 
 def load_tag_citationv8() -> Tuple[Data, List[str]]:
