@@ -159,7 +159,7 @@ def load_taglp_product(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
                             )
     return splits, text, data
 
-import time 
+import time
 def time_function(func):
     def wrapper(*args, **kwargs):
         start_time = time.time()
@@ -230,6 +230,10 @@ def load_taglp_citationv8(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
 
  
 def load_taplp_pwc_large(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
+    if hasattr(cfg, 'method'):
+        pass
+    else:
+        cfg.method = 'w2v'
     data = load_graph_pwc_large(cfg.method)
     df, text = load_text_pwc_large()
     
@@ -249,8 +253,11 @@ def load_taplp_pwc_large(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
                             )
     return splits, df, data
 
-
-def load_taplp_pwc_medium(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
+def load_taglp_pwc_medium(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
+    if hasattr(cfg, 'method'):
+        pass
+    else:
+        cfg.method = 'w2v'
     data = load_graph_pwc_medium(cfg.method)
     text = load_text_pwc_medium(cfg.method)
     
@@ -271,7 +278,11 @@ def load_taplp_pwc_medium(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
     return splits, text, data
 
 
-def load_taplp_pwc_small(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
+def load_taglp_pwc_small(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
+    if hasattr(cfg, 'method'):
+        pass
+    else:
+        cfg.method = 'w2v'
     data = load_graph_pwc_small(cfg.method) 
     text = load_text_pwc_small(cfg.method)
     
@@ -344,15 +355,15 @@ if __name__ == '__main__':
     torch.save(data, f'citationv8_{args.data.method}.pt')
     exit(-1)
     from lpda.lcc_3 import use_lcc
-    splits, text, data = load_taplp_pwc_small(args.data)
+    splits, text, data = load_taglp_pwc_small(args.data)
     print(splits)
     print(text.iloc[0])
     print(data)
-    splits, text, data = load_taplp_pwc_medium(args.data)
+    splits, text, data = load_taglp_pwc_medium(args.data)
     print(splits)
     print(text.iloc[0])
     print(data)
-    splits, text, data = load_taplp_pwc_large(args.data)
+    splits, text, data = load_taglp_pwc_large(args.data)
     print(splits)
     print(text.iloc[0])
     print(data)
