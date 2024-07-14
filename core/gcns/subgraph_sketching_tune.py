@@ -161,9 +161,9 @@ if __name__ == "__main__":
         dump_cfg(cfg)
         hyperparameter_search = {'hidden_channels': [128, 256, 512], "batch_size": [512, 1024], "lr": [0.01, 0.001, 0.0001],
                                  'max_hash_hops': [2, 3], 'label_dropout': [0.1, 0.3, 0.5],
-                                 'feature_dropout': [0.1, 0.3, 0.5]}
+                                 'feature_dropout': [0.1, 0.3, 0.5], 'sign_dropout': [0.3, 0.5, 0.7]}
         print_logger.info(f"hypersearch space: {hyperparameter_search}")
-        for hidden_channels, batch_size, lr, max_hash_hops, label_dropout, feature_dropout in tqdm(
+        for hidden_channels, batch_size, lr, max_hash_hops, label_dropout, feature_dropout, sign_dropout in tqdm(
                 itertools.product(*hyperparameter_search.values())):
             cfg.model.hidden_channels = hidden_channels
             cfg.train.batch_size = batch_size
@@ -171,6 +171,7 @@ if __name__ == "__main__":
             cfg.model.max_hash_hops = max_hash_hops
             cfg.model.label_dropout = label_dropout
             cfg.model.feature_dropout = feature_dropout
+            cfg.model.sign_dropout = sign_dropout
             print_logger.info(
                 f"hidden_channels: {hidden_channels}, batch_size: {batch_size}, lr: {lr}")
             start_time = time.time()
@@ -224,6 +225,7 @@ if __name__ == "__main__":
             run_result.update(
                 {'hidden_channels': hidden_channels, 'batch_size': batch_size,'lr': lr,
                     'max_hash_hops': max_hash_hops, 'label_dropout': label_dropout, 'feature_dropout': feature_dropout,
+                    'sign_dropout': sign_dropout
                  })
             print_logger.info(run_result)
 

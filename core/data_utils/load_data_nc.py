@@ -496,11 +496,8 @@ def load_graph_pwc_large(method):
 
 
 def load_text_pwc_large() -> List[str]:
-    df = pd.read_csv(FILE_PATH + f'core/dataset/pwc_large/pwc_large_papers.csv')
-    return df, [
-        ti
-        for ti in zip(df['feat'])
-    ]
+    raw_text = pd.read_csv(FILE_PATH + f'core/dataset/pwc_large/pwc_tfidf_large_text.csv')
+    return raw_text['feat'].tolist()
 
 
 def load_graph_pwc_medium(method):
@@ -508,15 +505,17 @@ def load_graph_pwc_medium(method):
 
 
 def load_text_pwc_medium(method) -> List[str]:
-    return pd.read_csv(FILE_PATH + f'core/dataset/pwc_medium/pwc_{method}_medium_text.csv')
-    
+    raw_text = pd.read_csv(FILE_PATH + f'core/dataset/pwc_medium/pwc_{method}_medium_text.csv')
+    return raw_text['feat'].tolist()
+
 
 def load_graph_pwc_small(method):
     return torch.load(FILE_PATH+f'core/dataset/pwc_small/pwc_{method}_small_undirec.pt') 
 
 
 def load_text_pwc_small(method) -> List[str]:
-    return pd.read_csv(FILE_PATH + f'core/dataset/pwc_small/pwc_{method}_small_text.csv')
+    raw_text = pd.read_csv(FILE_PATH + f'core/dataset/pwc_small/pwc_{method}_small_text.csv')
+    return raw_text['feat'].tolist()
     
     
 def extract_lcc_pwc_undir() -> Data:
