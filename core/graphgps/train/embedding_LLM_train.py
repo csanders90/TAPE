@@ -73,15 +73,7 @@ class Trainer_embedding_LLM(Trainer):
         self.out_dir = cfg.out_dir
         self.run_dir = cfg.run_dir
 
-        report_step = {
-            'cora': 1,
-            'pubmed': 1,
-            'arxiv_2023': 1,
-            'ogbn-arxiv': 1,
-            'ogbn-products': 1,
-        }
-
-        self.report_step = report_step[cfg.data.name]
+        self.report_step = 1
 
     def _train_mlp(self):
         self.model.train()
