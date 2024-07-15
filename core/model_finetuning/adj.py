@@ -19,10 +19,21 @@ from graphgps.utility.utils import get_git_repo_root_path, config_device, init_c
 import os.path as osp
 import numpy as np
 
+import random 
 from data_utils.load import load_data_lp
 from tqdm import tqdm 
 import timeit 
 import time 
+import pandas as pd 
+from lpda.lcc_3 import use_lcc, get_largest_connected_component
+import networkx as nx
+from torch_geometric.utils import to_undirected 
+from torch_geometric.data import Data
+from typing import Dict, Tuple, List, Union
+from yacs.config import CfgNode as CN
+from data_utils.load_data_lp import get_edge_split, load_text_citationv8
+from data_utils.load_data_nc import load_embedded_citationv8
+
 
 def time_function(func):
     def wrapper(*args, **kwargs):
@@ -185,7 +196,7 @@ def plot_pos_neg_adj(m_pos: coo_matrix, m_neg: coo_matrix, name: str):
     fig.savefig(name)
     return ax
 
-
+@time_function
 def construct_sparse_adj(edge_index) -> coo_matrix:
     """
     Construct a sparse adjacency matrix from an edge index.
@@ -210,7 +221,7 @@ def construct_sparse_adj(edge_index) -> coo_matrix:
     m = coo_matrix((vals, (rows, cols)), shape=shape)
     return m
 
-
+@time_function
 def avg_degree2(G, avg_degree_dict={}):
     avg_degree_list = []
     for index in range(max(G.nodes) + 1):
@@ -226,7 +237,7 @@ def avg_degree2(G, avg_degree_dict={}):
 
     return np.array(avg_degree_list).mean()
 
-
+@time_function
 def avg_degree(G):
     avg_deg = nx.average_neighbor_degree(G)
     # Calculate the sum of all values
@@ -239,9 +250,7 @@ def avg_degree(G):
     average_value = total_sum / num_values
     return average_value, avg_deg
 
-import networkx as nx
-from itertools import combinations
-
+@time_function
 def calc_avg_cluster(G, name):
     # name pwc_large scale 100
     
@@ -250,45 +259,48 @@ def calc_avg_cluster(G, name):
     else:
         avg_cluster =  []
         for i, n in tqdm(enumerate(G.nodes())):
-            if i % int(scale/10) == 0:
+            if i % scale == 0:
                 avg_cluster.append(nx.clustering(G, n))
                 
         # Optionally, to compute the average clustering coefficient of the entire graph:
-        avg_cluster = sum(avg_cluster) / len(avg_cluster) if avg_cluster else 0
-    return avg_cluster
+        # avg_cluster = sum(avg_cluster) / len(avg_cluster) if avg_cluster else 0
+    return avg_cluster 
 
+@time_function
 def calc_avg_shortest_path(G, data, name):
     all_avg_shortest_paths = []
-    if name in ['cora', 'pwc_small', 'arxiv_2023', 'pubmed']:
+    if name in ['cora', 'pwc_small', 'arxiv_2023']:
         all_avg_shortest_paths = nx.average_shortest_path_length(G)
     else:
-        for i, j in G.edges():
-            if i % scale == 0:
-                try:
-                    all_avg_shortest_paths.append(nx.shortest_path_length(G, source=i, target=j)) 
-                except:
-                    all_avg_shortest_paths.append(0)
+        # for index, (i, j) in tqdm(enumerate(G.nodes())):
+        for _ in tqdm(range(scale)):
+            n1, n2 = random.choices(list(G.nodes()), k=2)
+            length = nx.shortest_path_length(G, source=n1, target=n2)
+            all_avg_shortest_paths.append(length)
                     
-        all_avg_shortest_paths = sum(all_avg_shortest_paths) / len(all_avg_shortest_paths) if all_avg_shortest_paths else 0
+        # all_avg_shortest_paths = sum(all_avg_shortest_paths) / len(all_avg_shortest_paths) 
     return all_avg_shortest_paths
 
-
+@time_function
 def calc_diameters(G, name):
-    avg_all_diameters = []
-    if name in ['cora', 'pwc_small', 'arxiv_2023', 'pubmed']:
+    avg_diameters = []
+    if name in ['cora', 'pwc_small', 'arxiv_2023']:
         avg_diameters = nx.diameter(G)
     else:
-        for i in G.nodes():
-            if i % int(scale/10) == 0:
-                avg_all_diameters.append(nx.eccentricity(G, v=i))
-    avg_diameters = max(avg_all_diameters) if avg_all_diameters else 0
-    return avg_diameters 
-    
+        for i in tqdm(G.nodes()):
+            if i % int(scale) == 0:
+                avg_diameters.append(nx.eccentricity(G, v=i))
+    # avg_diameters = max(avg_all_diameters) 
+    return avg_diameters
+
+
 def print_data_stats(data, name, scale):
 
     m = construct_sparse_adj(data.edge_index.numpy())
+    start = time.time()
     G = nx.from_scipy_sparse_array(m)
-
+    print('create graph:', time.time() - start)
+    
     heterogeneity = calculate_heterogeneity(G)
     num_nodes = data.num_nodes
     num_edges = data.edge_index.shape[1]
@@ -296,96 +308,159 @@ def print_data_stats(data, name, scale):
     avg_degree_G, avg_degree_dict = avg_degree(G)
     avg_degree_G2 = avg_degree2(G, avg_degree_dict)
 
-    print(f"------ Dataset {name}------ : Whole")
-    print("Num nodes: ", data.num_nodes)
-    print("Num edges: ", data.edge_index.shape[1])
-    print(f"heterogeneity: {heterogeneity}")
-    print(f"avg degree arithmetic {avg_degree_arithmetic}")
-    print(f"avg degree G {avg_degree_G}, avg degree G2 {avg_degree_G2}.")
-
-
     all_diameters, avg_cluster, all_avg_shortest_paths= None, None, None
     if not nx.is_connected(G):
-        # who?
         print("Graph is not connected. Cannot calculate average shortest path length.")
-        all_avg_shortest_paths = 0  # Or handle it in a way that suits your needs
-        all_diameters = 0
-    elif name in ['cora', 'pwc_small', 'arxiv_2023', 'pubmed', 'arxiv_2023', 'pwc_large', 'pwc_medium', 'citationv8']:
-        all_diameters = calc_diameters(G, name)
-        all_avg_shortest_paths = calc_avg_shortest_path(G, data, name)
-    avg_cluster = calc_avg_cluster(G, name)
-            
-    
-    for dataset_name, dataset_data in splits.items():
-        print()
-        print(f"------ Dataset {name}------ : {dataset_name}")
-        # print("Node attributes: ", dataset_data.node_attrs())
-        print("Positive edge labels: ", dataset_data.pos_edge_label.shape[0])
-        print("Negative edge labels: ", dataset_data.neg_edge_label.shape[0])
-        
+        if name == 'cora':
+            data = use_lcc(data)[0]
+            m = construct_sparse_adj(data.edge_index.numpy())
+            G = nx.from_scipy_sparse_array(m)
 
-    print(f"clustering {avg_cluster}.")    
-    print("avg. of avg. shortest paths: ", np.mean(all_avg_shortest_paths))
-    print("std. of avg. shortest paths: ", np.std(all_avg_shortest_paths))
-    print("avg. diameter: ", np.mean(all_diameters))
-    print("std. diameter: ", np.std(all_diameters))
+        if name == 'arxiv_2023':
+            print([len(c) for c in sorted(nx.connected_components(G), key=len, reverse=True)][:4])
+            data = use_lcc(data)[0]
+            m = construct_sparse_adj(data.edge_index.numpy())
+            G = nx.from_scipy_sparse_array(m)
+        
+        if name == 'pwc_large':
+            print([len(c) for c in sorted(nx.connected_components(G), key=len, reverse=True)][:4])
+            data = use_lcc(data)[0]
+            m = construct_sparse_adj(data.edge_index.numpy())
+            G = nx.from_scipy_sparse_array(m)
+            
+        if name == 'citationv8':
+            print([len(c) for c in sorted(nx.connected_components(G), key=len, reverse=True)][:4])
+            data, _, G = use_lcc(data)
+            
+    if name in ['cora', 'pwc_small', 'arxiv_2023', 'pubmed', 'pwc_medium', 'pwc_large', 'citationv8', 'ogbn-arxiv']:
+        # all_diameters = calc_diameters(G, name)
+        
+        all_avg_shortest_paths = calc_avg_shortest_path(G, data, name)
+        try:
+            print(sorted(all_avg_shortest_paths))
+        except:
+            print(all_avg_shortest_paths)
+        # all_diameters = max(all_avg_shortest_paths)
+    avg_cluster = calc_avg_cluster(G, name)    
+
+    print(f"------ Dataset {name}------ : Whole, "
+            f"Num nodes: {data.num_nodes}, " 
+            f"Num edges: {data.edge_index.shape[1]}, "
+            f"heterogeneity: {heterogeneity}, "
+            f"avg degree arithmetic: {avg_degree_arithmetic}, "
+            f"avg degree G: {avg_degree_G}, avg degree G2: {avg_degree_G2}, "
+            f"clustering: mean {np.mean(np.array(avg_cluster))}, std {np.std(np.array(avg_cluster))},"
+            f"avg. of avg. shortest paths: {np.mean(all_avg_shortest_paths)}, "
+            f"std. of avg. shortest paths: {np.std(all_avg_shortest_paths)}, "
+            # f"avg. diameter: {np.mean(all_diameters)}, "
+            # f"std. diameter: {np.std(all_diameters)}"
+            )
+    train_edges = splits['train'].pos_edge_label.shape[0]*2
+    valid_edges = splits['valid'].pos_edge_label.shape[0]*2
+    test_edges = splits['test'].pos_edge_label.shape[0]*2
+        
+    new_df = pd.DataFrame({
+        f"Dataset {name}": [
+            num_nodes,
+            num_edges,
+            heterogeneity,
+            avg_degree_arithmetic,
+            avg_degree_G,
+            avg_degree_G2,
+            np.mean(avg_cluster),
+            np.std(avg_cluster),
+            np.mean(all_avg_shortest_paths),
+            np.std(all_avg_shortest_paths),
+            # np.max(all_diameters),
+            # np.min(all_diameters),
+            int(train_edges), 
+            int(valid_edges),
+            int(test_edges)
+        ]
+    }, index=[
+        "Num nodes",
+        "Num edges",
+        "Heterogeneity",
+        "Avg degree (arithmetic)",
+        "Avg degree (G)",
+        "Avg degree (G2)",
+        "Mean clustering coefficient",
+        "Std. deviation of clustering coefficient",
+        "Mean of avg. shortest paths",
+        "Std. deviation of avg. shortest paths",
+        # "Max diameter",
+        # "Min diameter",
+        "Train edges",
+        "Valid edges",
+        "Test edges"
+    ])
+
+    csv_filename = "data_stats.csv"
     
+    try:
+        existing_df = pd.read_csv(csv_filename, index_col=0)
+    except FileNotFoundError:
+        existing_df = pd.DataFrame()
+        
+    new_df = new_df.T
+    updated_df = pd.concat([existing_df, new_df])
+
+    updated_df.to_csv(csv_filename)
+    new_df.to_csv(f"{name}_data_stats.csv") 
+
+
+def load_taglp_citationv8(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
+    # add one default argument
+    
+    data = load_embedded_citationv8(cfg.method)
+    text = load_text_citationv8()
+    if data.is_directed() is True:
+        data.edge_index  = to_undirected(data.edge_index)
+        undirected  = True 
+    else:
+        undirected = data.is_undirected()
+        
+    splits = get_edge_split(data,
+                            undirected,
+                            cfg.device,
+                            cfg.split_index[1],
+                            cfg.split_index[2],
+                            cfg.include_negatives,
+                            cfg.split_labels
+                            )
+    
+    return splits, text, data
+
+# small_data = ['pwc_small', 'cora', 'arxiv_2023']
+# medium_data = ['pwc_medium', 'pubmed']
+# large_data = ['citationv8', 'pwc_large']
 
 if __name__ == '__main__':
 
     cfg = init_cfg_test()
     cfg = config_device(cfg)
 
-    name_list = ['pwc_small', 'cora', 'pubmed', 'arxiv_2023', 'pwc_medium', 'ogbn-arxiv', 'citationv8', 'pwc_large']
-
     parser = argparse.ArgumentParser(description='GraphGym')
-
     parser.add_argument('--data', dest='data', type=str, required=False,
-                        help='data name', default='ogbn-arxiv')
+                        help='data name', default='pwc_medium')
     parser.add_argument('--scale', dest='scale', type=int, required=False,
                         help='data name')
     args = parser.parse_args()
-    
-    scale = 1000
+    # scale = 1000
     name = args.data
+    scale = args.scale 
     
-    if name == 'pwc_small':
-        splits, text, data = load_data_lp[name](cfg.data)
-
-        print_data_stats(data, name, scale)
-
-    if name == 'pwc_medium':
-        splits, text, data = load_data_lp[name](cfg.data)
-        print_data_stats(data, name, scale)
-        
-    if name == 'pwc_large':
-        splits, text, data = load_data_lp[name](cfg.data)
-        print_data_stats(data, name, scale)
-    
-    if name == 'ogbn-arxiv':        
-        splits, text, data = load_data_lp[name](cfg.data)
-        print_data_stats(data, name)
-
     if name == 'citationv8':
+        start = time.time()
+        splits, text, data = load_taglp_citationv8(cfg.data)
+        print(f"Time taken to load data: {time.time() - start} s")
+    else:
         splits, text, data = load_data_lp[name](cfg.data)
-        print_data_stats(data, name, scale)
-        
+    print_data_stats(data, name, scale)
+
     exit(-1)
 
 
-    # name = 'cora'
-    if name == 'cora':
-        splits, text, data = load_data_lp[name](cfg.data)
-        print_data_stats(data)
 
-    # name = 'arxiv_2023'
-    if name == 'arxiv_2023':
-        splits, text, data = load_data_lp[name](cfg.data)
-        print_data_stats(G)
-
-    # name = 'pubmed'
-    if name == 'pubmed':
-        splits, text, data = load_data_lp[name](cfg.data)
-        print_data_stats(data)
 
 

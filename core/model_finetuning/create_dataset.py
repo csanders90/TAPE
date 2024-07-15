@@ -25,6 +25,13 @@ from typing import List
 import scipy
 import argparse
 import time 
+import nltk
+from nltk.tokenize import word_tokenize
+import re
+import nltk
+from typing import Dict, Tuple, List, Union
+from torch_geometric.data import Data
+nltk.download('punkt')
 
 
 def parse_args() -> argparse.Namespace:
@@ -179,28 +186,48 @@ def save_dataset(embedding_model_name, cfg, args):
             
 
         elif embedding_model_name == "word2vec":
-            sentences = [text[i].split() for i in range(len(text))]
-            word2vec_model = Word2Vec(sentences, vector_size=100, window=5, min_count=1, workers=4)
+                    
+            # Function to get the average embedding for a whole text (e.g., title and abstract combined)
+            def get_average_embedding(text, model):
+                tokens = preprocess(text)
+                embeddings = [model.wv[token] for token in tokens if token in model.wv]
+                if embeddings:
+                    return np.mean(embeddings, axis=0)
+                else:
+                    # Return a zero vector if none of the tokens are in the vocabulary
+                    return np.zeros(model.vector_size)
+
+            # Example usage
+
+            def preprocess(text):
+                # Remove non-alphanumeric characters
+                text = re.sub(r'\W+', ' ', text)
+                # Tokenize and convert to lowercase
+                tokens = word_tokenize(text.lower())
+                return tokens
+            
+            tokenized_texts = [preprocess(text) for text in text]
+
+            # Train a Word2Vec model
+                
+            model = Word2Vec(sentences=tokenized_texts, vector_size=128, window=5, min_count=1, workers=10)
+
+            w2v_nodefeat = np.array([get_average_embedding(text, model) for text in text])
+
             train_dataset, train_labels = process_edges(
                 splits['train'].pos_edge_label_index, 
                 splits['train'].neg_edge_label_index, 
-                text, 
-                word2vec_model, 
-                "word2vec"
+                text,
             )
             val_dataset, val_labels = process_edges(
                 splits['valid'].pos_edge_label_index, 
                 splits['valid'].neg_edge_label_index, 
                 text, 
-                word2vec_model, 
-                "word2vec"
             )
             test_dataset, test_labels = process_edges(
                 splits['test'].pos_edge_label_index, 
                 splits['test'].neg_edge_label_index, 
                 text, 
-                word2vec_model, 
-                "word2vec"
             )
         else:
             embedding_model = SentenceTransformer("sentence-transformers/all-mpnet-base-v2")
@@ -261,46 +288,85 @@ def list2csr(lst: List):
             data.append(value)
             indices.append(idx)
 
-    # Create CSR matrix
     sparse_matrix = scipy.sparse.csr_matrix((data, indices, [0, len(indices)]), shape=(1, len(lst)))
 
     return sparse_matrix
 
+
+def random_sampling(splits, scale):
+    print(splits['train'].edge_index.shape[1])
+    
+    for _, data in splits.items():
+        print(data.pos_edge_label_index.shape)
+        num_samples = int(data.neg_edge_label_index.shape[1] * scale)
+        sampled_indices = np.random.choice(data.neg_edge_label_index.shape[1], num_samples, replace=False)
+        data.pos_edge_label_index = data.pos_edge_label_index[:, sampled_indices]
+        data.neg_edge_label_index = data.neg_edge_label_index[:, sampled_indices]
+        print(data.pos_edge_label_index.shape)
+
+    return splits
+
+ 
 def create_tfidf(cfg, seed):
     seed_everything(seed)
+    cfg.data.method = cfg.embedder.type
     splits, text, _ = load_data_lp[cfg.data.name](cfg.data)
-    if cfg.embedder.type == 'tfidf':
-        train_dataset, train_labels = process_texts(
-            splits['train'].pos_edge_label_index, 
-            splits['train'].neg_edge_label_index, 
-            text
-        )
-        val_dataset, val_labels = process_texts(
-            splits['valid'].pos_edge_label_index, 
-            splits['valid'].neg_edge_label_index, 
-            text
-        )
-        test_dataset, test_labels = process_texts(
-            splits['test'].pos_edge_label_index, 
-            splits['test'].neg_edge_label_index, 
-            text
-        )
-        vectorizer = TfidfVectorizer()
+    splits = random_sampling(splits, cfg.data.scale)
+    
+    if cfg.data.name in ['pwc_small', 'pwc_medium', 'pwc_large']:
+        text = text['feat'].tolist()
+
+    train_dataset, train_labels = process_texts(
+        splits['train'].pos_edge_label_index, 
+        splits['train'].neg_edge_label_index, 
+        text
+    )
+    val_dataset, val_labels = process_texts(
+        splits['valid'].pos_edge_label_index, 
+        splits['valid'].neg_edge_label_index, 
+        text
+    )
+    test_dataset, test_labels = process_texts(
+        splits['test'].pos_edge_label_index, 
+        splits['test'].neg_edge_label_index, 
+        text
+    )
         
+    if cfg.embedder.type == 'tfidf':
+
+        vectorizer = TfidfVectorizer()
         os.makedirs(f'./generated_dataset/{cfg.data.name}/', exist_ok=True)
         start_time = time.time()
         train_data = vectorizer.fit_transform(train_dataset)
         print(f'fit_transform: {time.time() - start_time:.2f} seconds')
-
         # del train_dataset
         start_time = time.time()
         val_data = vectorizer.transform(val_dataset)
         print(f'fit_transform: {time.time() - start_time:.2f} seconds')
-        
         start_time = time.time()
         test_data = vectorizer.transform(test_dataset)
         print(f'fit_transform: {time.time() - start_time:.2f} seconds')
+    
+    elif cfg.embedder.type == 'w2v':
+        def get_average_embedding(text, model):
+            tokens = preprocess(text)
+            embeddings = [model.wv[token] for token in tokens if token in model.wv]
+            if embeddings:
+                return np.mean(embeddings, axis=0)
+            else:
+                return np.zeros(model.vector_size)
+
+        def preprocess(text):
+            text = re.sub(r'\W+', ' ', text)
+            tokens = word_tokenize(text.lower())
+            return tokens
         
+        tokenized_texts = [preprocess(text) for text in text]
+        model = Word2Vec(sentences=tokenized_texts, vector_size=128, window=5, min_count=1, workers=10)
+        train_data = np.array([get_average_embedding(text, model) for text in train_dataset])
+        val_data = np.array([get_average_embedding(text, model) for text in val_dataset])
+        test_data = np.array([get_average_embedding(text, model) for text in test_dataset])
+
     return train_data, train_labels, val_data, val_labels, test_data, test_labels
 
 
@@ -310,11 +376,11 @@ if __name__ == "__main__":
     args = parse_args()
     cfg = set_cfg(file_path, args.cfg_file)
     cfg.merge_from_list(args.opts)
-    # custom_set_out_dir(cfg, args.cfg_file, cfg.wandb.name_tag)
+    
     cfg = config_device(cfg)
     cfg.data.name = args.data
     cfg.seed = args.seed
     
     embedding_model_name = "tfidf"
-    create_tfidf(embed_type, cfg, args)
+    create_tfidf(embedding_model_name, cfg, args)
     train_dataset, train_labels, val_dataset, val_labels, test_dataset, test_labels = save_dataset(embedding_model_name, cfg, args)

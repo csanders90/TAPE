@@ -48,6 +48,7 @@ data:
   num_features:  1433
   device: 0
   split_index: [0.8, 0.15, 0.05]
+  method: 'tfidf'
 
 
 decoder:

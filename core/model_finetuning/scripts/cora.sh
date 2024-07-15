@@ -2,7 +2,7 @@
 
 #SBATCH --time=3-00:00:00
 #SBATCH --partition=cpuonly 
-#SBATCH --job-name=tfidf-mlp-pubmed
+#SBATCH --job-name=w2v-mlp-pubmed
 
 
 #SBATCH --output=log/TAG_Benchmark_%j.output
@@ -14,7 +14,7 @@
 # Notification settings:
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=cc7738@kit.edu
-source /hkfs/home/project/hk-project-test-p0022257/cc7738/anaconda3/etc/profile.d/conda.sh
+source /hkfs/home/project/hk-project-test-p0021478/cc7738/anaconda3/etc/profile.d/conda.sh
 
 conda activate base
 conda activate TAG-LP
@@ -31,7 +31,8 @@ cd /hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/model_finetu
 # for iter in  2 10 20 30; do
 #     python mlp.py --data cora --decoder MLP --max_iter $iter &
 # done
-
-for iter in  10000 20000; do
-    python mlp.py --data cora --decoder MLP --max_iter $iter &
-done
+data="cora"
+max_iter=10000
+embedder="w2v"
+echo "python mlp.py --data $data --max_iter $max_iter --embedder $embedder"
+python mlp.py --data $data --max_iter $max_iter --embedder $embedder

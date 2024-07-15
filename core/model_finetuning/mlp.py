@@ -16,19 +16,14 @@ from graphgps.utility.utils import (
     config_device, init_model_from_pretrained, create_logger, use_pretrained_llm_embeddings
 )
 from embedding.tune_utils import mvari_str2csv
-from sklearn.metrics import accuracy_score, roc_auc_score, confusion_matrix, f1_score
 import torch
-from torch.utils.data import DataLoader, Dataset
-from sentence_transformers import SentenceTransformer
+from torch.utils.data import Dataset
 import torch.nn as nn
 from tqdm import tqdm
 import torch.optim as optim
 import numpy as np
-from data_utils.load import load_data_nc, load_data_lp
-from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
+from ogb.linkproppred import Evaluator
 from heuristic.eval import get_metric_score
-from graphgps.lm_trainer.tfidf_trainer import Trainer_TFIDF
-from sklearn.linear_model import RidgeClassifier
 from sklearn.neural_network import MLPClassifier
 import argparse
 import wandb
@@ -36,14 +31,26 @@ from torch_geometric import seed_everything
 from pdb import set_trace as st 
 import time 
 from create_dataset import create_tfidf
+from yacs.config import CfgNode as CN
+from graphgps.utility.utils import get_git_repo_root_path
 
 FILE_PATH = f'{get_git_repo_root_path()}/'
 
 yaml_file = {   
              'tfidf': 'core/yamls/cora/lms/tfidf.yaml',
-             'word2vec': 'core/yamls/cora/lms/word2vec.yaml',
-             'bert': 'core/yamls/cora/gcns/todo.yaml',
+             'w2v': 'core/yamls/cora/lms/tfidf.yaml',
             }
+
+split_index_data = {
+    'pwc_small': 1,
+    'cora': 1,
+    'pubmed': 1,
+    'arxiv_2023': 1,
+    'pwc_medium': 0.2,
+    'citationv8': 0.2,
+    'ogbn_arxiv': 0.3,
+    'pwc_large': 0.4
+}
 
 class EmbeddingDataset(Dataset):
     def __init__(self, embeddings, labels):
@@ -76,15 +83,14 @@ def parse_args() -> argparse.Namespace:
                         default=400,
                         help='data name')
     parser.add_argument('--embedder', dest='embedder', type=str, required=False,
-                        default='tfidf',
+                        default='w2v',
                         help='word embedding method')
     parser.add_argument('--decoder', dest='decoder', type=str, required=False,
                         default='MLP',
                         help='word embedding method')
     parser.add_argument('--score', dest='score', type=str, required=False, default='mlp_score',
                         help='decoder name')
-
-    parser.add_argument('--max_iter', dest='max_iter', type=int, required=False, default=10,
+    parser.add_argument('--max_iter', dest='max_iter', type=int, required=False, default=1000,
                         help='decoder name')
 
     parser.add_argument('--repeat', type=int, default=5,
@@ -94,6 +100,7 @@ def parse_args() -> argparse.Namespace:
                         help='See graphgym/config.py for remaining options.')
 
     return parser.parse_args()
+
 
 def get_metrics(clf, dataset, labels, evaluator_hit, evaluator_mrr):
     # Predict and calculate accuracy
@@ -111,6 +118,7 @@ def get_metrics(clf, dataset, labels, evaluator_hit, evaluator_mrr):
     
     return metrics
 
+
 def project_main(): 
     # process params
     args = parse_args()
@@ -127,26 +135,10 @@ def project_main():
     cfg.embedder.type = args.embedder
     evaluator_hit = Evaluator(name='ogbl-collab')
     evaluator_mrr = Evaluator(name='ogbl-citation2')
-    
+    cfg.data.scale = split_index_data[args.data]
 
-    custom_set_out_dir(cfg, args.cfg_file, cfg.wandb.name_tag)
-    # torch.set_num_threads(20)
     loggers = create_logger(args.repeat)
     for run_id, seed, split_index in zip(*run_loop_settings(cfg, args)):
-        print(f'run id : {run_id}')
-        # Set configurations for each run TODO clean code here 
-        # root = '/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/model_finetuning'
-        # from scipy.sparse import load_npz
-        # train_dataset = load_npz(f'{root}/generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_train_dataset.npz')
-        # # train_dataset = torch.load(f'{root}/generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_train_dataset.npz')
-        # train_labels = np.array(torch.load(f'{root}/generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_train_labels.npz'))
-        # # val_dataset = torch.load(f'{root}/generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_val_dataset.npz')       
-        # val_dataset = load_npz(f'{root}/generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_val_dataset.npz')
-        # val_labels = np.array(torch.load(f'{root}/generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_val_labels.npz'))
-        # # test_dataset = torch.load(f'{root}/generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_test_dataset.npz')
-        # test_dataset = load_npz(f'{root}/generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_test_dataset.npz')
-        # test_labels = np.array(torch.load(f'{root}/generated_dataset/{cfg.data.name}/{cfg.embedder.type}_{seed}_test_labels.npz'))
-
         
         print(f'run id : {run_id}, seed: {seed}, split_index: {split_index}')
         cfg.seed = seed
@@ -158,25 +150,17 @@ def project_main():
         clf = MLPClassifier(random_state=run_id, max_iter=args.max_iter)
         print(f"created model")
         
-        if cfg.data.name in ['cora', 'arxiv_2023']:
-            clf.fit(train_dataset, train_labels)  
-        else:
-            classes = np.unique(train_labels)
-            for i in tqdm(range(args.max_iter)):
-                start = time.time()
-                clf.partial_fit(train_dataset, train_labels, classes=classes)
-                print(f'this epoch costs {time.time() - start}')
+        clf.fit(train_dataset, train_labels)  
 
-                if i % 10 == 0:
-                    # Calculate and print metrics for test set
-                    test_metrics = get_metrics(clf, test_dataset, test_labels, evaluator_hit, evaluator_mrr)
-                    print(test_metrics)
-                    # Calculate and print metrics for train set
-                    train_metrics = get_metrics(clf, train_dataset, train_labels, evaluator_hit, evaluator_mrr)
-                    print(train_metrics)
-                    # Calculate and print metrics for validation set
-                    val_metrics = get_metrics(clf, val_dataset, val_labels, evaluator_hit, evaluator_mrr)
-                    print(val_metrics)
+        # Calculate and print metrics for test set
+        test_metrics = get_metrics(clf, test_dataset, test_labels, evaluator_hit, evaluator_mrr)
+        print(test_metrics)
+        # Calculate and print metrics for train set
+        train_metrics = get_metrics(clf, train_dataset, train_labels, evaluator_hit, evaluator_mrr)
+        print(train_metrics)
+        # Calculate and print metrics for validation set
+        val_metrics = get_metrics(clf, val_dataset, val_labels, evaluator_hit, evaluator_mrr)
+        print(val_metrics)
 
         results_rank = {
             key: (train_metrics[key], val_metrics[key], test_metrics[key])
@@ -203,7 +187,7 @@ def project_main():
         run_result[key] = test_bvalid
     
     os.makedirs(root, exist_ok=True)
-    name_tag = cfg.wandb.name_tag = f'{cfg.data.name}_run{run_id}_{args.embedder}{args.decoder}{args.max_iter}'
+    name_tag = cfg.wandb.name_tag = f'{cfg.data.name}_run{run_id}_{args.embedder}{args.max_iter}_{cfg.data.scale}'
     mvari_str2csv(name_tag, run_result, acc_file)
     
     

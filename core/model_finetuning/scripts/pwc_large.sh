@@ -2,7 +2,7 @@
 
 #SBATCH --time=3-00:00:00
 #SBATCH --partition=cpuonly 
-#SBATCH --job-name=tfidf-mlp-arxiv_2023
+#SBATCH --job-name=w2v-mlp-pwc_large
 
 
 #SBATCH --output=log/TAG_Benchmark_%j.output
@@ -14,7 +14,7 @@
 # Notification settings:
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=cc7738@kit.edu
-source /hkfs/home/project/hk-project-test-p0022257/cc7738/anaconda3/etc/profile.d/conda.sh
+source /hkfs/home/project/hk-project-test-p0021478/cc7738/anaconda3/etc/profile.d/conda.sh
 
 conda activate base
 conda activate TAG-LP
@@ -26,6 +26,12 @@ module load compiler/gnu/12
 
 
 cd /hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/model_finetuning
+# python adj.py --data 'pwc_large'  --scale 10000
 
-python adj.py --data 'pwc_large'  --scale 10000
 
+data="pwc_large"
+max_iter=10000
+embedder="w2v"
+
+echo "python mlp.py --data $data --max_iter $max_iter --embedder $embedder"
+python mlp.py --data $data --max_iter $max_iter --embedder $embedder
