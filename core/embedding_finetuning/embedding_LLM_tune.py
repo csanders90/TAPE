@@ -118,7 +118,7 @@ if __name__ == '__main__':
         tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
         model = BertModel.from_pretrained("bert-base-uncased").to(cfg.device)
         node_features = []
-        batch_size = 256  # Adjust batch size as needed to avoid OOM errors
+        batch_size = 256
         for i in range(0, len(text), batch_size):
             batch_texts = text[i:i + batch_size]
             encoded_input = tokenizer(batch_texts, return_tensors='pt', padding=True, truncation=True,
