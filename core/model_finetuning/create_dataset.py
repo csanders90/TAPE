@@ -31,6 +31,8 @@ import re
 import nltk
 from typing import Dict, Tuple, List, Union
 from torch_geometric.data import Data
+from graphgps.utility.utils import random_sampling
+
 nltk.download('punkt')
 
 
@@ -293,18 +295,6 @@ def list2csr(lst: List):
     return sparse_matrix
 
 
-def random_sampling(splits, scale):
-    print(splits['train'].edge_index.shape[1])
-    
-    for _, data in splits.items():
-        print(data.pos_edge_label_index.shape)
-        num_samples = int(data.neg_edge_label_index.shape[1] * scale)
-        sampled_indices = np.random.choice(data.neg_edge_label_index.shape[1], num_samples, replace=False)
-        data.pos_edge_label_index = data.pos_edge_label_index[:, sampled_indices]
-        data.neg_edge_label_index = data.neg_edge_label_index[:, sampled_indices]
-        print(data.pos_edge_label_index.shape)
-
-    return splits
 
  
 def create_tfidf(cfg, seed):

@@ -23,7 +23,7 @@ from torch_geometric.data import Data, Dataset, InMemoryDataset, DataLoader
 from torch_geometric.utils import to_networkx, to_undirected
 from graphgps.encoder.seal import get_pos_neg_edges
 from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
-
+import networkx as nx
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -233,9 +233,35 @@ def evaluate_ogb_rocauc(pos_train_pred, neg_train_pred, pos_val_pred, neg_val_pr
 
     return {'rocauc': (train_rocauc, valid_rocauc, test_rocauc)}
 
+from scipy.sparse import coo_matrix
+import numpy as np 
+def construct_sparse_adj(edge_index) -> coo_matrix:
+    """
+    Construct a sparse adjacency matrix from an edge index.
+
+    Parameters:
+    - edge_index: np.array or tuple, edge index
+    """
+    # Resource: https://stackoverflow.com/questions/22961541/python-matplotlib-plot-sparse-matrix-pattern
+
+    if type(edge_index) == tuple:
+        edge_index = np.concatenate([[edge_index[0].numpy()],
+                                     [edge_index[1].numpy()]], axis=0)
+    elif type(edge_index) != np.ndarray:
+        edge_index.numpy()
+
+    if edge_index.shape[0] > edge_index.shape[1]:
+        edge_index = edge_index.T
+
+    rows, cols = edge_index[0, :], edge_index[1, :]
+    vals = np.ones_like(rows)
+    shape = (edge_index.max() + 1, edge_index.max() + 1)
+    m = coo_matrix((vals, (rows, cols)), shape=shape)
+    return m
+
 # Data settings
 parser = argparse.ArgumentParser(description='OGBL (SEAL)')
-parser.add_argument('--dataset', type=str, default='custom-cora')
+parser.add_argument('--dataset', type=str, default='ogbl-ppa')
 parser.add_argument('--fast_split', action='store_true', 
                     help="for large custom datasets (not OGB), do a fast data split")
 # GNN settings
@@ -305,10 +331,7 @@ args.res_dir = os.path.join('results/{}{}'.format(args.dataset, args.save_append
 print('Results will be saved in ' + args.res_dir)
 if not os.path.exists(args.res_dir):
     os.makedirs(args.res_dir) 
-# if not args.keep_old:
-    # Backup python files.
-    # copy('core/gcns/seal_link_pred.py', args.res_dir)
-    # copy('core/gcns/utils.py', args.res_dir)
+
 log_file = os.path.join(args.res_dir, 'log.txt')
 # Save command line input.
 cmd_input = 'python ' + ' '.join(sys.argv) + '\n'
@@ -322,6 +345,13 @@ if args.dataset.startswith('ogbl'):
     dataset = PygLinkPropPredDataset(name=args.dataset)
     split_edge = dataset.get_edge_split()
     data = dataset[0]
+    
+    m = construct_sparse_adj(data.edge_index.numpy())
+    start = time.time()
+    G = nx.from_scipy_sparse_array(m)
+    print('create graph:', time.time() - start)
+    
+    exit(-1)
     if args.dataset.startswith('ogbl-vessel'):
         # normalize node features
         data.x[:, 0] = torch.nn.functional.normalize(data.x[:, 0], dim=0)

@@ -15,7 +15,7 @@ from graphgps.network.gsaint import GraphSAINTRandomWalkSampler, GraphSAINTNodeS
 import torch.nn.functional as F
 
 # external 
-from embedding.tune_utils import param_tune_acc_mrr, mvari_str2csv, save_parmet_tune
+from graph_embed.tune_utils import param_tune_acc_mrr, mvari_str2csv, save_parmet_tune
 from heuristic.eval import get_metric_score
 from graphgps.utility.utils import config_device, Logger
 from typing import Dict, Tuple

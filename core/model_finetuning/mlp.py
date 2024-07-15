@@ -15,7 +15,7 @@ from graphgps.utility.utils import (
     custom_set_run_dir, set_printing, run_loop_settings, create_optimizer,
     config_device, init_model_from_pretrained, create_logger, use_pretrained_llm_embeddings
 )
-from embedding.tune_utils import mvari_str2csv
+from graph_embed.tune_utils import mvari_str2csv
 import torch
 from torch.utils.data import Dataset
 import torch.nn as nn
@@ -46,10 +46,10 @@ split_index_data = {
     'cora': 1,
     'pubmed': 1,
     'arxiv_2023': 1,
-    'pwc_medium': 0.2,
-    'citationv8': 0.2,
-    'ogbn_arxiv': 0.3,
-    'pwc_large': 0.4
+    'pwc_medium': 0.5,
+    'citationv8': 0.5,
+    'ogbn_arxiv': 0.5,
+    'pwc_large': 0.5
 }
 
 class EmbeddingDataset(Dataset):

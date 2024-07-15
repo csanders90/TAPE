@@ -1085,3 +1085,16 @@ def save_run_results_to_csv(cfg, loggers, seed, run_id):
     # Also save with a unique filename for the specific run
     unique_file_path = os.path.join(cfg.run_dir, f'results_seed_{seed}.csv')
     results.to_csv(unique_file_path, index=False)
+
+def random_sampling(splits, scale: int):
+    print(splits['train'].edge_index.shape[1])
+    
+    for _, data in splits.items():
+        print(data.pos_edge_label_index.shape)
+        num_samples = int(data.neg_edge_label_index.shape[1] * scale)
+        sampled_indices = np.random.choice(data.neg_edge_label_index.shape[1], num_samples, replace=False)
+        data.pos_edge_label_index = data.pos_edge_label_index[:, sampled_indices]
+        data.neg_edge_label_index = data.neg_edge_label_index[:, sampled_indices]
+        print(data.pos_edge_label_index.shape)
+
+    return splits

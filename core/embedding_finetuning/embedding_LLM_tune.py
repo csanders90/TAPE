@@ -55,6 +55,7 @@ def parse_args() -> argparse.Namespace:
                         help='See graphgym/config.py for remaining options.')
     return parser.parse_args()
 
+
 class LinkPredictor(torch.nn.Module):
     def __init__(self, in_channels, hidden_channels, out_channels, num_layers,
                  dropout):

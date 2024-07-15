@@ -22,7 +22,7 @@ import torch
 from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
 from heuristic.eval import evaluate_auc, evaluate_hits, evaluate_mrr, get_metric_score, get_prediction
 from core.graphgps.utility.utils import get_git_repo_root_path, append_acc_to_excel, append_mrr_to_excel
-from textfeat.mlp_dot_product import pairwise_prediction
+from core.embedding_finetuning.mlp_dot_product import pairwise_prediction
 from data_utils.load_data_lp import get_raw_text_arxiv_2023_lp
 
 def eval_arxiv_23_acc() -> Dict:

@@ -21,7 +21,7 @@ import torch.nn.functional as F
 import numpy as np
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
-from embedding.tune_utils import param_tune_acc_mrr
+from graph_embed.tune_utils import param_tune_acc_mrr
 from heuristic.eval import get_metric_score
 from graphgps.utility.utils import config_device, Logger
 from typing import Dict, Tuple

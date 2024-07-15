@@ -24,7 +24,7 @@ from core.graphgps.utility.utils import create_optimizer, config_device, \
 from gcns.gsaint_main import get_loader_RW
 import wandb 
 from sklearn.metrics import *
-from core.embedding.tune_utils import (
+from core.graph_embed.tune_utils import (
 
     FILE_PATH
 )

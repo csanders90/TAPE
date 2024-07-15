@@ -18,7 +18,7 @@ import argparse
 from graphgps.utility.utils import get_git_repo_root_path, config_device, init_cfg_test
 import os.path as osp
 import numpy as np
-
+from ogb.linkproppred import PygLinkPropPredDataset
 import random 
 from data_utils.load import load_data_lp
 from tqdm import tqdm 
@@ -454,6 +454,11 @@ if __name__ == '__main__':
         start = time.time()
         splits, text, data = load_taglp_citationv8(cfg.data)
         print(f"Time taken to load data: {time.time() - start} s")
+
+    elif name.startswith('ogbl'):
+        dataset = PygLinkPropPredDataset(name=name)
+        split_edge = dataset.get_edge_split()
+        data = dataset[0]
     else:
         splits, text, data = load_data_lp[name](cfg.data)
     print_data_stats(data, name, scale)

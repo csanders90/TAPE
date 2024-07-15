@@ -20,6 +20,7 @@ from torch_geometric.graphgym.utils.comp_budget import params_count
 from data_utils.load import load_data_lp, load_graph_lp
 from graphgps.train.embedding_LLM_train import Trainer_embedding_LLM
 from graphgps.utility.utils import save_run_results_to_csv
+from graphgps.utility.utils import random_sampling
 
 def average_pool(last_hidden_states: Tensor,
                  attention_mask: Tensor) -> Tensor:
@@ -31,18 +32,21 @@ def parse_args() -> argparse.Namespace:
     r"""Parses the command line arguments."""
     parser = argparse.ArgumentParser(description='GraphGym')
     parser.add_argument('--cfg', dest='cfg_file', type=str, required=False,
-                        default='core/yamls/cora/gcns/ncnc.yaml',
+                        default='core/yamls/cora/lms/minilm.yaml',
                         help='The configuration file path.')
+    parser.add_argument('--data', type=str, required=False, default='ogbn-arxiv',
+                        help='data name')   
     parser.add_argument('--repeat', type=int, default=5,
                         help='The number of repeated jobs.')
     parser.add_argument('--start_seed', type=int, default=0,
                         help='The number of starting seed.')
-    parser.add_argument('--device', dest='device', required=True,
+    parser.add_argument('--device', dest='device', required=False,
                         help='device id')
-    parser.add_argument('--epochs', dest='epoch', type=int, required=True,
+    parser.add_argument('--epochs', dest='epoch', type=int, required=False,
                         default=1000,
                         help='data name')
-    parser.add_argument('--wandb', dest='wandb', required=False,
+    parser.add_argument('--scale', dest='scale', type=float, required=False,
+                        default=0.01,
                         help='data name')
     parser.add_argument('--mark_done', action='store_true',
                         help='Mark yaml as done after a job has finished.')
@@ -87,13 +91,16 @@ if __name__ == '__main__':
     cfg.model.device = args.device
     cfg.device = args.device
     cfg.train.epochs = args.epoch
-
+    cfg.data.name = args.data
+    
     torch.set_num_threads(cfg.num_threads)
     best_acc = 0
     best_params = {}
     loggers = create_logger(args.repeat)
     cfg.device = args.device
+    cfg.data.scale = 0.01
     splits, text, data = load_data_lp[cfg.data.name](cfg.data)
+    splits = random_sampling(splits, cfg.data.scale)
     seed = 0 + args.start_seed
     custom_set_run_dir(cfg, 0)
     set_printing(cfg)

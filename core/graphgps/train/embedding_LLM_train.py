@@ -16,7 +16,7 @@ import torch.nn.functional as F
 import numpy as np
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
-from embedding.tune_utils import param_tune_acc_mrr
+from graph_embed.tune_utils import param_tune_acc_mrr
 from heuristic.eval import get_metric_score
 from graphgps.utility.utils import config_device, Logger
 from typing import Dict, Tuple
@@ -74,11 +74,14 @@ class Trainer_embedding_LLM(Trainer):
         self.run_dir = cfg.run_dir
 
         report_step = {
-            'cora': 1,
-            'pubmed': 1,
-            'arxiv_2023': 1,
-            'ogbn-arxiv': 1,
-            'ogbn-products': 1,
+            'cora': 100,
+            'pubmed': 100,
+            'arxiv_2023': 100,
+            'ogbn_arxiv': 100,
+            'pwc_small': 100,
+            'pwc_medium': 100,
+            'pwc_large': 100,
+            'citationv8': 100
         }
 
         self.report_step = report_step[cfg.data.name]

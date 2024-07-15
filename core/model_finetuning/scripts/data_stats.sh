@@ -41,3 +41,8 @@ cd /hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/model_finetu
 # python adj.py --data arxiv_2023  > arxiv_2023.output
 # python adj.py --data cora > cora.output
 # python adj.py --data pwc_small > pwc_small.output
+python adj.py --data ogbl-ppa 
+python adj.py --data ogbl-collab 
+python adj.py --data ogbl-ddi
+python adj.py --data ogbl-citation2 
+python adj.py --data ogbl-vessel 
