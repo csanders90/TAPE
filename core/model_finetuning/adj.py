@@ -332,7 +332,7 @@ def print_data_stats(data, name, scale):
             print([len(c) for c in sorted(nx.connected_components(G), key=len, reverse=True)][:4])
             data, _, G = use_lcc(data)
             
-    if name in ['cora', 'pwc_small', 'arxiv_2023', 'pubmed', 'pwc_medium', 'pwc_large', 'citationv8', 'ogbn-arxiv']:
+    if name in ['cora', 'pwc_small', 'arxiv_2023', 'pubmed', 'pwc_medium', 'pwc_large', 'citationv8', 'ogbn_arxiv']:
         # all_diameters = calc_diameters(G, name)
         
         all_avg_shortest_paths = calc_avg_shortest_path(G, data, name)

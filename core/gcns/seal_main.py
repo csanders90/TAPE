@@ -117,7 +117,7 @@ if __name__ == "__main__":
             data, _ = load_graph_cora(False)
         elif cfg.data.name == 'arxiv_2023':
             data, _ = load_tag_arxiv23()
-        elif cfg.data.name == 'ogbn-arxiv':
+        elif cfg.data.name == 'ogbn_arxiv':
             data = load_graph_ogbn_arxiv(False)
         # i am not sure your split shares the same format with mine please visualize it and redo for the old split
         splits = do_ogb_edge_split(copy.deepcopy(data), cfg.data.val_pct, cfg.data.test_pct)

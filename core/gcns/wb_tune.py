@@ -216,8 +216,8 @@ def run_experiment():  # sourcery skip: avoid-builtin-shadow
 # cfg_config = 'core/yamls/arxiv_2023/gcns/gae.yaml'
 
 
-# cfg_sweep= 'core/yamls/ogbn-arxiv/gcns/gae_sp1.yaml'
-# cfg_config = 'core/yamls/ogbn-arxiv/gcns/gae.yaml'
+# cfg_sweep= 'core/yamls/ogbn_arxiv/gcns/gae_sp1.yaml'
+# cfg_config = 'core/yamls/ogbn_arxiv/gcns/gae.yaml'
 
 def parse_args() -> argparse.Namespace:
     r"""Parses the command line arguments."""
@@ -229,7 +229,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
                         default='core/yamls/pubmed/gcns/gat_sp1.yaml',
                         help='The configuration file path.')
-    parser.add_argument('--data', dest='data', type=str, required=False, default='ogbn-arxiv',
+    parser.add_argument('--data', dest='data', type=str, required=False, default='ogbn_arxiv',
                         help='name of data for hyper tune.')   
     parser.add_argument('--repeat', type=int, default=4,
                         help='The number of repeated jobs.')

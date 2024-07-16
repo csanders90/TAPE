@@ -226,9 +226,9 @@ def use_lcc_direc(data, lcc):
 #   import torch
     # params
     # path = '.'
-    # for name in ['cora', 'pubmed', 'ogbn-arxiv', 'ogbn-products', 'arxiv_2023']:
+    # for name in ['cora', 'pubmed', 'ogbn_arxiv', 'ogbn-products', 'arxiv_2023']:
         
-    #     if name in ['cora', 'pubmed', 'citeseer', 'ogbn-arxiv', 'ogbn-products', 'arxiv_2023']:
+    #     if name in ['cora', 'pubmed', 'citeseer', 'ogbn_arxiv', 'ogbn-products', 'arxiv_2023']:
     #         use_lcc_flag = True
             
     #         # planetoid_data = Planetoid(path, name) 

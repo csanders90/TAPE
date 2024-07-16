@@ -36,7 +36,7 @@ load_data_nc = {
     'cora': load_tag_cora,
     'pubmed': load_tag_pubmed,
     'arxiv_2023': load_tag_arxiv23,
-    'ogbn-arxiv': load_tag_ogbn_arxiv,
+    'ogbn_arxiv': load_tag_ogbn_arxiv,
     'ogbn-products': load_tag_product,
     'citeseer': load_tag_citeseer,
     'citationv8': load_tag_citationv8,

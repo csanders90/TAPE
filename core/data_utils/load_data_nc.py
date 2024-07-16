@@ -384,7 +384,7 @@ def load_text_ogbn_arxiv():
     
 def load_graph_ogbn_arxiv(use_mask):
     dataset = PygNodePropPredDataset(root='./generated_dataset',
-        name='ogbn-arxiv', transform=T.ToSparseTensor())
+        name='ogbn_arxiv', transform=T.ToSparseTensor())
     data = dataset[0]
 
     if data.adj_t.is_symmetric():
