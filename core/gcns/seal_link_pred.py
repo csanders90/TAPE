@@ -371,7 +371,7 @@ elif args.dataset.startswith('custom'):
         data, _ = load_graph_cora(False)
     elif args.dataset == 'custom-arxiv_2023':
         data, _ = load_tag_arxiv23()
-    elif args.dataset == 'custom-ogbn-arxiv':
+    elif args.dataset == 'custom-ogbn_arxiv':
         data = load_graph_ogbn_arxiv(False)
     split_edge = do_ogb_edge_split(cp.deepcopy(data), args.fast_split)
         
