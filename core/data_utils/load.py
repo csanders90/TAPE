@@ -10,7 +10,7 @@ from data_utils.load_data_nc import (load_tag_cora,
                                      load_tag_product, 
                                      load_tag_arxiv23,
                                      load_tag_citeseer,
-                                     load_tag_citationv8)
+                                     load_tag_citationv8,)
 from data_utils.load_data_lp import (load_taglp_arxiv2023, 
                                     load_taglp_cora, 
                                     load_taglp_pubmed, 
