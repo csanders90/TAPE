@@ -99,33 +99,39 @@ if __name__ == '__main__':
     splits, text, data = load_data_lp[cfg.data.name](cfg.data)
     splits = random_sampling(splits, args.downsampling)
 
-    if cfg.embedder.type == 'minilm':
-        model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2', device=cfg.device)
-        node_features = model.encode(text, batch_size=256)
-    elif cfg.embedder.type == 'e5-large':
-        model = SentenceTransformer('intfloat/e5-large-v2', device=cfg.device)
-        node_features = model.encode(text, normalize_embeddings=True, batch_size=256)
-    elif cfg.embedder.type == 'llama':
-        model_id = "meta-llama/Meta-Llama-3-8B"
-        pipeline = transformers.pipeline(
-            "text-generation", model=model_id, model_kwargs={"torch_dtype": torch.bfloat16}, device_map="auto"
-        )
-        node_features = pipeline(text)
-    elif cfg.embedder.type == 'bert':
-        tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-        model = BertModel.from_pretrained("bert-base-uncased").to(cfg.device)
-        node_features = []
-        batch_size = 256  # Adjust batch size as needed to avoid OOM errors
-        for i in range(0, len(text), batch_size):
-            batch_texts = text[i:i + batch_size]
-            encoded_input = tokenizer(batch_texts, return_tensors='pt', padding=True, truncation=True,
-                                      max_length=512).to(cfg.device)
-            with torch.no_grad():
-                outputs = model(**encoded_input)
-                batch_features = outputs.pooler_output
-                node_features.append(batch_features)
-        node_features = torch.cat(node_features, dim=0)
+    saved_features_path = './' + cfg.embedder.type + cfg.data.name + 'saved_node_features.pt'
+    if os.path.exists(saved_features_path):
+        node_features = torch.load(saved_features_path)
+    else:
+        if cfg.embedder.type == 'minilm':
+            model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2', device=cfg.device)
+            node_features = model.encode(text, batch_size=256)
+        elif cfg.embedder.type == 'e5-large':
+            model = SentenceTransformer('intfloat/e5-large-v2', device=cfg.device)
+            node_features = model.encode(text, normalize_embeddings=True, batch_size=256)
+        elif cfg.embedder.type == 'llama':
+            model_id = "meta-llama/Meta-Llama-3-8B"
+            pipeline = transformers.pipeline(
+                "text-generation", model=model_id, model_kwargs={"torch_dtype": torch.bfloat16}, device_map="auto"
+            )
+            node_features = pipeline(text)
+        elif cfg.embedder.type == 'bert':
+            tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+            model = BertModel.from_pretrained("bert-base-uncased").to(cfg.device)
+            node_features = []
+            batch_size = 256
+            for i in range(0, len(text), batch_size):
+                batch_texts = text[i:i + batch_size]
+                encoded_input = tokenizer(batch_texts, return_tensors='pt', padding=True, truncation=True,
+                                          max_length=512).to(cfg.device)
+                with torch.no_grad():
+                    outputs = model(**encoded_input)
+                    batch_features = outputs.pooler_output
+                    node_features.append(batch_features)
+            node_features = torch.cat(node_features, dim=0)
+        torch.save(node_features, saved_features_path)
     node_features = torch.tensor(node_features)
+    print(node_features.shape)
 
     for run_id in range(args.repeat):
         seed = run_id + args.start_seed
