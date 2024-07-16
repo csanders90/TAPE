@@ -1,7 +1,7 @@
 #!/bin/sh
 #SBATCH --time=3-00:00:00
 #SBATCH --partition=cpuonly
-#SBATCH --job-name=w2v-mlp-ogbn_arxiv
+#SBATCH --job-name=w2v-mlp-ogbn-arxiv
 
 
 
@@ -30,7 +30,7 @@ cd /hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/model_finetu
 
 
 
-data="ogbn_arxiv"
+data="ogbn-arxiv"
 max_iter=10000
 embedder="w2v"
 

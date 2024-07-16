@@ -136,13 +136,13 @@ def metis_partation(data) -> None:
 if __name__ == '__main__':
     # params
     num_clusters = 4
-    # 'arxiv_2023', 'ogbn_arxiv', 'ogbn-products', 
+    # 'arxiv_2023', 'ogbn-arxiv', 'ogbn-products', 
     for name in ['cora', 'pubmed']:
         # data
         if name in ['cora', 'citeseer', 'arxiv_2023', 'pubmed']:
             data, num_class, text = load_data_nc[name]()
             
-        elif name in ['ogbn_arxiv', 'ogbn-products']:
+        elif name in ['ogbn-arxiv', 'ogbn-products']:
             data = load_ogb_dataset(name, 'dataset')
         
         # compare_remap(data)

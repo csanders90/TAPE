@@ -18,7 +18,7 @@ from graphgps.utility.utils import set_cfg, get_git_repo_root_path, custom_set_r
     create_logger, save_run_results_to_csv
 
 from torch_geometric.data import InMemoryDataset, Dataset
-from data_utils.load_data_nc import load_graph_cora, load_graph_pubmed, load_tag_arxiv23, load_graph_ogbn_arxiv
+from data_utils.load_data_nc import load_graph_cora, load_graph_pubmed, load_tag_arxiv23, load_graph_ogbn-arxiv
 import scipy.sparse as ssp
 
 from graphgps.network.neognn import NeoGNN, LinkPredictor

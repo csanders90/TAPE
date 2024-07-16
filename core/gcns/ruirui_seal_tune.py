@@ -26,7 +26,7 @@ from graphgps.network.heart_gnn import DGCNN
 from torch_geometric import seed_everything
 from torch_geometric.graphgym.utils.device import auto_select_device
 from torch_geometric.data import InMemoryDataset, Dataset
-from data_utils.load_data_nc import load_graph_cora, load_graph_pubmed, load_tag_arxiv23, load_graph_ogbn_arxiv
+from data_utils.load_data_nc import load_graph_cora, load_graph_pubmed, load_tag_arxiv23, load_graph_ogbn-arxiv
 
 FILE_PATH = f'{get_git_repo_root_path()}/'
 class SEALDataset(InMemoryDataset):
@@ -152,8 +152,8 @@ def project_main():
             data, _ = load_graph_cora(False)
         elif cfg.data.name == 'arxiv_2023':
             data, _ = load_tag_arxiv23()
-        elif cfg.data.name == 'ogbn_arxiv':
-            data = load_graph_ogbn_arxiv(False)
+        elif cfg.data.name == 'ogbn-arxiv':
+            data = load_graph_ogbn-arxiv(False)
         splits = do_edge_split(copy.deepcopy(data), cfg.data.val_pct, cfg.data.test_pct)
         path = os.path.dirname(__file__) + '/seal_{}'.format(cfg.data.name)
         dataset = {}

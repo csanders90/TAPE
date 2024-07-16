@@ -62,7 +62,7 @@ class Trainer():
                 'cora': 1,
                 'pubmed': 1,
                 'arxiv_2023': 1,
-                'ogbn_arxiv': 1,
+                'ogbn-arxiv': 1,
                 'ogbn-products': 1,
         }
 

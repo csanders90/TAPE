@@ -48,7 +48,7 @@ split_index_data = {
     'arxiv_2023': 1,
     'pwc_medium': 0.5,
     'citationv8': 0.5,
-    'ogbn_arxiv': 0.5,
+    'ogbn-arxiv': 0.5,
     'pwc_large': 0.5
 }
 
