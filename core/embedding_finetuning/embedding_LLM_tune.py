@@ -22,7 +22,7 @@ from graphgps.utility.utils import set_cfg, get_git_repo_root_path, custom_set_r
 from torch_geometric.graphgym.utils.comp_budget import params_count
 from data_utils.load import load_data_lp, load_graph_lp
 from graphgps.train.embedding_LLM_train import Trainer_embedding_LLM
-from graphgps.utility.utils import save_run_results_to_csv
+from graphgps.utility.utils import save_run_results_to_csv, random_sampling
 from graphgps.config import dump_run_cfg
 
 
@@ -42,6 +42,8 @@ def parse_args() -> argparse.Namespace:
                         help='The number of repeated jobs.')
     parser.add_argument('--start_seed', type=int, default=0,
                         help='The number of starting seed.')
+    parser.add_argument('--downsampling', type=float, default=1,
+                        help='Downsampling rate.')
     parser.add_argument('--device', dest='device', required=True,
                         help='device id')
     parser.add_argument('--epochs', dest='epoch', type=int, required=True,
@@ -103,6 +105,7 @@ if __name__ == '__main__':
 
 
     splits, text, data = load_data_lp[cfg.data.name](cfg.data)
+    splits = random_sampling(splits, args.downsampling)
     if cfg.embedder.type == 'minilm':
         model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2', device=cfg.device)
         node_features = model.encode(text, batch_size=256)

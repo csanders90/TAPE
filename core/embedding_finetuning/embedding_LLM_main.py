@@ -19,7 +19,7 @@ from graphgps.utility.utils import set_cfg, get_git_repo_root_path, custom_set_r
 from torch_geometric.graphgym.utils.comp_budget import params_count
 from data_utils.load import load_data_lp, load_graph_lp
 from graphgps.train.embedding_LLM_train import Trainer_embedding_LLM
-from graphgps.utility.utils import save_run_results_to_csv
+from graphgps.utility.utils import save_run_results_to_csv, random_sampling
 from graphgps.utility.utils import random_sampling
 
 def average_pool(last_hidden_states: Tensor,
@@ -42,12 +42,10 @@ def parse_args() -> argparse.Namespace:
                         help='The number of starting seed.')
     parser.add_argument('--device', dest='device', required=False,
                         help='device id')
+    parser.add_argument('--downsampling', type=float, default=1,
+                        help='Downsampling rate.')
     parser.add_argument('--epochs', dest='epoch', type=int, required=False,
-                        default=1000,
-                        help='data name')
-    parser.add_argument('--scale', dest='scale', type=float, required=False,
-                        default=0.01,
-                        help='data name')
+                        default=1000)
     parser.add_argument('--mark_done', action='store_true',
                         help='Mark yaml as done after a job has finished.')
     parser.add_argument('opts', default=None, nargs=argparse.REMAINDER,
@@ -98,17 +96,9 @@ if __name__ == '__main__':
     best_params = {}
     loggers = create_logger(args.repeat)
     cfg.device = args.device
-    cfg.data.scale = 0.01
     splits, text, data = load_data_lp[cfg.data.name](cfg.data)
-    splits = random_sampling(splits, cfg.data.scale)
-    seed = 0 + args.start_seed
-    custom_set_run_dir(cfg, 0)
-    set_printing(cfg)
-    print_logger = set_printing(cfg)
-    cfg.seed = seed
-    cfg.run_id = 0
-    seed_everything(cfg.seed)
-    cfg = config_device(cfg)
+    splits = random_sampling(splits, args.downsampling)
+
     if cfg.embedder.type == 'minilm':
         model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2', device=cfg.device)
         node_features = model.encode(text, batch_size=256)
@@ -136,7 +126,6 @@ if __name__ == '__main__':
                 node_features.append(batch_features)
         node_features = torch.cat(node_features, dim=0)
     node_features = torch.tensor(node_features)
-    print_logger.info(node_features.shape)
 
     for run_id in range(args.repeat):
         seed = run_id + args.start_seed
