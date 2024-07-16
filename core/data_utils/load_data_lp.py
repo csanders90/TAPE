@@ -18,10 +18,10 @@ warnings.filterwarnings("ignore", category=UserWarning)
 from yacs.config import CfgNode as CN
 from data_utils.dataset import CustomLinkDataset
 from data_utils.load_data_nc import load_tag_cora, load_tag_pubmed, \
-    load_tag_product, load_tag_ogbn_arxiv, load_tag_product, \
+    load_tag_product, load_tag_ogbn-arxiv, load_tag_product, \
     load_tag_arxiv23, load_graph_cora, load_graph_pubmed, \
-    load_graph_arxiv23, load_graph_ogbn_arxiv, load_text_cora, \
-    load_text_pubmed, load_text_arxiv23, load_text_ogbn_arxiv, \
+    load_graph_arxiv23, load_graph_ogbn-arxiv, load_text_cora, \
+    load_text_pubmed, load_text_arxiv23, load_text_ogbn-arxiv, \
     load_text_product, load_text_citeseer, load_text_citationv8, \
     load_graph_citeseer, load_graph_citationv8, load_graph_pwc_large, load_text_pwc_large, \
     load_graph_pwc_medium, load_text_pwc_medium, load_text_pwc_small,  load_graph_pwc_small, \
@@ -80,11 +80,11 @@ def load_taglp_cora(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
     return splits, text, data
 
 
-def load_taglp_ogbn_arxiv(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
+def load_taglp_ogbn-arxiv(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
     # add one default argument
 
-    data = load_graph_ogbn_arxiv(False)
-    text = load_text_ogbn_arxiv()
+    data = load_graph_ogbn-arxiv(False)
+    text = load_text_ogbn-arxiv()
     undirected = data.is_undirected()
 
     cfg = config_device(cfg)
@@ -475,7 +475,7 @@ if __name__ == '__main__':
 
     
     print(args.data)
-    splits, text, data = load_taglp_ogbn_arxiv(args.data)
+    splits, text, data = load_taglp_ogbn-arxiv(args.data)
     print(f'directed: {data.is_directed()}')
     print(data)
     print(text[0])

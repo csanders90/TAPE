@@ -26,7 +26,7 @@ def get_raw_text_arxiv_2023(args):
         splits: Dictionary containing train, validation, and test data splits.
     
     Refs:
-        refer to load_arxiv_2023.py, load_ogbn_arxiv.py
+        refer to load_arxiv_2023.py, load_ogbn-arxiv.py
     """
     
     undirected = args.data.undirected

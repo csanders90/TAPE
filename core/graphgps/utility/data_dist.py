@@ -13,7 +13,7 @@ from data_utils.load_data_nc import (
     load_graph_cora, 
     load_graph_pubmed, 
     load_tag_arxiv23, 
-    load_graph_ogbn_arxiv
+    load_graph_ogbn-arxiv
 )
 from graphgps.encoder.seal import do_edge_split, do_ogb_edge_split
 from torch_geometric.utils import to_scipy_sparse_matrix
@@ -36,8 +36,8 @@ def load_graph(dataset: str):
         data, _ = load_graph_cora(False)
     elif dataset == 'custom-arxiv_2023':
         data, _ = load_tag_arxiv23()
-    elif dataset == 'custom-ogbn_arxiv':
-        data = load_graph_ogbn_arxiv(False)
+    elif dataset == 'custom-ogbn-arxiv':
+        data = load_graph_ogbn-arxiv(False)
     
     if dataset.startswith('custom'):
         split_edge = do_ogb_edge_split(cp.deepcopy(data), fast_split)
@@ -497,7 +497,7 @@ if __name__ == '__main__':
     # data_list = [
     #             'ogbl-citation2',
     #             'Cora', 'CiteSeer', 'PubMed', 'custom-cora', 'custom-arxiv_2023', 
-    #             'custom-pubmed', 'custom-ogbn_arxiv', 
+    #             'custom-pubmed', 'custom-ogbn-arxiv', 
     #             'ogbl-ppa', 'ogbl-collab', 'ogbl-ddi',
     #             'ogbl-vessel', 
     #         # 'Cora', 
@@ -507,7 +507,7 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description='Description of your program')
     parser.add_argument('--data', dest='data', nargs='+', choices=['Cora', 'CiteSeer', 'PubMed', 'custom-cora', 'custom-arxiv_2023', 
-                                                            'custom-pubmed', 'custom-ogbn_arxiv',
+                                                            'custom-pubmed', 'custom-ogbn-arxiv',
                                                             'ogbl-ppa', 'ogbl-collab', 'ogbl-ddi',
                                                             'ogbl-vessel'],
                                     #default='ogbl-ppa',

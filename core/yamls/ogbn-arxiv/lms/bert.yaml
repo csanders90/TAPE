@@ -1,6 +1,6 @@
 out_dir: results
 metric_best: acc
-cfg_dest: minilm.yaml
+cfg_dest: bert.yaml
 print: file
 seed: 0
 accelerator: auto
@@ -14,7 +14,7 @@ run:
 wandb:
   use: True
   project: gtblueprint
-  name_tag: minilm-ogbn_arxiv-origin
+  name_tag: bert-ogbn-arxiv-origin
 
 train:
   mode: custom
@@ -27,10 +27,10 @@ train:
   finetune: False
 
 embedder:
-  type: minilm
+  type: bert
 
 data:
-  name: ogbn_arxiv
+  name: ogbn-arxiv
   undirected: True
   include_negatives: True
   val_pct: 0.15
@@ -42,7 +42,7 @@ data:
 
 model:
   device: 0
-  type: MLP-minilm
+  type: MLP-bert
   hidden_channels: 128 #
   num_layers: 3 #
   dropout: 0.1

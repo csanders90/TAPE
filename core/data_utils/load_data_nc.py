@@ -365,9 +365,9 @@ def load_tag_pubmed(use_mask) -> Tuple[Data, List[str]]:
     return graph, text
 
 
-def load_text_ogbn_arxiv():
+def load_text_ogbn-arxiv():
     nodeidx2paperid = pd.read_csv(
-        'generated_dataset/ogbn_arxiv/mapping/nodeidx2paperid.csv.gz', compression='gzip')
+        'generated_dataset/ogbn-arxiv/mapping/nodeidx2paperid.csv.gz', compression='gzip')
 
     tsv_path = FILE_PATH + 'core/dataset/ogbn_arixv_orig/titleabs.tsv'
     raw_text = pd.read_csv(tsv_path,
@@ -382,9 +382,9 @@ def load_text_ogbn_arxiv():
     ]
       
     
-def load_graph_ogbn_arxiv(use_mask):
+def load_graph_ogbn-arxiv(use_mask):
     dataset = PygNodePropPredDataset(root='./generated_dataset',
-        name='ogbn_arxiv', transform=T.ToSparseTensor())
+        name='ogbn-arxiv', transform=T.ToSparseTensor())
     data = dataset[0]
 
     if data.adj_t.is_symmetric():
@@ -422,9 +422,9 @@ def load_graph_ogbn_arxiv(use_mask):
         )
             
 
-def load_tag_ogbn_arxiv() -> List[str]:
-    graph = load_graph_ogbn_arxiv(False)
-    text = load_text_ogbn_arxiv()
+def load_tag_ogbn-arxiv() -> List[str]:
+    graph = load_graph_ogbn-arxiv(False)
+    text = load_text_ogbn-arxiv()
     return graph, text
 
 
@@ -548,7 +548,7 @@ if __name__ == '__main__':
     print(type(graph))
     print(type(text))
 
-    graph, text = load_tag_ogbn_arxiv()
+    graph, text = load_tag_ogbn-arxiv()
     print(type(graph))
     print(type(text))
     
