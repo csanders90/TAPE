@@ -6,7 +6,7 @@ import transformers
 import wandb
 from sentence_transformers import SentenceTransformer
 from torch import Tensor, nn
-from transformers import BertTokenizer, BertModel
+from transformers import BertTokenizer, BertModel, AutoTokenizer, AutoModel
 from tqdm import tqdm
 import logging
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -118,11 +118,30 @@ if __name__ == '__main__':
             model = SentenceTransformer('intfloat/e5-large-v2', device=cfg.device)
             node_features = model.encode(text, normalize_embeddings=True, batch_size=256)
         elif cfg.embedder.type == 'llama':
+            from huggingface_hub import HfFolder
+            token = os.getenv("HUGGINGFACE_HUB_TOKEN")
+            HfFolder.save_token(token)
             model_id = "meta-llama/Meta-Llama-3-8B"
-            pipeline = transformers.pipeline(
-                "text-generation", model=model_id, model_kwargs={"torch_dtype": torch.bfloat16}, device_map="auto"
+            tokenizer = AutoTokenizer.from_pretrained(model_id)
+            tokenizer.pad_token = tokenizer.eos_token
+            model = AutoModel.from_pretrained(
+                model_id,
+                torch_dtype=torch.bfloat16,
+                device_map="auto",
             )
-            node_features = pipeline(text)
+            node_features = []
+            batch_size = 64
+            for i in range(0, len(text), batch_size):
+                batch_texts = text[i:i + batch_size]
+                encoded_input = tokenizer(batch_texts, return_tensors='pt', padding=True, truncation=True,
+                                          max_length=512).to(cfg.device)
+                with torch.no_grad():
+                    outputs = model(**encoded_input)
+                    batch_features = outputs.last_hidden_state
+                    batch_features = torch.mean(batch_features, dim=1)
+                    node_features.append(batch_features)
+            node_features = torch.cat(node_features, dim=0)
+            node_features = node_features.to(torch.float32)
         elif cfg.embedder.type == 'bert':
             tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
             model = BertModel.from_pretrained("bert-base-uncased").to(cfg.device)
