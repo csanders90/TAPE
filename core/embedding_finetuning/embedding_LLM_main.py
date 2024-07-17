@@ -13,7 +13,7 @@ import torch
 import torch.nn.functional as F
 from torch_geometric import seed_everything
 from torch_geometric.graphgym.utils.device import auto_select_device
-from graphgps.utility.utils import set_cfg, get_git_repo_root_path, custom_set_run_dir, set_printing, run_loop_settings, \
+from graphgps.utility.utils import set_cfg, get_git_repo_root_path, custom_set_run_dir, set_printing, \
     create_optimizer, config_device, \
     create_logger
 from torch_geometric.graphgym.utils.comp_budget import params_count
@@ -21,6 +21,7 @@ from data_utils.load import load_data_lp, load_graph_lp
 from graphgps.train.embedding_LLM_train import Trainer_embedding_LLM
 from graphgps.utility.utils import save_run_results_to_csv
 from graphgps.utility.utils import random_sampling
+from graphgps.score.custom_score import LinkPredictor
 
 def average_pool(last_hidden_states: Tensor,
                  attention_mask: Tensor) -> Tensor:
@@ -54,31 +55,7 @@ def parse_args() -> argparse.Namespace:
                         help='See graphgym/config.py for remaining options.')
     return parser.parse_args()
 
-class LinkPredictor(torch.nn.Module):
-    def __init__(self, in_channels, hidden_channels, out_channels, num_layers,
-                 dropout):
-        super(LinkPredictor, self).__init__()
 
-        self.lins = torch.nn.ModuleList()
-        self.lins.append(torch.nn.Linear(in_channels, hidden_channels))
-        for _ in range(num_layers - 2):
-            self.lins.append(torch.nn.Linear(hidden_channels, hidden_channels))
-        self.lins.append(torch.nn.Linear(hidden_channels, out_channels))
-
-        self.dropout = dropout
-
-    def reset_parameters(self):
-        for lin in self.lins:
-            lin.reset_parameters()
-
-    def forward(self, x_i, x_j):
-        x = x_i * x_j
-        for lin in self.lins[:-1]:
-            x = lin(x)
-            x = F.relu(x)
-            x = F.dropout(x, p=self.dropout, training=self.training)
-        x = self.lins[-1](x)
-        return torch.sigmoid(x)
 
 if __name__ == '__main__':
     FILE_PATH = f'{get_git_repo_root_path()}/'
@@ -139,6 +116,7 @@ if __name__ == '__main__':
     print_logger.info(node_features.shape)
 
     for run_id in range(args.repeat):
+        print(f"run id : {run_id}, seed: {seed}")
         seed = run_id + args.start_seed
         custom_set_run_dir(cfg, run_id)
         set_printing(cfg)
