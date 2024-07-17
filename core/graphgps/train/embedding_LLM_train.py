@@ -10,7 +10,6 @@ import torch
 import wandb
 from ogb.linkproppred import Evaluator
 from torch_geometric.graphgym.config import cfg
-from sklearn.metrics import roc_auc_score, average_precision_score, roc_curve, auc
 from yacs.config import CfgNode as CN
 import torch.nn.functional as F
 import numpy as np
@@ -55,7 +54,7 @@ class Trainer_embedding_LLM(Trainer):
         self.train_data = splits['train'].to(self.device)
         self.valid_data = splits['valid'].to(self.device)
         self.optimizer = optimizer
-        model_types = ['MLP-minilm','MLP-bert','MLP-llama','MLP-e5-large']
+        model_types = ['MLP-minilm','MLP-bert','MLP-llama','MLP-e5-large', 'MLP-tfidf', 'MLP-w2v']
         self.test_func = {model_type: self._test for model_type in model_types}
         self.evaluate_func = {model_type: self._evaluate for model_type in model_types}
 
@@ -71,7 +70,7 @@ class Trainer_embedding_LLM(Trainer):
 
         self.tensorboard_writer = writer
         self.out_dir = cfg.out_dir
-        self.run_dir = cfg.run_dir
+        self.run_dir = None#cfg.run_dir
 
         report_step = {
             'cora': 100,

@@ -1,6 +1,7 @@
 import torch
 import torch.nn.functional as F
-    
+import torch.nn as nn
+
     
 class DotProduct(torch.nn.Module):
     """解码器，用向量内积表示重建的图结构"""
@@ -69,10 +70,6 @@ class mlp_score(torch.nn.Module):
         x = self.lins[-1](x)
         return torch.sigmoid(x)
     
-import torch
-
-import torch
-import torch.nn as nn
 
 class EuclideanDistance(nn.Module):
     def forward(self, x, y):
@@ -117,3 +114,44 @@ class JaccardSimilarity(nn.Module):
         intersection = torch.sum(torch.min(x, y))
         union = torch.sum(torch.max(x, y))
         return intersection / union
+    
+class EuclideanDistance(nn.Module):
+    def forward(self, x, y):
+        return torch.sqrt(torch.sum((x - y) ** 2))
+    
+
+
+class LinkPredictor(torch.nn.Module):
+    def __init__(self, in_channels, hidden_channels, out_channels, num_layers,
+                 dropout, product):
+        super(LinkPredictor, self).__init__()
+
+        self.lins = torch.nn.ModuleList()
+        self.lins.append(torch.nn.Linear(in_channels, hidden_channels))
+        for _ in range(num_layers - 2):
+            self.lins.append(torch.nn.Linear(hidden_channels, hidden_channels))
+        self.lins.append(torch.nn.Linear(hidden_channels, out_channels))
+
+        self.dropout = dropout
+        self.product = product 
+
+    def reset_parameters(self):
+        for lin in self.lins:
+            lin.reset_parameters()
+
+    def forward(self, x_i, x_j):
+        if self.product == 'concat':
+            x = torch.cat([x_i, x_j], dim=1)
+        elif self.product == 'dot':
+            x = x_i * x_j
+        elif self.product == 'euclidean':
+            x = torch.sqrt(((x_i - x_j) ** 2))
+            
+        for lin in self.lins[:-1]:
+            x = lin(x.float())
+            x = F.relu(x)
+            x = F.dropout(x, p=self.dropout, training=self.training)
+        x = self.lins[-1](x)
+        return torch.sigmoid(x)
+    
+    

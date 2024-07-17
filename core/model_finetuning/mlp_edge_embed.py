@@ -1,38 +1,39 @@
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from sklearn.metrics import accuracy_score, roc_auc_score, confusion_matrix
-import torch
-from torch.utils.data import DataLoader, Dataset
-from sentence_transformers import SentenceTransformer
-import torch.nn as nn
-from tqdm import tqdm
-import torch.optim as optim
-import numpy as np
-# Assuming other necessary imports from your script
-from graphgps.utility.utils import (
-    set_cfg, parse_args, get_git_repo_root_path, Logger, custom_set_out_dir,
-    custom_set_run_dir, set_printing, run_loop_settings, create_optimizer,
-    config_device, init_model_from_pretrained, create_logger, use_pretrained_llm_embeddings
-)
-from graph_embed.tune_utils import mvari_str2csv
 import torch
 from torch.utils.data import Dataset
 import torch.nn as nn
-from tqdm import tqdm
-import torch.optim as optim
 import numpy as np
+from graph_embed.tune_utils import mvari_str2csv
 from ogb.linkproppred import Evaluator
-from heuristic.eval import get_metric_score
 from sklearn.neural_network import MLPClassifier
 import argparse
 import wandb
 from torch_geometric import seed_everything
 from pdb import set_trace as st 
 import time 
-from create_dataset import create_tfidf
 from yacs.config import CfgNode as CN
+
 from graphgps.utility.utils import get_git_repo_root_path
+from graphgps.score.custom_score import LinkPredictor
+from graphgps.utility.utils import (
+    set_cfg, parse_args, get_git_repo_root_path, run_loop_settings,
+    create_logger
+)
+from cuml.ensemble import RandomForestClassifier as cuRF
+from create_dataset import create_tfidf
+from heuristic.eval import get_metric_score
+import nltk
+from nltk.tokenize import word_tokenize
+import re
+from gensim.models import Word2Vec
+from graphgps.utility.utils import (
+    set_cfg, parse_args, set_printing, 
+    random_sampling, preprocess, get_average_embedding
+)
+from data_utils.load import load_data_lp
+from create_dataset import process_texts
 
 FILE_PATH = f'{get_git_repo_root_path()}/'
 
@@ -51,6 +52,10 @@ split_index_data = {
     'ogbn_arxiv': 0.5,
     'pwc_large': 0.5
 }
+
+#TODO standardize the hyperparameters
+n_estimators = 25
+max_depth = 10
 
 class EmbeddingDataset(Dataset):
     def __init__(self, embeddings, labels):
@@ -86,7 +91,7 @@ def parse_args() -> argparse.Namespace:
                         default='w2v',
                         help='word embedding method')
     parser.add_argument('--decoder', dest='decoder', type=str, required=False,
-                        default='MLP',
+                        default='RF',
                         help='word embedding method')
     parser.add_argument('--score', dest='score', type=str, required=False, default='mlp_score',
                         help='decoder name')
@@ -101,13 +106,21 @@ def parse_args() -> argparse.Namespace:
 
     return parser.parse_args()
 
-
+from cupy import asnumpy
+import cuml
+from sklearn.metrics import accuracy_score
 def get_metrics(clf, dataset, labels, evaluator_hit, evaluator_mrr):
     # Predict and calculate accuracy
     pred = clf.predict(dataset)
     labels = np.asarray(labels)
     acc = np.mean( labels== pred)
     
+    cu_score = cuml.metrics.accuracy_score( labels, pred)
+    sk_score = accuracy_score( asnumpy( labels ), asnumpy( pred) )
+
+    print( " cuml accuracy: ", cu_score )
+    print( " sklearn accuracy : ", sk_score )
+
     # Calculate positive and negative predictions
     y_pos_pred = torch.tensor(pred[labels == 1])
     y_neg_pred = torch.tensor(pred[labels == 0])
@@ -138,16 +151,53 @@ def project_main():
     cfg.data.scale = split_index_data[args.data]
 
     loggers = create_logger(args.repeat)
+    cfg.data.method = cfg.embedder.type
+    print_logger = set_printing(cfg)
+    
+    splits, text, _ = load_data_lp[cfg.data.name](cfg.data)
+    splits = random_sampling(splits, cfg.data.scale)
+    tokenized_texts = [" ".join(preprocess(t)) for t in text]
+    if cfg.embedder.type == 'tfidf':
+        from sklearn.feature_extraction.text import TfidfVectorizer
+        vectorizer = TfidfVectorizer(max_features=128)
+        node_features = vectorizer.fit_transform(tokenized_texts)
+    elif cfg.embedder.type == 'w2v':
+        model = Word2Vec(sentences=tokenized_texts, vector_size=128, window=5, min_count=1, workers=10)
+        node_features = np.array([get_average_embedding(text, model) for text in tokenized_texts])
+
+    node_features = torch.tensor(node_features.toarray())
+    
     for run_id, seed, split_index in zip(*run_loop_settings(cfg, args)):
         
         print(f'run id : {run_id}, seed: {seed}, split_index: {split_index}')
         cfg.seed = seed
         cfg.run_id = run_id
         seed_everything(cfg.seed)
-        train_dataset, train_labels, val_dataset, val_labels, test_dataset, test_labels = create_tfidf(cfg, seed)
             
+        train_dataset, train_labels = process_texts(
+            splits['train'].pos_edge_label_index, 
+            splits['train'].neg_edge_label_index, 
+            node_features
+        )
+        val_dataset, val_labels = process_texts(
+            splits['valid'].pos_edge_label_index, 
+            splits['valid'].neg_edge_label_index, 
+            node_features
+        )
+        test_dataset, test_labels = process_texts(
+            splits['test'].pos_edge_label_index, 
+            splits['test'].neg_edge_label_index, 
+            node_features
+        )
+        
         print(f"loaded dataset")
-        clf = MLPClassifier(random_state=run_id, max_iter=args.max_iter)
+        if cfg.decoder == 'MLP':
+            clf = MLPClassifier(random_state=run_id, max_iter=args.max_iter)
+        elif cfg.decoder == 'RF':
+            clf = cuRF( max_depth = max_depth,
+              n_estimators = n_estimators,
+              random_state  = 0 )
+            
         print(f"created model")
         
         clf.fit(train_dataset, train_labels)  

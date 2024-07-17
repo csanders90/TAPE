@@ -31,7 +31,9 @@ from openai import OpenAI
 from dotenv import load_dotenv
 from graphgps.finetuning import get_final_pretrained_ckpt
 from sklearn.feature_extraction.text import TfidfVectorizer
-
+import nltk
+from nltk.tokenize import word_tokenize
+import re
 load_dotenv()
 
 set_float = lambda result: float(result.split(' ± ')[0])
@@ -722,21 +724,21 @@ def set_printing(cfg):
     logger.setLevel(logging.INFO)
 
     # Step 3: Create handlers
-    file_handler = logging.FileHandler(f'{cfg.run_dir}/logging.log')
+    # file_handler = logging.FileHandler(f'{cfg.run_dir}/logging.log')
     # console_handler = logging.StreamHandler(sys.stdout) # if you dont want to see the log in the console
     console_handler = logging.StreamHandler() 
     
     # Step 4: Set log levels for handlers
-    file_handler.setLevel(logging.INFO)
+    # file_handler.setLevel(logging.INFO)
     console_handler.setLevel(logging.INFO)
 
     # Step 5: Create formatters and add them to handlers
     formatter = logging.Formatter('%(asctime)s - %(message)s')
-    file_handler.setFormatter(formatter)
+    # file_handler.setFormatter(formatter)
     console_handler.setFormatter(formatter)
 
     # Step 6: Add handlers to the logger
-    logger.addHandler(file_handler)
+    # 0logger.addHandler(file_handler)
     logger.addHandler(console_handler)
     
     return logger
@@ -1098,3 +1100,17 @@ def random_sampling(splits, scale: int):
         print(data.pos_edge_label_index.shape)
 
     return splits
+
+
+def preprocess(text):
+    text = re.sub(r'\W+', ' ', text)
+    tokens = word_tokenize(text.lower())
+    return tokens
+
+def get_average_embedding(text, model):
+    tokens = preprocess(text)
+    embeddings = [model.wv[token] for token in tokens if token in model.wv]
+    if embeddings:
+        return np.mean(embeddings, axis=0)
+    else:
+        return np.zeros(model.vector_size)

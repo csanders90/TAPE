@@ -5,6 +5,7 @@ cfg_dest: gae.yaml
 print: file
 seed: 0
 accelerator: auto
+run_dir: runs
 
 run:
   seed: 0
@@ -15,7 +16,7 @@ run:
 wandb:
   use: True
   project: gtblueprint
-  name_tag: gae-cora-origin
+  name_tag: tfidf-cora-origin
 
 train:
   mode: custom
@@ -50,6 +51,12 @@ data:
   split_index: [0.8, 0.15, 0.05]
   method: 'tfidf'
 
+model:
+  device: 0
+  type: MLP-tfidf
+  hidden_channels: 128 #
+  num_layers: 3 #
+  dropout: 0.1
 
 decoder:
   type: GAE

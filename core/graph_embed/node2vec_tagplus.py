@@ -108,7 +108,6 @@ def node2vec(workers,
     
     return embedding
 
-
     
 def sample_n2v_random_walks(adj, walk_length, walks_per_node, p, q):
     """

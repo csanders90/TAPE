@@ -1,7 +1,7 @@
 #!/bin/sh
 
-#SBATCH --time=3-00:00:00
-#SBATCH --partition=cpuonly 
+#SBATCH --time=2-00:00:00
+#SBATCH --partition=accelerated
 #SBATCH --job-name=w2v-mlp-citationv8
 #SBATCH --output=log/TAG_Benchmark_%j.output
 #SBATCH --error=error/TAG_Benchmark_%j.error
@@ -14,7 +14,7 @@
 #SBATCH --mail-user=cc7738@kit.edu
 
 
-source /hkfs/home/project/hk-project-test-p0021478/cc7738/anaconda3/etc/profile.d/conda.sh
+source /hkfs/home/project/hk-project-test-p0022257/cc7738/anaconda3/etc/profile.d/conda.sh
 
 conda activate base
 conda activate TAG-LP
@@ -34,8 +34,8 @@ cd /hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/model_finetu
 # python adj.py --data 'citationv8' --scale 1000
 data="citationv8"
 max_iter=10000
-embedder="w2v"
-
+# embedder="w2v"
+embedder="tfidf"
 
 echo "python mlp.py --data $data --max_iter $max_iter --embedder $embedder"
 python mlp.py --data $data --max_iter $max_iter --embedder $embedder

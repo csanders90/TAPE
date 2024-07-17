@@ -28,9 +28,6 @@ import time
 import nltk
 from nltk.tokenize import word_tokenize
 import re
-import nltk
-from typing import Dict, Tuple, List, Union
-from torch_geometric.data import Data
 from graphgps.utility.utils import random_sampling
 
 nltk.download('punkt')
