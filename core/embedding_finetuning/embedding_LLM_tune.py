@@ -25,6 +25,7 @@ from graphgps.train.embedding_LLM_train import Trainer_embedding_LLM
 from graphgps.utility.utils import save_run_results_to_csv, random_sampling
 from graphgps.config import dump_run_cfg
 
+from graphgps.score.custom_score import LinkPredictor
 
 def average_pool(last_hidden_states: Tensor,
                  attention_mask: Tensor) -> Tensor:
@@ -58,31 +59,6 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-class LinkPredictor(torch.nn.Module):
-    def __init__(self, in_channels, hidden_channels, out_channels, num_layers,
-                 dropout):
-        super(LinkPredictor, self).__init__()
-
-        self.lins = torch.nn.ModuleList()
-        self.lins.append(torch.nn.Linear(in_channels, hidden_channels))
-        for _ in range(num_layers - 2):
-            self.lins.append(torch.nn.Linear(hidden_channels, hidden_channels))
-        self.lins.append(torch.nn.Linear(hidden_channels, out_channels))
-
-        self.dropout = dropout
-
-    def reset_parameters(self):
-        for lin in self.lins:
-            lin.reset_parameters()
-
-    def forward(self, x_i, x_j):
-        x = x_i * x_j
-        for lin in self.lins[:-1]:
-            x = lin(x)
-            x = F.relu(x)
-            x = F.dropout(x, p=self.dropout, training=self.training)
-        x = self.lins[-1](x)
-        return torch.sigmoid(x)
 
 if __name__ == '__main__':
     FILE_PATH = f'{get_git_repo_root_path()}/'
@@ -177,7 +153,7 @@ if __name__ == '__main__':
             cfg.train.batch_size = batch_size
 
 
-            model = LinkPredictor(node_features.shape[1], cfg.model.hidden_channels, 1, cfg.model.num_layers, cfg.model.dropout)
+            model = LinkPredictor(node_features.shape[1], cfg.model.hidden_channels, 1, cfg.model.num_layers, cfg.model.dropout, 'dot')
             optimizer = torch.optim.Adam(params=model.parameters(), lr=cfg.optimizer.base_lr, weight_decay=cfg.optimizer.weight_decay)
             logging.info(f"{model} on {next(model.parameters()).device}")
             logging.info(cfg)

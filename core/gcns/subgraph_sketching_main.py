@@ -23,10 +23,7 @@ from torch_geometric.graphgym.utils.device import auto_select_device
 from graphgps.utility.utils import set_cfg, parse_args, get_git_repo_root_path, custom_set_run_dir, set_printing, run_loop_settings, \
           create_optimizer, config_device,  create_logger, custom_set_out_dir, save_run_results_to_csv
 
-from torch_geometric.data import InMemoryDataset, Dataset
-from data_utils.load_data_nc import load_graph_cora, load_graph_pubmed, load_tag_arxiv23, load_graph_ogbn-arxiv
 import scipy.sparse as ssp
-from graphgps.config import (dump_cfg, dump_run_cfg)
 from graphgps.network.subgraph_sketching import BUDDY, ELPH
 
 from data_utils.load import load_data_lp

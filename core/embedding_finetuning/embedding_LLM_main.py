@@ -23,6 +23,7 @@ from graphgps.utility.utils import save_run_results_to_csv, random_sampling
 from graphgps.utility.utils import random_sampling
 from graphgps.score.custom_score import LinkPredictor
 
+
 def average_pool(last_hidden_states: Tensor,
                  attention_mask: Tensor) -> Tensor:
     last_hidden = last_hidden_states.masked_fill(~attention_mask[..., None].bool(), 0.0)
@@ -36,7 +37,7 @@ def parse_args() -> argparse.Namespace:
                         default='core/yamls/cora/lms/minilm.yaml',
                         help='The configuration file path.')
     parser.add_argument('--data', type=str, required=False, default='ogbn-arxiv',
-                        help='data name')   
+                        help='data name')
     parser.add_argument('--repeat', type=int, default=5,
                         help='The number of repeated jobs.')
     parser.add_argument('--start_seed', type=int, default=0,
@@ -54,7 +55,6 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-
 if __name__ == '__main__':
     FILE_PATH = f'{get_git_repo_root_path()}/'
 
@@ -66,8 +66,8 @@ if __name__ == '__main__':
     cfg.model.device = args.device
     cfg.device = args.device
     cfg.train.epochs = args.epoch
-    cfg.data.name = args.data
-    
+    args.data = cfg.data.name
+
     torch.set_num_threads(cfg.num_threads)
     best_acc = 0
     best_params = {}
@@ -131,7 +131,6 @@ if __name__ == '__main__':
     print(node_features.shape)
 
     for run_id in range(args.repeat):
-        print(f"run id : {run_id}, seed: {seed}")
         seed = run_id + args.start_seed
         custom_set_run_dir(cfg, run_id)
         set_printing(cfg)
@@ -142,20 +141,24 @@ if __name__ == '__main__':
         cfg = config_device(cfg)
 
         print_logger.info("start training")
+        print_logger.info(node_features.shape)
+        print(cfg.data.name)
 
-        model = LinkPredictor(node_features.shape[1], cfg.model.hidden_channels, 1, cfg.model.num_layers, cfg.model.dropout)
-        optimizer = torch.optim.Adam(params=model.parameters(), lr=cfg.optimizer.base_lr, weight_decay=cfg.optimizer.weight_decay)
+        model = LinkPredictor(node_features.shape[1], cfg.model.hidden_channels, 1, cfg.model.num_layers,
+                              cfg.model.dropout, 'dot')
+        optimizer = torch.optim.Adam(params=model.parameters(), lr=cfg.optimizer.base_lr,
+                                     weight_decay=cfg.optimizer.weight_decay)
         trainer = Trainer_embedding_LLM(FILE_PATH,
-                                             cfg,
-                                             model,
-                                             optimizer,
-                                             node_features,
-                                             splits,
-                                             run_id,
-                                             args.repeat,
-                                             loggers,
-                                             print_logger=print_logger,
-                                             batch_size=cfg.train.batch_size)
+                                        cfg,
+                                        model,
+                                        optimizer,
+                                        node_features,
+                                        splits,
+                                        run_id,
+                                        args.repeat,
+                                        loggers,
+                                        print_logger=print_logger,
+                                        batch_size=cfg.train.batch_size)
 
         start = time.time()
         trainer.train()
