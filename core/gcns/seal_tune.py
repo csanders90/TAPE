@@ -42,7 +42,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
                         default='core/yamls/cora/gcns/gae_sp1.yaml',
                         help='The configuration file path.')
-    parser.add_argument('--data', dest='data', type=str, required=True,
+    parser.add_argument('--data', dest='data', type=str, required=False,
                         default='pubmed',
                         help='data name')
     parser.add_argument('--batch_size', dest='bs', type=int, required=False,
@@ -53,9 +53,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--epochs', dest='epoch', type=int, required=True,
                         default=400,
                         help='data name')
-    parser.add_argument('--model', dest='model', type=str, required=True,
-                        default='GCN_Variant',
-                        help='model name')
     parser.add_argument('--score', dest='score', type=str, required=False, default='mlp_score',
                         help='decoder name')
     parser.add_argument('--wandb', dest='if_wandb', required=False, 
