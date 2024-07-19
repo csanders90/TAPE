@@ -19,7 +19,7 @@ from torch_geometric.graphgym.utils.device import auto_select_device
 import scipy.sparse as ssp
 from graphgps.utility.utils import set_cfg, parse_args, get_git_repo_root_path, custom_set_run_dir, set_printing, run_loop_settings, \
           create_optimizer, config_device,  create_logger, custom_set_out_dir
-from data_utils.load_data_nc import load_graph_cora, load_graph_pubmed, load_tag_arxiv23, load_graph_ogbn_arxiv
+from data_utils.load import load_data_lp
 from graphgps.encoder.seal import get_pos_neg_edges, extract_enclosing_subgraphs, k_hop_subgraph, construct_pyg_graph, do_edge_split
 from graphgps.config import (dump_cfg, dump_run_cfg)
 from graphgps.train.seal_train import Trainer_SEAL

@@ -11,7 +11,7 @@ import json
 import torch_geometric.transforms as T
 from torch_geometric.data import Data
 from torch_geometric.transforms import RandomLinkSplit
-from torch_geometric.utils import to_undirected 
+from torch_geometric.utils import to_undirected, coalesce, remove_self_loops
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -66,6 +66,8 @@ def load_taglp_cora(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
 
     data, data_citeid = load_graph_cora(False)
     text = load_text_cora(data_citeid)
+    # data.edge_index, _ = coalesce(data.edge_index, None, num_nodes=data.num_nodes)
+
     # text = None
     undirected = data.is_undirected()
 
@@ -176,6 +178,7 @@ def load_taglp_pubmed(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
 
     data = load_graph_pubmed(False)
     text = load_text_pubmed()
+    # data.edge_index = to_undirected(data.edge_index)
     undirected = data.is_undirected()
 
     splits = get_edge_split(data,
@@ -285,7 +288,8 @@ def load_taglp_pwc_small(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
         cfg.method = 'w2v'
     data = load_graph_pwc_small(cfg.method) 
     text = load_text_pwc_small(cfg.method)
-    
+    # data.edge_index, _ = remove_self_loops(data.edge_index)
+
     if data.is_directed() is True:
         data.edge_index  = to_undirected(data.edge_index)
         undirected  = True 

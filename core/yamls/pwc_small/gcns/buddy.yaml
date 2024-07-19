@@ -27,7 +27,7 @@ model:
   hidden_channels: 256 #
   num_layers: 2 #
   label_dropout: 0.1 #
-  feature_dropout: 0.1 #
+  feature_dropout: 0.3 #
   sign_dropout: 0.5 #
   use_zero_one: 0
   floor_sf: 0
@@ -62,5 +62,5 @@ data:
 
 optimizer:
   type: adam
-  lr: 0.01 #
+  lr: 0.001 #
   weight_decay: 0.0005
