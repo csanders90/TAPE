@@ -97,14 +97,7 @@ def project_main():
 
         cfg = config_device(cfg)
 
-        if cfg.data.name == 'pubmed':
-            data = load_graph_pubmed(False)
-        elif cfg.data.name == 'cora':
-            data, _ = load_graph_cora(False)
-        elif cfg.data.name == 'arxiv_2023':
-            data, _ = load_tag_arxiv23()
-        elif cfg.data.name == 'ogbn-arxiv':
-            data = load_graph_ogbn_arxiv(False)
+        splits, text, data = load_data_lp[cfg.data.name](cfg.data)
         splits = do_edge_split(copy.deepcopy(data), cfg.data.val_pct, cfg.data.test_pct)
         path = f'{os.path.dirname(__file__)}/seal_{cfg.data.name}'
         dataset = {

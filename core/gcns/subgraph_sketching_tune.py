@@ -10,6 +10,7 @@ from torch_geometric.nn.conv.gcn_conv import gcn_norm
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from graphgps.network.subgraph_sketching import ElphHashes
+from data_utils.load import load_data_lp
 
 import argparse
 import time

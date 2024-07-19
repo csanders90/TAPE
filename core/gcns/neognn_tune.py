@@ -224,7 +224,3 @@ if __name__ == "__main__":
 
             print_logger.info(f"runing time {time.time() - start_time}")
             torch.cuda.empty_cache()
-
-
-
-
