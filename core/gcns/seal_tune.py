@@ -167,15 +167,14 @@ def project_main():
             trainer = Trainer_SEAL(FILE_PATH,
                                    cfg,
                                    model,
-                                   None,
                                    optimizer,
+                                   data,
                                    dataset,
                                    run_id,
                                    args.repeat,
                                    loggers,
                                    print_logger,
-                                   cfg.device,
-                                   args.if_wandb)
+                                   batch_size)
 
             trainer.train()
 
