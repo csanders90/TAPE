@@ -44,7 +44,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--epochs', dest='epoch', type=int, required=False,
                         default=100,
                         help='data name')
-    parser.add_argument('--repeat', type=int, default=2,
+    parser.add_argument('--repeat', type=int, default=1,
                         help='The number of repeated jobs.')
     parser.add_argument('--mark_done', action='store_true',
                         help='Mark yaml as done after a job has finished.')
@@ -113,9 +113,9 @@ if __name__ == "__main__":
             f"\n Test: {2 * splits['test']['pos_edge_label'].shape[0]} samples")
         dump_cfg(cfg)
         if cfg.model.type == 'NCN':
-            hyperparameter_search = {'hiddim': [64, 128, 256], "gnndp": [0.0, 0.05, 0.1, 0.2, 0.3, 0.5],
-                                 "xdp": [0.0, 0.05, 0.1, 0.2, 0.3, 0.5, 0.75], "tdp": [0.0, 0.05, 0.1, 0.2, 0.3],
-                                 "gnnedp": [0.0, 0.1, 0.2], "predp": [0.0, 0.05, 0.1, 0.2, 0.3, 0.5], "preedp": [0.0, 0.1, 0.2],
+            hyperparameter_search = {'hiddim': [64, 256], "gnndp": [0.0, 0.2, 0.5],
+                                 "xdp": [0.0, 0.3, 0.7], "tdp": [0.0, 0.2],
+                                 "gnnedp": [0.0], "predp": [0.0, 0.05], "preedp": [0.0, 0.4],
                                  "batch_size": [256, 512, 1024, 2048], "gnnlr": [0.001, 0.0001], "prelr": [0.001, 0.0001]}
             print_logger.info(f"hypersearch space: {hyperparameter_search}")
             for hiddim, gnndp, xdp, tdp, gnnedp, predp, preedp, batch_size, gnnlr, prelr in tqdm(
@@ -196,7 +196,7 @@ if __name__ == "__main__":
 
                 print_logger.info(f"runing time {time.time() - start_time}")
         elif cfg.model.type == 'NCNC':
-            hyperparameter_search = {'probscale': [1.0, 2.0, 3.0, 4,0, 4.3, 5,0, 5.3], 'proboffset': [0.0, 1.0, 2.0, 2.8, 3.0, 4,0, 5,0], 'pt':[0.0, 0.1, 0.3, 0.5, 0.75]}
+            hyperparameter_search = {'probscale': [1.0, 3.0, 5,0], 'proboffset': [0.0, 1.0, 3.0, 5,0], 'pt':[0.05, 0.1]}
             print_logger.info(f"hypersearch space: {hyperparameter_search}")
             for probscale, proboffset, pt in tqdm(itertools.product(*hyperparameter_search.values())):
                 cfg.model.probscale = probscale

@@ -60,7 +60,7 @@ def parse_args() -> argparse.Namespace:
                         help='decoder name')
     parser.add_argument('--wandb', dest='if_wandb', required=False, 
                         help='data name')
-    parser.add_argument('--repeat', type=int, default=3,
+    parser.add_argument('--repeat', type=int, default=1,
                         help='The number of repeated jobs.')
     parser.add_argument('--mark_done', action='store_true',
                         help='Mark yaml as done after a job has finished.')
@@ -144,7 +144,7 @@ def project_main():
             f"The {cfg['data']['name']} graph {dataset['train'].data.x.shape[0]} is loaded on {dataset['train'].data.x.device}, \n Train: {2 * dataset['train'].data['edge_index'].shape[1]} samples,\n Valid: {2 * dataset['valid'].data['edge_index'].shape[1]} samples,\n Test: {2 * dataset['test'].data['edge_index'].shape[1]} samples")
         dump_cfg(cfg)
 
-        hyperparameter_search = {'hidden_channels': [32, 64, 128, 256],
+        hyperparameter_search = {'hidden_channels': [64, 128, 256],
                                  "batch_size": [32, 64, 128, 256], "lr": [0.001, 0.0001]}
 
         print_logger.info(f"hypersearch space: {hyperparameter_search}")

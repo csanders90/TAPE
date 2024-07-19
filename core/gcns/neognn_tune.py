@@ -145,7 +145,7 @@ if __name__ == "__main__":
             f"\n Valid: {2 * splits['train']['pos_edge_label'].shape[0]} samples,"
             f"\n Test: {2 * splits['test']['pos_edge_label'].shape[0]} samples")
         dump_cfg(cfg)
-        hyperparameter_search = {'hidden_channels': [256], 'num_layers': [1, 2, 3], 'mlp_num_layers': [2, 3],
+        hyperparameter_search = {'hidden_channels': [128, 256], 'num_layers': [1, 2, 3], 'mlp_num_layers': [2],
                                  'f_edge_dim': [8], 'f_node_dim': [128], 'dropout': [0, 0.1, 0.3],
                              "batch_size": [256, 512, 1024], "lr": [0.01, 0.001, 0.0001]}
 

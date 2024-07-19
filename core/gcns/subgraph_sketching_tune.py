@@ -106,7 +106,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--epochs', dest='epoch', type=int, required=False,
                         default=30,
                         help='data name')
-    parser.add_argument('--repeat', type=int, default=2,
+    parser.add_argument('--repeat', type=int, default=1,
                         help='The number of repeated jobs.')
     parser.add_argument('--mark_done', action='store_true',
                         help='Mark yaml as done after a job has finished.')
@@ -158,8 +158,8 @@ if __name__ == "__main__":
             f"\n Test: {2 * splits['test']['pos_edge_label'].shape[0]} samples")
         dump_cfg(cfg)
         hyperparameter_search = {'hidden_channels': [128, 256, 512], "batch_size": [512, 1024], "lr": [0.01, 0.001, 0.0001],
-                                 'max_hash_hops': [2, 3], 'label_dropout': [0.1, 0.3, 0.5],
-                                 'feature_dropout': [0.1, 0.3, 0.5], 'sign_dropout': [0.3, 0.5, 0.7]}
+                                 'max_hash_hops': [1, 2, 3], 'label_dropout': [0.1, 0.5],
+                                 'feature_dropout': [0.1, 0.3, 0.5], 'sign_dropout': [0.1, 0.3, 0.5, 0.7]}
         print_logger.info(f"hypersearch space: {hyperparameter_search}")
         for hidden_channels, batch_size, lr, max_hash_hops, label_dropout, feature_dropout, sign_dropout in tqdm(
                 itertools.product(*hyperparameter_search.values())):
