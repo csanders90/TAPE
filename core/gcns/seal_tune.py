@@ -98,7 +98,6 @@ def project_main():
         cfg = config_device(cfg)
 
         splits, text, data = load_data_lp[cfg.data.name](cfg.data)
-        splits = do_edge_split(copy.deepcopy(data), cfg.data.val_pct, cfg.data.test_pct)
         path = f'{os.path.dirname(__file__)}/seal_{cfg.data.name}'
         dataset = {
             'train': SEALDataset(

@@ -21,43 +21,6 @@ from graphgps.network.neognn import NeoGNN, LinkPredictor
 from data_utils.load import load_data_lp
 from graphgps.train.neognn_train import Trainer_NeoGNN
 
-def check_data_leakage(splits):
-    sets = ['train', 'valid', 'test']
-    leakage = False
-
-    # Extract indices
-    train_pos_index = set(map(tuple, splits['train'].pos_edge_label_index.t().tolist()))
-    train_neg_index = set(map(tuple, splits['train'].neg_edge_label_index.t().tolist()))
-    valid_pos_index = set(map(tuple, splits['valid'].pos_edge_label_index.t().tolist()))
-    valid_neg_index = set(map(tuple, splits['valid'].neg_edge_label_index.t().tolist()))
-    test_pos_index = set(map(tuple, splits['test'].pos_edge_label_index.t().tolist()))
-    test_neg_index = set(map(tuple, splits['test'].neg_edge_label_index.t().tolist()))
-
-    # Check for leakage
-    if train_pos_index & valid_pos_index:
-        print("Data leakage found between train and valid positive samples.")
-        leakage = True
-    if train_pos_index & test_pos_index:
-        print("Data leakage found between train and test positive samples.")
-        leakage = True
-    if valid_pos_index & test_pos_index:
-        print("Data leakage found between valid and test positive samples.")
-        leakage = True
-    if train_neg_index & valid_neg_index:
-        print("Data leakage found between train and valid negative samples.")
-        leakage = True
-    if train_neg_index & test_neg_index:
-        print("Data leakage found between train and test negative samples.")
-        leakage = True
-    if valid_neg_index & test_neg_index:
-        print("Data leakage found between valid and test negative samples.")
-        leakage = True
-
-    if not leakage:
-        print("No data leakage found.")
-
-    return leakage
-
 
 def parse_args() -> argparse.Namespace:
     r"""Parses the command line arguments."""
@@ -134,8 +97,6 @@ if __name__ == "__main__":
         seed_everything(cfg.seed)
         cfg = config_device(cfg)
         splits, text, data = load_data_lp[cfg.data.name](cfg.data)
-
-        check_data_leakage(splits)
 
         path = f'{os.path.dirname(__file__)}/neognn_{cfg.data.name}'
         print_logger = set_printing(cfg)

@@ -45,7 +45,10 @@ FILE_PATH = get_git_repo_root_path() + '/'
 def load_taglp_arxiv2023(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
     # add one default argument
 
+
     data, text = load_tag_arxiv23()
+    data.edge_index, _ = coalesce(data.edge_index, None, num_nodes=data.num_nodes)
+    data.edge_index, _ = remove_self_loops(data.edge_index)
     if data.is_directed() is True:
         data.edge_index = to_undirected(data.edge_index)
         undirected = True
@@ -66,7 +69,8 @@ def load_taglp_cora(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
 
     data, data_citeid = load_graph_cora(False)
     text = load_text_cora(data_citeid)
-    # data.edge_index, _ = coalesce(data.edge_index, None, num_nodes=data.num_nodes)
+    data.edge_index, _ = coalesce(data.edge_index, None, num_nodes=data.num_nodes)
+    data.edge_index, _ = remove_self_loops(data.edge_index)
 
     # text = None
     undirected = data.is_undirected()
@@ -86,6 +90,8 @@ def load_taglp_ogbn_arxiv(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
     # add one default argument
 
     data = load_graph_ogbn_arxiv(False)
+    data.edge_index, _ = coalesce(data.edge_index, None, num_nodes=data.num_nodes)
+    data.edge_index, _ = remove_self_loops(data.edge_index)
     text = load_text_ogbn_arxiv()
     undirected = data.is_undirected()
 
@@ -106,6 +112,8 @@ def load_taglp_pwc_large(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
 
     data = load_graph_pwc_large()
     text = load_text_pwc_large()
+    data.edge_index, _ = coalesce(data.edge_index, None, num_nodes=data.num_nodes)
+    data.edge_index, _ = remove_self_loops(data.edge_index)
     undirected = data.is_undirected()
 
     cfg = config_device(cfg)
@@ -147,7 +155,10 @@ def load_taglp_product(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
     # add one default argument
 
     data, text = load_tag_product()
+    data.edge_index, _ = coalesce(data.edge_index, None, num_nodes=data.num_nodes)
+    data.edge_index, _ = remove_self_loops(data.edge_index)
     undirected = data.is_undirected()
+
 
     cfg = config_device(cfg)
 
@@ -178,7 +189,9 @@ def load_taglp_pubmed(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
 
     data = load_graph_pubmed(False)
     text = load_text_pubmed()
-    # data.edge_index = to_undirected(data.edge_index)
+    data.edge_index = to_undirected(data.edge_index)
+    data.edge_index, _ = coalesce(data.edge_index, None, num_nodes=data.num_nodes)
+    data.edge_index, _ = remove_self_loops(data.edge_index)
     undirected = data.is_undirected()
 
     splits = get_edge_split(data,
@@ -196,6 +209,8 @@ def load_taglp_citeseer(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
 
     data = load_graph_citeseer()
     text = load_text_citeseer()
+    data.edge_index, _ = coalesce(data.edge_index, None, num_nodes=data.num_nodes)
+    data.edge_index, _ = remove_self_loops(data.edge_index)
     undirected = data.is_undirected()
 
     splits = get_edge_split(data,
@@ -213,6 +228,8 @@ def load_taglp_citationv8(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
     
     data = load_graph_citationv8()
     text = load_text_citationv8()
+    data.edge_index, _ = coalesce(data.edge_index, None, num_nodes=data.num_nodes)
+    data.edge_index, _ = remove_self_loops(data.edge_index)
     if data.is_directed() is True:
         data.edge_index  = to_undirected(data.edge_index)
         undirected  = True 
@@ -238,6 +255,8 @@ def load_taplp_pwc_large(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
     else:
         cfg.method = 'w2v'
     data = load_graph_pwc_large(cfg.method)
+    data.edge_index, _ = coalesce(data.edge_index, None, num_nodes=data.num_nodes)
+    data.edge_index, _ = remove_self_loops(data.edge_index)
     df, text = load_text_pwc_large()
     
     if data.is_directed() is True:
@@ -262,6 +281,8 @@ def load_taglp_pwc_medium(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
     else:
         cfg.method = 'w2v'
     data = load_graph_pwc_medium(cfg.method)
+    data.edge_index, _ = coalesce(data.edge_index, None, num_nodes=data.num_nodes)
+    data.edge_index, _ = remove_self_loops(data.edge_index)
     text = load_text_pwc_medium(cfg.method)
     
     if data.is_directed() is True:
@@ -286,9 +307,11 @@ def load_taglp_pwc_small(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
         pass
     else:
         cfg.method = 'w2v'
-    data = load_graph_pwc_small(cfg.method) 
+    data = load_graph_pwc_small(cfg.method)
+    data.edge_index, _ = coalesce(data.edge_index, None, num_nodes=data.num_nodes)
+    data.edge_index, _ = remove_self_loops(data.edge_index)
     text = load_text_pwc_small(cfg.method)
-    # data.edge_index, _ = remove_self_loops(data.edge_index)
+    data.edge_index, _ = remove_self_loops(data.edge_index)
 
     if data.is_directed() is True:
         data.edge_index  = to_undirected(data.edge_index)
