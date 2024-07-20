@@ -68,7 +68,7 @@ def check_edges_completeness(splits, data):
 if __name__ == "__main__":
     args = parse_args()
     args.split_index = [0.8, 0.15, 0.05]
-    for dataset in ['pwc_small', 'cora', 'arxiv_2023', 'pubmed', 'pwc_medium', 'pwc_large', 'citationv8', 'ogbn-arxiv']:
+    for dataset in ['pwc_small', 'cora', 'arxiv_2023', 'pubmed', 'pwc_medium', 'citationv8', 'ogbn-arxiv']:
         print(f"\n\n\nChecking dataset {dataset} :")
         args.name = dataset
         splits, text, data = load_data_lp[dataset](args)
