@@ -23,8 +23,6 @@ from torch_geometric.graphgym.utils.device import auto_select_device
 from graphgps.utility.utils import set_cfg, parse_args, get_git_repo_root_path, custom_set_run_dir, set_printing, run_loop_settings, \
           create_optimizer, config_device,  create_logger, custom_set_out_dir
 
-from torch_geometric.data import InMemoryDataset, Dataset
-from data_utils.load_data_nc import load_graph_cora, load_graph_pubmed, load_tag_arxiv23, load_graph_ogbn_arxiv
 import scipy.sparse as ssp
 from graphgps.config import (dump_cfg, dump_run_cfg)
 from graphgps.network.subgraph_sketching import BUDDY, ELPH
@@ -108,7 +106,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--epochs', dest='epoch', type=int, required=False,
                         default=30,
                         help='data name')
-    parser.add_argument('--repeat', type=int, default=2,
+    parser.add_argument('--repeat', type=int, default=1,
                         help='The number of repeated jobs.')
     parser.add_argument('--mark_done', action='store_true',
                         help='Mark yaml as done after a job has finished.')
@@ -160,10 +158,10 @@ if __name__ == "__main__":
             f"\n Test: {2 * splits['test']['pos_edge_label'].shape[0]} samples")
         dump_cfg(cfg)
         hyperparameter_search = {'hidden_channels': [128, 256, 512], "batch_size": [512, 1024], "lr": [0.01, 0.001, 0.0001],
-                                 'max_hash_hops': [2, 3], 'label_dropout': [0.1, 0.3, 0.5],
-                                 'feature_dropout': [0.1, 0.3, 0.5]}
+                                 'max_hash_hops': [1, 2, 3], 'label_dropout': [0.1, 0.5],
+                                 'feature_dropout': [0.1, 0.3, 0.5], 'sign_dropout': [0.1, 0.3, 0.5, 0.7]}
         print_logger.info(f"hypersearch space: {hyperparameter_search}")
-        for hidden_channels, batch_size, lr, max_hash_hops, label_dropout, feature_dropout in tqdm(
+        for hidden_channels, batch_size, lr, max_hash_hops, label_dropout, feature_dropout, sign_dropout in tqdm(
                 itertools.product(*hyperparameter_search.values())):
             cfg.model.hidden_channels = hidden_channels
             cfg.train.batch_size = batch_size
@@ -171,6 +169,7 @@ if __name__ == "__main__":
             cfg.model.max_hash_hops = max_hash_hops
             cfg.model.label_dropout = label_dropout
             cfg.model.feature_dropout = feature_dropout
+            cfg.model.sign_dropout = sign_dropout
             print_logger.info(
                 f"hidden_channels: {hidden_channels}, batch_size: {batch_size}, lr: {lr}")
             start_time = time.time()
@@ -224,6 +223,7 @@ if __name__ == "__main__":
             run_result.update(
                 {'hidden_channels': hidden_channels, 'batch_size': batch_size,'lr': lr,
                     'max_hash_hops': max_hash_hops, 'label_dropout': label_dropout, 'feature_dropout': feature_dropout,
+                    'sign_dropout': sign_dropout
                  })
             print_logger.info(run_result)
 

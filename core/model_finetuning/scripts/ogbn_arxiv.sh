@@ -1,7 +1,7 @@
 #!/bin/sh
-#SBATCH --time=2-00:00:00
-#SBATCH --partition=accelerated
-#SBATCH --job-name=w2v-mlp-ogbn_arxiv
+#SBATCH --time=3-00:00:00
+#SBATCH --partition=cpuonly
+#SBATCH --job-name=w2v-mlp-ogbn-arxiv
 
 
 
@@ -14,7 +14,7 @@
 # Notification settings:
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=cc7738@kit.edu
-source /hkfs/home/project/hk-project-test-p0022257/cc7738/anaconda3/etc/profile.d/conda.sh
+source /hkfs/home/project/hk-project-test-p0021478/cc7738/anaconda3/etc/profile.d/conda.sh
 
 conda activate base
 conda activate TAG-LP
@@ -30,12 +30,10 @@ cd /hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/model_finetu
 
 
 
-data="ogbn_arxiv"
+data="ogbn-arxiv"
 max_iter=10000
-#embedder="w2v"
-embedder="tfidf"
+embedder="w2v"
 
-# echo "python mlp.py --data $data --max_iter $max_iter --embedder $embedder"
-# python mlp.py --data $data --max_iter $max_iter --embedder $embedder
-echo "python lp_node_embed.py --data $data --embedder $embedder"
-python lp_node_embed.py --data $data --embedder $embedder
+
+echo "python mlp.py --data $data --max_iter $max_iter --embedder $embedder"
+python mlp.py --data $data --max_iter $max_iter --embedder $embedder

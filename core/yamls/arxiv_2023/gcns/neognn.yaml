@@ -12,7 +12,7 @@ run:
 
 train:
   mode: custom
-  batch_size: 512 #
+  batch_size: 1024 #
   gnn_batch_size: 8192 #
   eval_period: 1
   epochs: 500
@@ -25,9 +25,10 @@ model:
   type: NeoGNN
   out_channels: 32
   in_channels: 1433
-  hidden_channels: 128 #
+  hidden_channels: 256 #
   num_layers: 3 #
-  dropout: 0.3 #
+  mlp_num_layers: 2 #
+  dropout: 0.0 #
   f_edge_dim: 8 #
   f_node_dim: 64 #
   g_phi_dim: 128 #
@@ -54,5 +55,5 @@ data:
 
 optimizer:
   type: adam
-  lr: 0.001 #
+  lr: 0.0001 #
   weight_decay: 0.0005

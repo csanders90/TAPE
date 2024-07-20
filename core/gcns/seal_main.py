@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 import copy
 import time
 import argparse
+from data_utils.load import load_data_lp
 
 import torch
 import scipy.sparse as ssp
@@ -111,16 +112,7 @@ if __name__ == "__main__":
         cfg.run_id = run_id
         cfg = config_device(cfg)
         seed_everything(cfg.seed)
-        if cfg.data.name == 'pubmed':
-            data = load_graph_pubmed(False)
-        elif cfg.data.name == 'cora':
-            data, _ = load_graph_cora(False)
-        elif cfg.data.name == 'arxiv_2023':
-            data, _ = load_tag_arxiv23()
-        elif cfg.data.name == 'ogbn-arxiv':
-            data = load_graph_ogbn_arxiv(False)
-        # i am not sure your split shares the same format with mine please visualize it and redo for the old split
-        splits = do_ogb_edge_split(copy.deepcopy(data), cfg.data.val_pct, cfg.data.test_pct)
+        splits, text, data = load_data_lp[cfg.data.name](cfg.data)
 
         path = f'{os.path.dirname(__file__)}/seal_{cfg.data.name}'
         dataset = {}

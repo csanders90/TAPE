@@ -1,7 +1,7 @@
 #!/bin/sh
 #SBATCH --time=2-00:00:00
 #SBATCH --partition=cpuonly
-#SBATCH --job-name=tfidf-mlp-ogbn_arxiv
+#SBATCH --job-name=tfidf-mlp-ogbn-arxiv
 
 
 
