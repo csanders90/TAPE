@@ -31,7 +31,10 @@ def remap_node_indices(data, splits):
     index_map = torch.empty_like(sorted_indices)
     index_map[sorted_indices] = torch.arange(len(sorted_indices))
     new_edge_index = index_map[edge_index]
-    new_x = data.x[sorted_indices]
+    if data.x is not None:
+        new_x = data.x[sorted_indices]
+    else:
+        new_x = None
     data.edge_index = new_edge_index
     data.x = new_x
     for set in ['train', 'valid', 'test']:
@@ -48,10 +51,12 @@ def remap_node_indices(data, splits):
 
 
 def visualize_adjacency_matrix(name, num_nodes, pos_edge_index=None, neg_edge_index=None):
-    adj_matrix = torch.zeros((num_nodes, num_nodes))
-    adj_matrix = adj_matrix.numpy()
-
-    fig, ax = plt.subplots(figsize=(20, 20))
+    if num_nodes > 100000:
+        fig, ax = plt.subplots(figsize=(40, 40))
+    else:
+        fig, ax = plt.subplots(figsize=(20, 20))
+    ax.set_xlim(-0.5, num_nodes - 0.5)
+    ax.set_ylim(-0.5, num_nodes - 0.5)
 
     if pos_edge_index is not None:
         pos_edges = pos_edge_index.t().numpy()
@@ -74,7 +79,7 @@ if __name__ == "__main__":
     args.split_index = [0.8, 0.15, 0.05]
     if not os.path.exists('./visualize'):
         os.makedirs('./visualize')
-    for dataset in ['pwc_small', 'cora', 'pubmed', 'arxiv_2023', 'ogbn-arxiv', 'citationv8', 'pwc_large', 'pwc_medium']:
+    for dataset in ['pwc_small', 'cora', 'pubmed', 'arxiv_2023', 'ogbn-arxiv', 'citationv8', 'pwc_medium']:
         args.name = dataset
         splits, text, data = load_data_lp[dataset](args)
         data, splits = remap_node_indices(data, splits)
