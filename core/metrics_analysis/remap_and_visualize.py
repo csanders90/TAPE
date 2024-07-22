@@ -77,9 +77,9 @@ def visualize_adjacency_matrix(name, num_nodes, pos_edge_index=None, neg_edge_in
 if __name__ == "__main__":
     args = parse_args()
     args.split_index = [0.8, 0.15, 0.05]
-    if not os.path.exists('./visualize'):
-        os.makedirs('./visualize')
-    for dataset in ['pwc_small', 'cora', 'pubmed', 'arxiv_2023', 'ogbn-arxiv', 'citationv8', 'pwc_medium']:
+    if not os.path.exists('../core/data_utils/visualize'):
+        os.makedirs('../core/data_utils/visualize')
+    for dataset in ['pwc_small', 'cora', 'pubmed', 'arxiv_2023', 'ogbn-arxiv', 'citationv8', 'pwc_medium', 'pwc_large']:
         args.name = dataset
         splits, text, data = load_data_lp[dataset](args)
         data, splits = remap_node_indices(data, splits)
