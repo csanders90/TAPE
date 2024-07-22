@@ -11,9 +11,7 @@ class PermIterator:
     def __init__(self, device, size, bs, training=True) -> None:
         self.bs = bs
         self.training = training
-        self.idx = torch.randperm(
-            size, device=device) if training else torch.arange(size,
-                                                               device=device)
+        self.idx = torch.randperm(size, device=device) if training else torch.arange(size,device=device)
 
     def __len__(self):
         return (self.idx.shape[0] + (self.bs - 1) *
