@@ -2,7 +2,7 @@
 
 #SBATCH --time=2-00:00:00
 #SBATCH --partition=accelerated
-#SBATCH --job-name=w2v-mlp-pubmed
+#SBATCH --job-name=pwcsmall
 
 
 #SBATCH --output=log/TAG_Benchmark_%j.output
@@ -40,20 +40,23 @@ cd /hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/model_finetu
 # echo "python lp_node_embed.py --data $data --embedder $embedder"
 # python lp_node_embed.py --data $data --embedder $embedder
 
-data="cora"
+data="pwc_small"
 max_iter=2000
-embedder="w2v"
+embedder="tfidf"
 
-# decoders=("dot" "concat" "euclidean")
-# devices=("cuda:2" "cuda:0" "cuda:1")
-device="cuda:2"
+decoders=("dot" "concat" "euclidean")
+devices=("cuda:2" "cuda:0" "cuda:1")
 
-echo "python lp_edge_embed.py --data $data --embedder $embedder --device $device"
-python lp_edge_embed.py --data $data --embedder $embedder --device $device --epochs $max_iter
+for i in ${!decoders[@]}; do
+    decoder=${decoders[$i]}
+    device=${devices[$i]}
+    echo "python lp_edge_embed.py --data $data --embedder $embedder --device $device --decoder $decoder"
+    python lp_edge_embed.py --data $data --embedder $embedder --device $device --decoder $decoder --epochs $max_iter
+done
 
-# for i in ${!decoders[@]}; do
-#     decoder=${decoders[$i]}
-#     device=${devices[$i]}
-#     echo "python lp_node_embed.py --data $data --embedder $embedder --device $device --decoder $decoder"
-#     python lp_node_embed.py --data $data --embedder $embedder --device $device --decoder $decoder --epoch $max_iter 
-# done
+for i in ${!decoders[@]}; do
+    decoder=${decoders[$i]}
+    device=${devices[$i]}
+    echo "python lp_node_embed.py --data $data --embedder $embedder --device $device --decoder $decoder"
+    python lp_node_embed.py --data $data --embedder $embedder --device $device --decoder $decoder --epoch $max_iter 
+done

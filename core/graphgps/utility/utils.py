@@ -273,7 +273,7 @@ def create_logger(repeat):
         'mrr_hit100': Logger(repeat),
         'AUC': Logger(repeat),
         'AP': Logger(repeat),
-        'ACC': Logger(repeat)
+        # 'ACC': Logger(repeat)
     }
 
 
@@ -1075,6 +1075,7 @@ def save_run_results_to_csv(cfg, loggers, seed, run_id):
     # Define the file path
     FILE_PATH = get_git_repo_root_path() + '/'
     root = os.path.join(FILE_PATH, 'results')
+    
     os.makedirs(root, exist_ok=True)  # Create the directory if it doesn't exist
     file_path = os.path.join(root, f'{cfg.data.name}_final_results.csv')
 

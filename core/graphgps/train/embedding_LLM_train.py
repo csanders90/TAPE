@@ -19,6 +19,7 @@ from graph_embed.tune_utils import param_tune_acc_mrr
 from heuristic.eval import get_metric_score
 from graphgps.utility.utils import config_device, Logger
 from typing import Dict, Tuple
+from scipy.sparse._csr import csr_matrix 
 from graphgps.train.opt_train import (Trainer)
 from graphgps.utility.ncn import PermIterator
 from torch.utils.tensorboard import SummaryWriter
@@ -72,18 +73,7 @@ class Trainer_embedding_LLM(Trainer):
         self.out_dir = cfg.out_dir
         self.run_dir = None#cfg.run_dir
 
-        report_step = {
-            'cora': 100,
-            'pubmed': 100,
-            'arxiv_2023': 100,
-            'ogbn_arxiv': 100,
-            'pwc_small': 100,
-            'pwc_medium': 100,
-            'pwc_large': 100,
-            'citationv8': 100
-        }
-
-        self.report_step = report_step[cfg.data.name]
+        self.report_step = 100
 
     def _train_mlp(self):
         self.model.train()
@@ -109,25 +99,27 @@ class Trainer_embedding_LLM(Trainer):
         return total_loss / len(self.train_data)
 
     def train(self):
-        best_auc, best_hits, best_hit100 = 0, 0, 0
         for epoch in range(1, self.epochs + 1):
             loss = self._train_mlp()
             if epoch % int(self.report_step) == 0:
                 self.results_rank = self.merge_result_rank()
+                
                 for key, result in self.results_rank.items():
                     self.loggers[key].add_result(self.run, result)
+                    
                     self.tensorboard_writer.add_scalar(f"Metrics/Train/{key}", result[0], epoch)
                     self.tensorboard_writer.add_scalar(f"Metrics/Valid/{key}", result[1], epoch)
                     self.tensorboard_writer.add_scalar(f"Metrics/Test/{key}", result[2], epoch)
 
                     train_hits, valid_hits, test_hits = result
-                    self.print_logger.info(
-                        f'Run: {self.run + 1:02d}, Key: {key}, '
-                        f'Epoch: {epoch:02d}, Loss: {loss:.4f}, Train: {100 * train_hits:.2f}, Valid: {100 * valid_hits:.2f}, Test: {100 * test_hits:.2f}%')
+                    if key in ['MRR', 'Hits@100', 'AUC']:
+                        self.print_logger.info(
+                            f'Run: {self.run + 1:02d}, Key: {key}, '
+                            f'Epoch: {epoch:02d}, Loss: {loss:.4f}, Train: {100 * train_hits:.2f}, Valid: {100 * valid_hits:.2f}, Test: {100 * test_hits:.2f}%')
 
                 self.print_logger.info('---')
 
-        return best_auc, best_hits
+        return 
 
     @torch.no_grad()
     def _evaluate(self, eval_data: Data):
@@ -148,14 +140,7 @@ class Trainer_embedding_LLM(Trainer):
         pos_pred, neg_pred = y_pred[y_true == 1].cpu(), y_pred[y_true == 0].cpu()
         y_pred = torch.where(y_pred >= hard_thres, torch.tensor(1), torch.tensor(0))
 
-        y_true = y_true.clone().detach().cpu()
-        y_pred = y_pred.clone().detach().cpu()
-
-        acc = torch.sum(y_true == y_pred) / len(y_true)
-
         result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_pred, neg_pred)
-        result_mrr.update({'ACC': round(acc.tolist(), 5)})
-
         return result_mrr
 
     def finalize(self):
@@ -164,7 +149,7 @@ class Trainer_embedding_LLM(Trainer):
             start_train = time.time()
             self._evaluate(self.test_data)
             self.run_result['eval_time'] = time.time() - start_train
-
+            
     def save_pred(self, pred, true, data):
         root = os.path.join(self.FILE_PATH, cfg.out_dir, 'pred_record')
         os.makedirs(root, exist_ok=True)
@@ -180,3 +165,111 @@ class Trainer_embedding_LLM(Trainer):
                 pred_value = pred[idx]
                 true_value = true[idx]
                 f.write(f"{corresponding_node_ids[0].item()} {corresponding_node_ids[1].item()} {pred_value} {true_value}\n")
+                
+class Trainer_Triples(Trainer_embedding_LLM):
+    def __init__(self,
+                 FILE_PATH: str,
+                 cfg: CN,
+                 model: torch.nn.Module,
+                 optimizer: torch.optim.Optimizer,
+                 splits: Dict[str, Data],
+                 run: int,
+                 repeat: int,
+                 loggers: Dict[str, Logger],
+                 print_logger: None,
+                 batch_size=None,):
+        self.device = config_device(cfg).device
+        self.model = model.to(self.device)
+        self.model_name = cfg.model.type
+        self.data_name = cfg.data.name
+        self.FILE_PATH = FILE_PATH
+        self.epochs = cfg.train.epochs
+        self.run = run
+        self.repeat = repeat
+        self.loggers = loggers
+        self.print_logger = print_logger
+        self.batch_size = batch_size
+
+        self.splits = splits
+        
+        self.optimizer = optimizer
+        model_types = ['MLP-minilm','MLP-bert','MLP-llama','MLP-e5-large', 'MLP-tfidf', 'MLP-w2v']
+        self.test_func = {model_type: self._test for model_type in model_types}
+        self.evaluate_func = {model_type: self._evaluate for model_type in model_types}
+
+        self.evaluator_hit = Evaluator(name='ogbl-collab')
+        self.evaluator_mrr = Evaluator(name='ogbl-citation2')
+
+        self.run = run
+        self.repeat = repeat
+        self.results_rank = {}
+
+        self.name_tag = cfg.wandb.name_tag
+        self.run_result = {}
+
+        self.tensorboard_writer = writer
+        self.out_dir = cfg.out_dir
+        self.run_dir = cfg.run_dir
+
+        self.report_step = 100
+
+       
+        
+    def _train_mlp(self):
+        self.model.train()
+        total_loss = 0
+
+        train_loader = DataLoader(range(self.splits['train'][0].shape[0]), batch_size=self.batch_size, shuffle=True)
+        
+        for perm in train_loader:
+            train_label = self.splits['train'][1][perm]
+            train_data = self.splits['train'][0][perm]
+            
+            self.optimizer.zero_grad()
+            if type(train_data) == csr_matrix:
+                train_data = train_data.toarray()
+                
+            pos_out = self.model(torch.tensor(train_data[train_label == 1]).to(self.device))
+            pos_loss = -torch.log(pos_out + 1e-15).mean()
+
+            neg_out = self.model(torch.tensor(train_data[train_label == 0]).to(self.device))
+            neg_loss = -torch.log(1 - neg_out + 1e-15).mean()
+
+            loss = pos_loss + neg_loss
+            loss.backward()
+            self.optimizer.step()
+            total_loss += loss.item() * self.batch_size
+
+        return total_loss / self.splits['train'][1].shape[0]
+
+    @torch.no_grad()
+    def _evaluate(self, eval_data: Dict[str, torch.Tensor]):
+        
+        if type(eval_data[0]) == csr_matrix:
+            eval_data[0] = eval_data[0].toarray()
+            
+        self.model.eval()
+        preds = self.model(torch.tensor(eval_data[0]).to(self.device))
+        pos_pred = preds[eval_data[1] == 1].squeeze().cpu()
+        neg_pred = preds[eval_data[1] == 0].squeeze().cpu()
+        
+        result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_pred, neg_pred)
+        return result_mrr
+    
+
+    def merge_result_rank(self):
+        result_test = self.evaluate_func[self.model_name](self.splits['test'])
+        result_valid = self.evaluate_func[self.model_name](self.splits['valid'])
+        result_train = self.evaluate_func[self.model_name](self.splits['train'])
+
+        return {
+            key: (result_train[key], result_valid[key], result_test[key])
+            for key in result_test.keys()
+        }
+    
+    def finalize(self):
+        import time
+        for _ in range(1):
+            start_train = time.time()
+            self._evaluate(self.splits['test'])
+            self.run_result['eval_time'] = time.time() - start_train

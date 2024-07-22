@@ -27,15 +27,23 @@ module load compiler/gnu/12
 cd /hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/model_finetuning
 
 data="arxiv_2023"
-max_iter=10000
-# embedder="tfidf"
+max_iter=100
 embedder="w2v"
-# for iter in 1000 2000 10000; do
-#     echo "python mlp.py --data arxiv_2023 --decoder MLP --max_iter $iter"
-#     python mlp.py --data arxiv_2023 --decoder MLP --max_iter $iter
-# done
 
-#echo "python mlp.py --data $data --max_iter $max_iter --embedder $embedder"
-#python mlp.py --data $data --max_iter $max_iter --embedder $embedder
-echo "python lp_node_embed.py --data $data --embedder $embedder"
-python lp_node_embed.py --data $data --embedder $embedder
+decoders=("dot" "concat" "euclidean")
+devices=("cuda:2" "cuda:0" "cuda:1")
+
+
+for i in ${!decoders[@]}; do
+    decoder=${decoders[$i]}
+    device=${devices[$i]}
+    echo "python lp_node_embed.py --data $data --embedder $embedder --device $device --decoder $decoder"
+    python lp_node_embed.py --data $data --embedder $embedder --device $device --decoder $decoder --epoch $max_iter 
+done
+
+for i in ${!decoders[@]}; do
+    decoder=${decoders[$i]}
+    device=${devices[$i]}
+    echo "python lp_edge_embed.py --data $data --embedder $embedder --device $device "
+    python lp_edge_embed.py --data $data --embedder $embedder --device $device --epochs $max_iter
+done

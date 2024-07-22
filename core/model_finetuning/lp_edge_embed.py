@@ -9,40 +9,39 @@ from graph_embed.tune_utils import mvari_str2csv
 from ogb.linkproppred import Evaluator
 from sklearn.neural_network import MLPClassifier
 import argparse
-import wandb
 from torch_geometric import seed_everything
 from pdb import set_trace as st 
-import time 
-from yacs.config import CfgNode as CN
-from torch_geometric.graphgym.utils.comp_budget import params_count
-from graphgps.utility.utils import get_git_repo_root_path
-from graphgps.score.custom_score import LinkPredictor
 from graphgps.utility.utils import (
     set_cfg, parse_args, get_git_repo_root_path, run_loop_settings,
-    create_logger, set_printing
+    create_logger
 )
-from graphgps.utility.utils import save_run_results_to_csv
-from create_dataset import create_tfidf
+# from cuml.ensemble import RandomForestClassifier as cuRF
 from heuristic.eval import get_metric_score
-from data_utils.load import load_data_lp
-from graphgps.utility.utils import random_sampling, preprocess, get_average_embedding
-from graphgps.train.embedding_LLM_train import Trainer_embedding_LLM
 import nltk
+from graphgps.score.custom_score import LinkPredictor, mlp_decoder
 from nltk.tokenize import word_tokenize
-from sklearn.metrics import accuracy_score
 import re
 from gensim.models import Word2Vec
+from graphgps.utility.utils import (
+    set_cfg, parse_args, set_printing, 
+    random_sampling, preprocess, get_average_embedding
+)
+import time 
+from torch_geometric.graphgym.utils.comp_budget import params_count
+from data_utils.load import load_data_lp
+from create_dataset import process_texts, process_nodefeat, load_or_generate_datasets
+from sklearn.metrics import accuracy_score
 from sklearn.ensemble import RandomForestClassifier
-from create_dataset import process_texts, process_nodefeat, save_dataset, load_or_generate_datasets
-from graphgps.utility.utils import config_device
-
-"this script is used to train a link prediction based on dot, euclidean, concatenate distance followed by a MLP classifier"
+from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
+from graphgps.train.embedding_LLM_train import Trainer_Triples
+from graphgps.utility.utils import save_run_results_to_csv
+"this script aims to compare rf and mlp based on concatenated embeddings"
 FILE_PATH = f'{get_git_repo_root_path()}/'
 
 yaml_file = {   
              'tfidf': 'core/yamls/cora/lms/tfidf.yaml',
              'w2v': 'core/yamls/cora/lms/tfidf.yaml',
-             'original': 'core/yamls/cora/lms/tfidf.yaml'
             }
 
 split_index_data = {
@@ -50,11 +49,12 @@ split_index_data = {
     'cora': 1,
     'pubmed': 1,
     'arxiv_2023': 1,
-    'pwc_medium': 0.2,
-    'citationv8': 0.2,
-    'ogbn_arxiv': 0.2,
-    'pwc_large': 0.2
+    'pwc_medium': 0.5,
+    'citationv8': 0.5,
+    'ogbn_arxiv': 0.5,
+    'pwc_large': 0.5
 }
+
 
 class EmbeddingDataset(Dataset):
     def __init__(self, embeddings, labels):
@@ -78,46 +78,25 @@ def init_weights(m):
 def parse_args() -> argparse.Namespace:
     r"""Parses the command line arguments."""
     parser = argparse.ArgumentParser(description='GraphGym')
-    parser.add_argument('--data', dest='data', type=str, required=False,
-                        default='arxiv_2023',
+    parser.add_argument('--data', dest='data', type=str, required=True,
+                        default='cora',
                         help='data name')
     parser.add_argument('--device', dest='device', required=False, 
-                        help='device id', default='cpu')
-    parser.add_argument('--epoch', dest='epoch', type=int, required=False,
+                        help='device id')
+    parser.add_argument('--epochs', dest='epoch', type=int, required=False,
                         default=200,
                         help='data name')
     parser.add_argument('--embedder', dest='embedder', type=str, required=False,
-                        default='original',
+                        default='w2v',
                         help='word embedding method')
-    parser.add_argument('--decoder', dest='decoder', type=str, required=False,
-                        default='dot', choices=['concat', 'dot', 'euclidean'],
-                        help='word embedding method')
-    parser.add_argument('--score', dest='score', type=str, required=False, default='mlp_score',
-                        help='decoder name')
+    # parser.add_argument('--score', dest='score', type=str, required=False, default='mlp_score',
+    #                     help='score')
     parser.add_argument('--repeat', type=int, default=5,
                         help='The number of repeated jobs.')
     parser.add_argument('opts', default=None, nargs=argparse.REMAINDER,
                         help='See graphgym/config.py for remaining options.')
 
     return parser.parse_args()
-
-
-def get_metrics(clf, dataset, labels, evaluator_hit, evaluator_mrr):
-    # Predict and calculate accuracy
-    pred = clf.predict(dataset)
-    # labels = np.asarray(labels)
-    # acc = np.mean( labels== pred)
-    
-    # Calculate positive and negative predictions
-    y_pos_pred = torch.tensor(pred[labels == 1])
-    y_neg_pred = torch.tensor(pred[labels == 0])
-    
-    # Get additional metrics
-    metrics = get_metric_score(evaluator_hit, evaluator_mrr, y_pos_pred, y_neg_pred)
-    # metrics.update({'ACC': round(acc, 4)})
-    
-    return metrics
-
 
 def project_main(): 
     # process params
@@ -133,74 +112,84 @@ def project_main():
     cfg.device = args.device
     cfg.train.epochs = args.epoch
     cfg.embedder.type = args.embedder
-    cfg.decoder.type = args.decoder
-    cfg.data.scale = split_index_data[args.data]
 
+    writer = SummaryWriter()
+    cfg.run_dir = writer.log_dir
+    
+    cfg.data.scale = split_index_data[args.data]
+    
     loggers = create_logger(args.repeat)
     cfg.data.method = cfg.embedder.type
     print_logger = set_printing(cfg)
     
-    if args.embedder == 'original':
-        cfg.data.method = 'tfidf'
-        
-    splits, text, data = load_data_lp[cfg.data.name](cfg.data)
+    splits, text, _ = load_data_lp[cfg.data.name](cfg.data)
     splits = random_sampling(splits, cfg.data.scale)
+
+    if cfg.data.name in ['pwc_small', 'pwc_medium', 'pwc_large', 'citationv8']:
+        text = text['feat'].tolist()
     
-    tokenized_texts = [" ".join(preprocess(t)) for t in text]
+    train_data, train_labels = process_texts(splits['train'].pos_edge_label_index,
+                                             splits['train'].neg_edge_label_index, 
+                                             text)
+    val_data, val_labels = process_texts(splits['valid'].pos_edge_label_index,
+                                             splits['valid'].neg_edge_label_index, 
+                                             text)
+    test_data, test_labels = process_texts(splits['test'].pos_edge_label_index,
+                                             splits['test'].neg_edge_label_index, 
+                                             text)
     
+    start_time = time.time()
     if cfg.embedder.type == 'tfidf':
         from sklearn.feature_extraction.text import TfidfVectorizer
         vectorizer = TfidfVectorizer(max_features=128)
-        node_features = vectorizer.fit_transform(tokenized_texts)
+        train_triples = vectorizer.fit_transform(train_data)
+        val_triples = vectorizer.fit_transform(val_data)
+        test_triples = vectorizer.fit_transform(test_data)
     elif cfg.embedder.type == 'w2v':
-        model = Word2Vec(sentences=tokenized_texts, vector_size=128, window=5, min_count=1, workers=10)
-        node_features = np.array([get_average_embedding(text, model) for text in tokenized_texts])
+        model = Word2Vec(sentences=train_data+val_data+test_data, vector_size=128, window=5, min_count=1, workers=10)
+        train_triples = torch.tensor([get_average_embedding(text, model) for text in train_data])
+        val_triples = torch.tensor([get_average_embedding(text, model) for text in val_data])
+        test_triples = torch.tensor([get_average_embedding(text, model) for text in test_data])
     elif cfg.embedder.type == 'original':
-        node_features = data.x
-    
-    try:
-        node_features = torch.tensor(node_features.toarray())
-    except:
-        node_features = torch.tensor(node_features)
+        exit(-1)
         
-    print_logger.info(node_features.shape)
-    cfg = config_device(cfg)
+    data = {'train': (train_triples, train_labels),
+            'valid': (val_triples, val_labels),
+            'test': (test_triples, test_labels)}
+    
+    print(f"Embedding time: {time.time() - start_time}")
     
     for run_id, seed, split_index in zip(*run_loop_settings(cfg, args)):
-        set_printing(cfg)
-        print(f'run id : {run_id}, seed: {seed}, split_index: {split_index}')
         
+        print(f'run id : {run_id}, seed: {seed}, split_index: {split_index}')
         cfg.seed = seed
         cfg.run_id = run_id
         seed_everything(cfg.seed)
 
-        if cfg.decoder.type == 'concat':
-            model = LinkPredictor(node_features.shape[1]*2, 2**9, 1, 3, 0.1, cfg.decoder.type).to(cfg.device)
-        else: 
-            model = LinkPredictor(node_features.shape[1], 2**9, 1, 3, 0.1, cfg.decoder.type).to(cfg.device)
+        model = mlp_decoder(128, 2**9, 1, 3, 0.1)
             
         optimizer = torch.optim.Adam(params=model.parameters(), lr=cfg.optimizer.base_lr, weight_decay=cfg.optimizer.weight_decay)
-        
-        trainer = Trainer_embedding_LLM(FILE_PATH,
-                                        cfg,
-                                        model,
-                                        optimizer,
-                                        node_features,
-                                        splits,
-                                        run_id,
-                                        args.repeat,
-                                        loggers,
-                                        print_logger=print_logger,
-                                        batch_size=cfg.train.batch_size)
+        trainer = Trainer_Triples(FILE_PATH,
+                                cfg,
+                                model,
+                                optimizer,
+                                data,
+                                run_id,
+                                args.repeat,
+                                loggers,
+                                print_logger=print_logger,
+                                batch_size=cfg.train.batch_size)
 
 
         start = time.time()
         trainer.train()
         end = time.time()
         print('Training time: ', end - start)
-        save_run_results_to_csv(cfg, loggers, seed, run_id)
+        save_run_results_to_csv(cfg, trainer.loggers, seed, run_id)
+
 
     print('All runs:')
+
     result_dict = {}
     for key in loggers:
         print(key)
@@ -219,7 +208,7 @@ def project_main():
     acc_file = os.path.join(root, f'{cfg.data.name}_lm_mrr.csv')
     
     os.makedirs(root, exist_ok=True)
-    name_tag = cfg.wandb.name_tag = f'seperated_{cfg.data.name}_run{run_id}_{args.embedder}{args.decoder}{args.epoch}_{cfg.data.scale}'
+    name_tag = cfg.wandb.name_tag = f'combined_{cfg.data.name}_run{run_id}_{args.embedder}_nodecoder_{args.epoch}_{cfg.data.scale}'
     mvari_str2csv(name_tag, result_dict, acc_file)
     
     

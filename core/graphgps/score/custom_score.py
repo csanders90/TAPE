@@ -71,6 +71,39 @@ class mlp_score(torch.nn.Module):
         return torch.sigmoid(x)
     
 
+class mlp_decoder(torch.nn.Module):
+    def __init__(self, 
+                 in_channels, 
+                 hidden_channels, 
+                 out_channels, 
+                 num_layers,
+                 dropout):
+        super(mlp_decoder, self).__init__()
+
+        self.lins = torch.nn.ModuleList()
+        if num_layers == 1: 
+            self.lins.append(torch.nn.Linear(in_channels, out_channels))
+        else:
+            self.lins.append(torch.nn.Linear(in_channels, hidden_channels))
+            for _ in range(num_layers - 2):
+                self.lins.append(torch.nn.Linear(hidden_channels, hidden_channels))
+            self.lins.append(torch.nn.Linear(hidden_channels, out_channels))
+
+        self.dropout = dropout
+        
+    def reset_parameters(self):
+        for lin in self.lins:
+            lin.reset_parameters()
+
+    def forward(self, x):
+
+        for lin in self.lins[:-1]:
+            x = lin(x.float())
+            x = F.relu(x)
+            x = F.dropout(x, p=self.dropout, training=self.training)
+        x = self.lins[-1](x)
+        return torch.sigmoid(x)
+    
 class EuclideanDistance(nn.Module):
     def forward(self, x, y):
         return torch.sqrt(torch.sum((x - y) ** 2))

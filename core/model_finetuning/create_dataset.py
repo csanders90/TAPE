@@ -21,7 +21,7 @@ from torch_geometric.graphgym.config import dump_cfg, makedirs_rm_exist
 from data_utils.load import load_data_nc, load_data_lp
 from sklearn.feature_extraction.text import TfidfVectorizer
 from gensim.models import Word2Vec
-from typing import List 
+from typing import List, Tuple
 import scipy
 import argparse
 import time 
@@ -86,7 +86,8 @@ class EmbeddingDataset(Dataset):
     def __getitem__(self, idx):
         return self.embeddings[idx], self.labels[idx]
     
-def process_edges(pos_edge_index, neg_edge_index, text):
+
+def process_texts(pos_edge_index: torch.tensor, neg_edge_index: torch.tensor, text) -> Tuple[List[np.ndarray], np.ndarray]:
     dataset = []
     labels = []
     # Process positive edges
@@ -95,36 +96,7 @@ def process_edges(pos_edge_index, neg_edge_index, text):
         node2 = pos_edge_index[1, i].item()
         text1 = text[node1]
         text2 = text[node2]
-        embedding_text1 = get_embeddings(text1)
-        embedding_text2 = get_embeddings(text2)
-        combined_embedding = np.concatenate((embedding_text1, embedding_text2))
-        dataset.append(combined_embedding)
-        labels.append(1)
-
-    # Process negative edges
-    for i in tqdm(range(neg_edge_index.shape[1])):
-        node1 = neg_edge_index[0, i].item()
-        node2 = neg_edge_index[1, i].item()
-        text1 = text[node1]
-        text2 = text[node2]
-        embedding_text1 = get_embeddings(text1)
-        embedding_text2 = get_embeddings(text2)
-        combined_embedding = np.concatenate((embedding_text1, embedding_text2))
-        dataset.append(combined_embedding)
-        labels.append(0)
-    
-    return dataset, labels
-
-def process_texts(pos_edge_index, neg_edge_index, text):
-    dataset = []
-    labels = []
-    # Process positive edges
-    for i in tqdm(range(pos_edge_index.shape[1])):
-        node1 = pos_edge_index[0, i].item()
-        node2 = pos_edge_index[1, i].item()
-        text1 = text[node1]
-        text2 = text[node2]
-        combined_text = text1 + " " + text2
+        combined_text = text1 + "," + text2
         dataset.append(combined_text)
         labels.append(1)
 
@@ -134,11 +106,94 @@ def process_texts(pos_edge_index, neg_edge_index, text):
         node2 = neg_edge_index[1, i].item()
         text1 = text[node1]
         text2 = text[node2]
-        combined_text = text1 + " " + text2
+        combined_text = text1 + "," + text2
         dataset.append(combined_text)
         labels.append(0)
     
-    return dataset, labels
+    return dataset, np.array(labels)
+
+
+def process_nodefeat(pos_edge_index, neg_edge_index, text):
+    dataset = []
+    labels = []
+    
+    # Process positive edges
+    for i in tqdm(range(pos_edge_index.shape[1])):
+        node1 = pos_edge_index[0, i].item()
+        node2 = pos_edge_index[1, i].item()
+        text1 = text[node1].numpy()
+        text2 = text[node2].numpy()
+        combined_text = np.concatenate((text1, text2), axis=0)
+        dataset.append(combined_text)
+        labels.append(1)
+
+    # Process negative edges
+    for i in tqdm(range(neg_edge_index.shape[1])):
+        node1 = neg_edge_index[0, i].item()
+        node2 = neg_edge_index[1, i].item()
+        text1 = text[node1].numpy()
+        text2 = text[node2].numpy()
+        combined_text = np.concatenate((text1, text2), axis=0)
+        dataset.append(combined_text)
+        labels.append(0)
+    
+    return np.array(dataset), np.array(labels)
+
+
+def load_or_generate_datasets(splits, node_features, run_id, cfg):
+    
+
+    data_folder = 'generated_dataset/'
+    train_data_path = data_folder + f'train_data_{run_id}_{cfg.data.name}_{cfg.embedder.type}.pth'
+    train_labels_path = data_folder + f'train_labels_{run_id}_{cfg.data.name}_{cfg.embedder.type}.pth'
+    val_data_path = data_folder + f'val_data_{run_id}_{cfg.data.name}_{cfg.embedder.type}.pth'
+    val_labels_path = data_folder + f'val_labels_{run_id}_{cfg.data.name}_{cfg.embedder.type}.pth'
+    test_data_path = data_folder + f'test_data_{run_id}_{cfg.data.name}_{cfg.embedder.type}.pth'
+    test_labels_path = data_folder + f'test_labels_{run_id}_{cfg.data.name}_{cfg.embedder.type}.pth'
+
+
+    if (os.path.exists(train_data_path) and os.path.exists(train_labels_path) and
+        os.path.exists(val_data_path) and os.path.exists(val_labels_path) and
+        os.path.exists(test_data_path) and os.path.exists(test_labels_path)):
+        
+        start_time = time.time()
+        train_dataset = torch.load(train_data_path)
+        train_labels = torch.load(train_labels_path)
+        val_dataset = torch.load(val_data_path)
+        val_labels = torch.load(val_labels_path)
+        test_dataset = torch.load(test_data_path)
+        test_labels = torch.load(test_labels_path)
+        print(f"Time taken to load the dataset: {time.time() - start_time}")
+        
+    else:
+        train_dataset, train_labels = process_nodefeat(
+            splits['train'].pos_edge_label_index, 
+            splits['train'].neg_edge_label_index, 
+            node_features
+        )
+        val_dataset, val_labels = process_nodefeat(
+            splits['valid'].pos_edge_label_index, 
+            splits['valid'].neg_edge_label_index, 
+            node_features
+        )
+        test_dataset, test_labels = process_nodefeat(
+            splits['test'].pos_edge_label_index, 
+            splits['test'].neg_edge_label_index, 
+            node_features
+        )
+        
+        os.makedirs(data_folder, exist_ok=True)
+        torch.save(train_dataset, train_data_path)
+        torch.save(train_labels, train_labels_path)
+        torch.save(val_dataset, val_data_path)
+        torch.save(val_labels, val_labels_path)
+        torch.save(test_dataset, test_data_path)
+        torch.save(test_labels, test_labels_path)
+
+    return train_dataset, train_labels, val_dataset, val_labels, test_dataset, test_labels
+
+
+
 
 def save_dataset(embedding_model_name, cfg, args):
     # create dataset with 3 seeds
