@@ -6,7 +6,7 @@ import transformers
 import wandb
 from sentence_transformers import SentenceTransformer
 from torch import Tensor, nn
-from transformers import BertTokenizer, BertModel
+from transformers import BertTokenizer, BertModel, AutoTokenizer, AutoModel
 from tqdm import tqdm
 import logging
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -22,9 +22,10 @@ from graphgps.utility.utils import set_cfg, get_git_repo_root_path, custom_set_r
 from torch_geometric.graphgym.utils.comp_budget import params_count
 from data_utils.load import load_data_lp, load_graph_lp
 from graphgps.train.embedding_LLM_train import Trainer_embedding_LLM
-from graphgps.utility.utils import save_run_results_to_csv
+from graphgps.utility.utils import save_run_results_to_csv, random_sampling
 from graphgps.config import dump_run_cfg
 
+from graphgps.score.custom_score import LinkPredictor
 
 def average_pool(last_hidden_states: Tensor,
                  attention_mask: Tensor) -> Tensor:
@@ -42,6 +43,8 @@ def parse_args() -> argparse.Namespace:
                         help='The number of repeated jobs.')
     parser.add_argument('--start_seed', type=int, default=0,
                         help='The number of starting seed.')
+    parser.add_argument('--downsampling', type=float, default=1,
+                        help='Downsampling rate.')
     parser.add_argument('--device', dest='device', required=True,
                         help='device id')
     parser.add_argument('--epochs', dest='epoch', type=int, required=True,
@@ -56,31 +59,6 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-class LinkPredictor(torch.nn.Module):
-    def __init__(self, in_channels, hidden_channels, out_channels, num_layers,
-                 dropout):
-        super(LinkPredictor, self).__init__()
-
-        self.lins = torch.nn.ModuleList()
-        self.lins.append(torch.nn.Linear(in_channels, hidden_channels))
-        for _ in range(num_layers - 2):
-            self.lins.append(torch.nn.Linear(hidden_channels, hidden_channels))
-        self.lins.append(torch.nn.Linear(hidden_channels, out_channels))
-
-        self.dropout = dropout
-
-    def reset_parameters(self):
-        for lin in self.lins:
-            lin.reset_parameters()
-
-    def forward(self, x_i, x_j):
-        x = x_i * x_j
-        for lin in self.lins[:-1]:
-            x = lin(x)
-            x = F.relu(x)
-            x = F.dropout(x, p=self.dropout, training=self.training)
-        x = self.lins[-1](x)
-        return torch.sigmoid(x)
 
 if __name__ == '__main__':
     FILE_PATH = f'{get_git_repo_root_path()}/'
@@ -103,32 +81,58 @@ if __name__ == '__main__':
 
 
     splits, text, data = load_data_lp[cfg.data.name](cfg.data)
-    if cfg.embedder.type == 'minilm':
-        model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2', device=cfg.device)
-        node_features = model.encode(text, batch_size=256)
-    elif cfg.embedder.type == 'e5-large':
-        model = SentenceTransformer('intfloat/e5-large-v2', device=cfg.device)
-        node_features = model.encode(text, normalize_embeddings=True, batch_size=256)
-    elif cfg.embedder.type == 'llama':
-        model_id = "meta-llama/Meta-Llama-3-8B"
-        pipeline = transformers.pipeline(
-            "text-generation", model=model_id, model_kwargs={"torch_dtype": torch.bfloat16}, device_map="auto"
-        )
-        node_features = pipeline(text)
-    elif cfg.embedder.type == 'bert':
-        tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-        model = BertModel.from_pretrained("bert-base-uncased").to(cfg.device)
-        node_features = []
-        batch_size = 256  # Adjust batch size as needed to avoid OOM errors
-        for i in range(0, len(text), batch_size):
-            batch_texts = text[i:i + batch_size]
-            encoded_input = tokenizer(batch_texts, return_tensors='pt', padding=True, truncation=True,
-                                      max_length=512).to(cfg.device)
-            with torch.no_grad():
-                outputs = model(**encoded_input)
-                batch_features = outputs.pooler_output
-                node_features.append(batch_features)
-        node_features = torch.cat(node_features, dim=0)
+    splits = random_sampling(splits, args.downsampling)
+
+    saved_features_path = './' + cfg.embedder.type + cfg.data.name+ 'saved_node_features.pt'
+    if os.path.exists(saved_features_path):
+        node_features = torch.load(saved_features_path)
+    else:
+        if cfg.embedder.type == 'minilm':
+            model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2', device=cfg.device)
+            node_features = model.encode(text, batch_size=256)
+        elif cfg.embedder.type == 'e5-large':
+            model = SentenceTransformer('intfloat/e5-large-v2', device=cfg.device)
+            node_features = model.encode(text, normalize_embeddings=True, batch_size=256)
+        elif cfg.embedder.type == 'llama':
+            from huggingface_hub import HfFolder
+            token = os.getenv("HUGGINGFACE_HUB_TOKEN")
+            HfFolder.save_token(token)
+            model_id = "meta-llama/Meta-Llama-3-8B"
+            tokenizer = AutoTokenizer.from_pretrained(model_id)
+            tokenizer.pad_token = tokenizer.eos_token
+            model = AutoModel.from_pretrained(
+                model_id,
+                torch_dtype=torch.bfloat16,
+                device_map="auto",
+            )
+            node_features = []
+            batch_size = 64
+            for i in range(0, len(text), batch_size):
+                batch_texts = text[i:i + batch_size]
+                encoded_input = tokenizer(batch_texts, return_tensors='pt', padding=True, truncation=True,
+                                          max_length=512).to(cfg.device)
+                with torch.no_grad():
+                    outputs = model(**encoded_input)
+                    batch_features = outputs.last_hidden_state
+                    batch_features = torch.mean(batch_features, dim=1)
+                    node_features.append(batch_features)
+            node_features = torch.cat(node_features, dim=0)
+            node_features = node_features.to(torch.float32)
+        elif cfg.embedder.type == 'bert':
+            tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+            model = BertModel.from_pretrained("bert-base-uncased").to(cfg.device)
+            node_features = []
+            batch_size = 256
+            for i in range(0, len(text), batch_size):
+                batch_texts = text[i:i + batch_size]
+                encoded_input = tokenizer(batch_texts, return_tensors='pt', padding=True, truncation=True,
+                                          max_length=512).to(cfg.device)
+                with torch.no_grad():
+                    outputs = model(**encoded_input)
+                    batch_features = outputs.pooler_output
+                    node_features.append(batch_features)
+            node_features = torch.cat(node_features, dim=0)
+        torch.save(node_features, saved_features_path)
     node_features = torch.tensor(node_features)
     print(node_features.shape)
 
@@ -149,7 +153,7 @@ if __name__ == '__main__':
             cfg.train.batch_size = batch_size
 
 
-            model = LinkPredictor(node_features.shape[1], cfg.model.hidden_channels, 1, cfg.model.num_layers, cfg.model.dropout)
+            model = LinkPredictor(node_features.shape[1], cfg.model.hidden_channels, 1, cfg.model.num_layers, cfg.model.dropout, 'dot')
             optimizer = torch.optim.Adam(params=model.parameters(), lr=cfg.optimizer.base_lr, weight_decay=cfg.optimizer.weight_decay)
             logging.info(f"{model} on {next(model.parameters()).device}")
             logging.info(cfg)

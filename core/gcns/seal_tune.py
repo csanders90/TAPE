@@ -19,7 +19,7 @@ from torch_geometric.graphgym.utils.device import auto_select_device
 import scipy.sparse as ssp
 from graphgps.utility.utils import set_cfg, parse_args, get_git_repo_root_path, custom_set_run_dir, set_printing, run_loop_settings, \
           create_optimizer, config_device,  create_logger, custom_set_out_dir
-from data_utils.load_data_nc import load_graph_cora, load_graph_pubmed, load_tag_arxiv23, load_graph_ogbn_arxiv
+from data_utils.load import load_data_lp
 from graphgps.encoder.seal import get_pos_neg_edges, extract_enclosing_subgraphs, k_hop_subgraph, construct_pyg_graph, do_edge_split
 from graphgps.config import (dump_cfg, dump_run_cfg)
 from graphgps.train.seal_train import Trainer_SEAL
@@ -42,7 +42,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
                         default='core/yamls/cora/gcns/gae_sp1.yaml',
                         help='The configuration file path.')
-    parser.add_argument('--data', dest='data', type=str, required=True,
+    parser.add_argument('--data', dest='data', type=str, required=False,
                         default='pubmed',
                         help='data name')
     parser.add_argument('--batch_size', dest='bs', type=int, required=False,
@@ -53,14 +53,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--epochs', dest='epoch', type=int, required=True,
                         default=400,
                         help='data name')
-    parser.add_argument('--model', dest='model', type=str, required=True,
-                        default='GCN_Variant',
-                        help='model name')
     parser.add_argument('--score', dest='score', type=str, required=False, default='mlp_score',
                         help='decoder name')
     parser.add_argument('--wandb', dest='if_wandb', required=False, 
                         help='data name')
-    parser.add_argument('--repeat', type=int, default=3,
+    parser.add_argument('--repeat', type=int, default=1,
                         help='The number of repeated jobs.')
     parser.add_argument('--mark_done', action='store_true',
                         help='Mark yaml as done after a job has finished.')
@@ -100,15 +97,7 @@ def project_main():
 
         cfg = config_device(cfg)
 
-        if cfg.data.name == 'pubmed':
-            data = load_graph_pubmed(False)
-        elif cfg.data.name == 'cora':
-            data, _ = load_graph_cora(False)
-        elif cfg.data.name == 'arxiv_2023':
-            data, _ = load_tag_arxiv23()
-        elif cfg.data.name == 'ogbn-arxiv':
-            data = load_graph_ogbn_arxiv(False)
-        splits = do_edge_split(copy.deepcopy(data), cfg.data.val_pct, cfg.data.test_pct)
+        splits, text, data = load_data_lp[cfg.data.name](cfg.data)
         path = f'{os.path.dirname(__file__)}/seal_{cfg.data.name}'
         dataset = {
             'train': SEALDataset(
@@ -144,7 +133,7 @@ def project_main():
             f"The {cfg['data']['name']} graph {dataset['train'].data.x.shape[0]} is loaded on {dataset['train'].data.x.device}, \n Train: {2 * dataset['train'].data['edge_index'].shape[1]} samples,\n Valid: {2 * dataset['valid'].data['edge_index'].shape[1]} samples,\n Test: {2 * dataset['test'].data['edge_index'].shape[1]} samples")
         dump_cfg(cfg)
 
-        hyperparameter_search = {'hidden_channels': [32, 64, 128, 256],
+        hyperparameter_search = {'hidden_channels': [64, 128, 256],
                                  "batch_size": [32, 64, 128, 256], "lr": [0.001, 0.0001]}
 
         print_logger.info(f"hypersearch space: {hyperparameter_search}")
@@ -177,15 +166,14 @@ def project_main():
             trainer = Trainer_SEAL(FILE_PATH,
                                    cfg,
                                    model,
-                                   None,
                                    optimizer,
+                                   data,
                                    dataset,
                                    run_id,
                                    args.repeat,
                                    loggers,
                                    print_logger,
-                                   cfg.device,
-                                   args.if_wandb)
+                                   batch_size)
 
             trainer.train()
 

@@ -17,8 +17,6 @@ from graphgps.utility.utils import set_cfg, get_git_repo_root_path, custom_set_r
     create_optimizer, config_device, \
     create_logger, save_run_results_to_csv
 
-from torch_geometric.data import InMemoryDataset, Dataset
-from data_utils.load_data_nc import load_graph_cora, load_graph_pubmed, load_tag_arxiv23, load_graph_ogbn_arxiv
 import scipy.sparse as ssp
 
 from graphgps.network.neognn import NeoGNN, LinkPredictor
@@ -67,12 +65,10 @@ def ngnn_dataset(splits):
         data.num_nodes = data.x.shape[0]
         data.edge_weight = None
         data.adj_t = SparseTensor.from_edge_index(edge_index, sparse_sizes=(data.num_nodes, data.num_nodes))
-        data.emb = torch.nn.Embedding(data.num_nodes, cfg.model.hidden_channels)
+        data.emb = data.x
         edge_weight = torch.ones(edge_index.size(1), dtype=float)
         edge_index = edge_index.cpu()
         edge_weight = edge_weight.cpu()
-        data.A = ssp.csr_matrix((edge_weight, (edge_index[0], edge_index[1])),
-                           shape=(data.num_nodes, data.num_nodes))
         data.A = ssp.csr_matrix((edge_weight, (edge_index[0], edge_index[1])),
                            shape=(data.num_nodes, data.num_nodes))
         A2 = data.A * data.A
@@ -116,16 +112,15 @@ if __name__ == "__main__":
         path = f'{os.path.dirname(__file__)}/neognn_{cfg.data.name}'
         dataset = {}
 
-        model = NeoGNN(cfg.model.hidden_channels, cfg.model.hidden_channels,
+        model = NeoGNN(data.x.shape[1], cfg.model.hidden_channels,
                        cfg.model.hidden_channels, cfg.model.num_layers,
                        cfg.model.dropout, args=cfg.model)
 
         predictor = LinkPredictor(cfg.model.hidden_channels, cfg.model.hidden_channels, 1,
-                                  cfg.model.num_layers, cfg.model.dropout)
+                                  cfg.model.mlp_num_layers, cfg.model.dropout)
 
         optimizer = torch.optim.Adam(
-            list(model.parameters()) + list(splits['train'].emb.parameters()) +
-            list(predictor.parameters()), lr=cfg.optimizer.lr, weight_decay=cfg.optimizer.weight_decay)
+            list(model.parameters()) + list(predictor.parameters()), lr=cfg.optimizer.lr, weight_decay=cfg.optimizer.weight_decay)
 
         # Execute experiment
         trainer = Trainer_NeoGNN(FILE_PATH,
