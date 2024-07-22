@@ -94,5 +94,5 @@ core/batch
 /results
 
 .env
-/core/embedding_finetuning/models/
-/core/model_finetuning/data/
+/core/embedding_mlp/models/
+/core/embedding_mlp/data/
