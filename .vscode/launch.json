@@ -15,13 +15,13 @@
 			"python.tensorboard.logDirectory": "/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/gcns/runs", 
 			"args": [
 				"--data",
-				"cora",
+				"arxiv_2023",
 				// "--device",
 				// "cpu",
-				// "--epochs",
-				// "100",
+				"--epoch",
+				"100",
 				"--embedder",
-				"tfidf"
+				"w2v"
 			],
 		}
 	]

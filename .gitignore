@@ -96,3 +96,5 @@ core/batch
 .env
 /core/embedding_finetuning/models/
 /core/model_finetuning/data/
+*/runs
+**/runs

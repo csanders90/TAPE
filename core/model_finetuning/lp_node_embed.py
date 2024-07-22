@@ -144,6 +144,7 @@ def project_main():
         cfg.data.method = 'tfidf'
         
     splits, text, data = load_data_lp[cfg.data.name](cfg.data)
+    print(f"{cfg.data.name}: num of nodes {data.num_nodes}")
     splits = random_sampling(splits, cfg.data.scale)
     
     tokenized_texts = [" ".join(preprocess(t)) for t in text]

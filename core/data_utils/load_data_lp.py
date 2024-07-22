@@ -36,23 +36,24 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from nltk.tokenize import word_tokenize
 from gensim.models import Word2Vec
 from tqdm import tqdm 
-
+from lpda.lcc_3 import use_lcc
 FILE = 'core/dataset/ogbn_products_orig/ogbn-products.csv'
 FILE_PATH = get_git_repo_root_path() + '/'
 
 
 # arxiv_2023
 def load_taglp_arxiv2023(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
-    # add one default argument
-
 
     data, text = load_tag_arxiv23()
     data.edge_index, _ = coalesce(data.edge_index, None, num_nodes=data.num_nodes)
     data.edge_index, _ = remove_self_loops(data.edge_index)
+    print(f"original num of nodes: {data.num_nodes}")
+    data, _, _ = use_lcc(data)
     if data.is_directed() is True:
         data.edge_index = to_undirected(data.edge_index)
         undirected = True
-        
+    
+    
     splits = get_edge_split(data,
                             undirected,
                             cfg.device,
