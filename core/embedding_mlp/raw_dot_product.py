@@ -15,8 +15,13 @@ from graphgps.utility.utils import get_git_repo_root_path, config_device
 from heuristic.eval import get_metric_score
 from data_utils.load import load_data_nc, load_data_lp
 from graph_embed.tune_utils import parse_args, param_tune_acc_mrr 
+<<<<<<<< HEAD:core/embedding_mlp/raw_dot_product.py
 from graphgps.utility.utils import get_git_repo_root_path, append_acc_to_excel, append_mrr_to_excel, set_cfg
 from model_finetuning.adj import construct_sparse_adj, plot_coo_matrix, plot_pos_neg_adj
+========
+from core.graphgps.utility.utils import get_git_repo_root_path, append_acc_to_excel, append_mrr_to_excel, set_cfg
+from core.embedding_mlp.adj import construct_sparse_adj, plot_coo_matrix, plot_pos_neg_adj
+>>>>>>>> d594c64 (move the location of embedding files):core/embedding_mlp/mlp_dot_product.py
 
 method = 'nonlinear_mlp'
     

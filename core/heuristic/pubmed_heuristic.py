@@ -12,7 +12,7 @@ from torch_geometric.transforms import RandomLinkSplit
 import pandas as pd
 from torch_geometric.data import Data, InMemoryDataset
 import matplotlib.pyplot as plt
-from core.model_finetuning.adj import construct_sparse_adj, plot_coo_matrix, plot_pos_neg_adj
+from core.embedding_mlp.adj import construct_sparse_adj, plot_coo_matrix, plot_pos_neg_adj
 import scipy.sparse as ssp
 
 from heuristic.lsf import CN, AA, RA, InverseRA

@@ -2,7 +2,11 @@ import copy
 import os, sys
 import gc
 import transformers
+from matplotlib import pyplot as plt
 from sentence_transformers import SentenceTransformer
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
+import seaborn as sns
 from torch import Tensor, nn
 from transformers import BertTokenizer, BertModel, AutoTokenizer, AutoModel
 
@@ -22,6 +26,7 @@ from graphgps.train.embedding_LLM_train import Trainer_embedding_LLM
 from graphgps.utility.utils import save_run_results_to_csv, random_sampling
 from graphgps.utility.utils import random_sampling
 from graphgps.score.custom_score import LinkPredictor
+from data_utils.remap_and_visualize import remap_node_indices
 
 
 def average_pool(last_hidden_states: Tensor,
@@ -46,8 +51,6 @@ def parse_args() -> argparse.Namespace:
                         help='device id')
     parser.add_argument('--downsampling', type=float, default=1,
                         help='Downsampling rate.')
-    parser.add_argument('--epochs', dest='epoch', type=int, required=False,
-                        default=1000)
     parser.add_argument('--mark_done', action='store_true',
                         help='Mark yaml as done after a job has finished.')
     parser.add_argument('opts', default=None, nargs=argparse.REMAINDER,
@@ -65,7 +68,6 @@ if __name__ == '__main__':
     cfg.data.device = args.device
     cfg.model.device = args.device
     cfg.device = args.device
-    cfg.train.epochs = args.epoch
     args.data = cfg.data.name
 
     torch.set_num_threads(cfg.num_threads)
@@ -74,6 +76,7 @@ if __name__ == '__main__':
     loggers = create_logger(args.repeat)
     cfg.device = args.device
     splits, text, data = load_data_lp[cfg.data.name](cfg.data)
+    data, splits = remap_node_indices(data, splits)
     splits = random_sampling(splits, args.downsampling)
 
     saved_features_path = './' + cfg.embedder.type + cfg.data.name + 'saved_node_features.pt'
@@ -130,55 +133,29 @@ if __name__ == '__main__':
     node_features = torch.tensor(node_features)
     print(node_features.shape)
 
-    for run_id in range(args.repeat):
-        seed = run_id + args.start_seed
-        custom_set_run_dir(cfg, run_id)
-        set_printing(cfg)
-        print_logger = set_printing(cfg)
-        cfg.seed = seed
-        cfg.run_id = run_id
-        seed_everything(cfg.seed)
-        cfg = config_device(cfg)
+    '''tsne = TSNE(n_components=2)
+    embeddings_2d = tsne.fit_transform(node_features)
+    print('tsne done')
+    pca = PCA(n_components=2)
+    embeddings_pca = pca.fit_transform(node_features)
+    print('pca done')
+    plt.figure(figsize=(10, 5))
+    plt.subplot(1, 2, 1)
+    sns.scatterplot(x=embeddings_2d[:, 0], y=embeddings_2d[:, 1])
+    plt.title("t-SNE")
+    plt.subplot(1, 2, 2)
+    sns.scatterplot(x=embeddings_pca[:, 0], y=embeddings_pca[:, 1])
+    plt.title("PCA")
+    plt.show()'''
+    import plotly.express as px
+    import plotly.graph_objects as go
 
-        print_logger.info("start training")
-        print_logger.info(node_features.shape)
-        print(cfg.data.name)
+    heatmap_data = go.Heatmap(z=node_features, colorscale='Viridis')
 
-        model = LinkPredictor(node_features.shape[1], cfg.model.hidden_channels, 1, cfg.model.num_layers,
-                              cfg.model.dropout, 'dot')
-        optimizer = torch.optim.Adam(params=model.parameters(), lr=cfg.optimizer.base_lr,
-                                     weight_decay=cfg.optimizer.weight_decay)
-        trainer = Trainer_embedding_LLM(FILE_PATH,
-                                        cfg,
-                                        model,
-                                        optimizer,
-                                        node_features,
-                                        splits,
-                                        run_id,
-                                        args.repeat,
-                                        loggers,
-                                        print_logger=print_logger,
-                                        batch_size=cfg.train.batch_size)
-
-        start = time.time()
-        trainer.train()
-        end = time.time()
-        print('Training time: ', end - start)
-        save_run_results_to_csv(cfg, loggers, seed, run_id)
-
-    print('All runs:')
-
-    result_dict = {}
-    for key in loggers:
-        print(key)
-        _, _, _, valid_test, _, _ = trainer.loggers[key].calc_all_stats()
-        result_dict[key] = valid_test
-
-    trainer.save_result(result_dict)
-
-    cfg.model.params = params_count(model)
-    print_logger.info(f'Num parameters: {cfg.model.params}')
-    trainer.finalize()
-    print_logger.info(f"Inference time: {trainer.run_result['eval_time']}")
-
-
+    layout = go.Layout(
+        title="Feature Visualization",
+        xaxis_title="Feature Dimension",
+        yaxis_title="Node Index"
+    )
+    fig = go.Figure(data=[heatmap_data], layout=layout)
+    fig.show()

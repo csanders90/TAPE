@@ -6,7 +6,7 @@ import numpy as np
 import scipy.sparse as ssp
 import torch
 import matplotlib.pyplot as plt
-from core.model_finetuning.adj import plot_coo_matrix, construct_sparse_adj
+from core.embedding_mlp.adj import plot_coo_matrix, construct_sparse_adj
 from ogb.linkproppred import Evaluator
 from heuristic.eval import get_metric_score
 from graph_embed.ge.models import Node2Vec
