@@ -16,7 +16,7 @@ from heuristic.eval import get_metric_score
 from data_utils.load import load_data_nc, load_data_lp
 from graph_embed.tune_utils import parse_args, param_tune_acc_mrr 
 from graphgps.utility.utils import get_git_repo_root_path, append_acc_to_excel, append_mrr_to_excel, set_cfg
-from model_finetuning.adj import construct_sparse_adj, plot_coo_matrix, plot_pos_neg_adj
+from core.data_utils.graph_stats import construct_sparse_adj, plot_coo_matrix, plot_pos_neg_adj
 
 method = 'nonlinear_mlp'
     

@@ -25,7 +25,7 @@ from tqdm import tqdm
 import timeit 
 import time 
 import pandas as pd 
-from lpda.lcc_3 import use_lcc, get_largest_connected_component
+from core.data_utils.lcc_3 import use_lcc, get_largest_connected_component
 import networkx as nx
 from torch_geometric.utils import to_undirected 
 from torch_geometric.data import Data

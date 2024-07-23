@@ -15,7 +15,7 @@ from torch_geometric.datasets import Planetoid
 from torch_geometric.transforms import RandomLinkSplit
 from graphgps.utility.utils import get_git_repo_root_path # type: ignore
 from typing import Tuple, List, Dict, Set, Any 
-from lpda.lcc_3 import use_lcc
+from core.data_utils.lcc_3 import use_lcc
 import torch_geometric.utils as pyg_utils
 import networkx as nx 
 
@@ -368,7 +368,7 @@ def load_tag_pubmed(use_mask) -> Tuple[Data, List[str]]:
 
 def load_text_ogbn_arxiv():
     nodeidx2paperid = pd.read_csv(
-        'core/dataset/ogbn_arixv_orig/mapping/nodeidx2paperid.csv.gz', compression='gzip')
+        FILE_PATH + 'core/dataset/ogbn_arixv_orig/mapping/nodeidx2paperid.csv.gz', compression='gzip')
 
     tsv_path = FILE_PATH + 'core/dataset/ogbn_arixv_orig/titleabs.tsv'
     raw_text = pd.read_csv(tsv_path,

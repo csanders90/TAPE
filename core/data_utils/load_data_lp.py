@@ -30,13 +30,13 @@ from data_utils.load_data_nc import load_tag_cora, load_tag_pubmed, \
 from graphgps.utility.utils import get_git_repo_root_path, config_device, init_cfg_test
 from typing import Dict, Tuple, List, Union
 import torch
-from lpda.lcc_3 import find_scc_direc, use_lcc_direc
+from core.data_utils.lcc_3 import find_scc_direc, use_lcc_direc
 import re
 from sklearn.feature_extraction.text import TfidfVectorizer
 from nltk.tokenize import word_tokenize
 from gensim.models import Word2Vec
 from tqdm import tqdm 
-from lpda.lcc_3 import use_lcc
+from core.data_utils.lcc_3 import use_lcc
 import pandas as pd
 from nltk.tokenize import word_tokenize
 import nltk
@@ -393,7 +393,7 @@ if __name__ == '__main__':
     # List of datasets to process
     # 'pwc_small', 'cora', 'pubmed', 'arxiv_2023', 'pwc_medium', 'pwc_large', 'obgn-arxiv', 'citationv8'
     # datasets = ['pwc_small', 'cora', 'pubmed', 'arxiv_2023', 'pwc_medium', 'pwc_large', 'obgn-arxiv', 'citationv8']
-    datasets = ['pwc_small', 'cora', 'pubmed', 'arxiv_2023', 'pwc_medium', 'pwc_large', 'ogbn-arxiv', 'citationv8']
+    datasets = ['pwc_small', 'cora', 'pubmed', 'arxiv_2023', 'pwc_medium', 'pwc_large']
     # Initialize an empty DataFrame to store statistics for all datasets
     all_stats_df = []
     
@@ -487,7 +487,7 @@ if __name__ == '__main__':
     data.x = x
     torch.save(data, f'citationv8_{args.data.method}.pt')
     exit(-1)
-    from lpda.lcc_3 import use_lcc
+    from core.data_utils.lcc_3 import use_lcc
     splits, text, data = load_taglp_pwc_small(args.data)
     print(splits)
     print(text.iloc[0])

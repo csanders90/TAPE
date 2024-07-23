@@ -9,7 +9,7 @@ from data_utils.dataset import CustomPygDataset, CustomLinkDataset
 from heuristic.lsf import CN, AA, RA, InverseRA
 from heuristic.gsf import Ben_PPR, shortest_path, katz_apro, katz_close , SymPPR
 import matplotlib.pyplot as plt
-from core.model_finetuning.adj import construct_sparse_adj, plot_coo_matrix, plot_pos_neg_adj
+from core.data_utils.graph_stats import construct_sparse_adj, plot_coo_matrix, plot_pos_neg_adj
 import scipy.sparse as ssp
 
 from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
