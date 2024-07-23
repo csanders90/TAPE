@@ -5,8 +5,7 @@ import numpy as np
 from torch_geometric.data import Data, InMemoryDataset
 import torch
 from torch_sparse.tensor import SparseTensor
-from ogb.nodeproppred.dataset_pyg import PygNodePropPredDataset
-from ogb.linkproppred.dataset_pyg import PygLinkPropPredDataset
+from ogb.nodeproppred.dataset_pyg import PygNodePropPredDataset, PygLinkPropPredDataset
 from scipy.sparse import coo_matrix
 from tqdm import tqdm 
 from typing import List

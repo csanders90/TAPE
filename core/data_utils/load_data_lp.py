@@ -3,19 +3,30 @@ import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import torch
 import pandas as pd
-from graphgps.utility.utils import get_git_repo_root_path
 from typing import Dict
 import numpy as np
 import scipy.sparse as ssp
 import json
+import pandas as pd
+from nltk.tokenize import word_tokenize
+import nltk
+import matplotlib.pyplot as plt
+import seaborn as sns
 import torch_geometric.transforms as T
 from torch_geometric.data import Data
 from torch_geometric.transforms import RandomLinkSplit
 from torch_geometric.utils import to_undirected, coalesce, remove_self_loops
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
-
 from yacs.config import CfgNode as CN
+from typing import Dict, Tuple, List, Union
+import torch
+import re
+from sklearn.feature_extraction.text import TfidfVectorizer
+from nltk.tokenize import word_tokenize
+from gensim.models import Word2Vec
+from tqdm import tqdm 
+import time
 from data_utils.dataset import CustomLinkDataset
 from data_utils.load_data_nc import load_tag_cora, load_tag_pubmed, \
     load_tag_product, load_tag_ogbn_arxiv, load_tag_product, \
@@ -26,27 +37,9 @@ from data_utils.load_data_nc import load_tag_cora, load_tag_pubmed, \
     load_graph_citeseer, load_graph_citationv8, load_graph_pwc_large, load_text_pwc_large, \
     load_graph_pwc_medium, load_text_pwc_medium, load_text_pwc_small,  load_graph_pwc_small, \
     load_embedded_citationv8
-    
+from data_utils.lcc import use_lcc
 from graphgps.utility.utils import get_git_repo_root_path, config_device, init_cfg_test
-from typing import Dict, Tuple, List, Union
-import torch
-from core.data_utils.lcc_3 import find_scc_direc, use_lcc_direc
-import re
-from sklearn.feature_extraction.text import TfidfVectorizer
-from nltk.tokenize import word_tokenize
-from gensim.models import Word2Vec
-from tqdm import tqdm 
-from core.data_utils.lcc_3 import use_lcc
-import pandas as pd
-from nltk.tokenize import word_tokenize
-import nltk
-import matplotlib.pyplot as plt
-import seaborn as sns
-import pandas as pd
-import nltk
-from nltk.tokenize import word_tokenize
-import matplotlib.pyplot as plt
-import seaborn as sns
+from data_utils.lcc import find_scc_direc, use_lcc_direc
 
 
 FILE = 'core/dataset/ogbn_products_orig/ogbn-products.csv'
@@ -185,7 +178,6 @@ def load_taglp_product(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
                             )
     return splits, text, data
 
-import time
 def time_function(func):
     def wrapper(*args, **kwargs):
         start_time = time.time()
@@ -288,6 +280,7 @@ def load_taplp_pwc_large(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
                             )
     return splits, df, data
 
+
 def load_taglp_pwc_medium(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
     if hasattr(cfg, 'method'):
         pass
@@ -344,7 +337,6 @@ def load_taglp_pwc_small(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
     return splits, text, data
 
 
-
 def preprocess(text):
     # Remove non-alphanumeric characters
     text = re.sub(r'\W+', ' ', text)
@@ -361,6 +353,7 @@ def get_average_embedding(text, model):
     else:
         # Return a zero vector if none of the tokens are in the vocabulary
         return np.zeros(model.vector_size)
+
 
 def load_text_benchmark(data_name: str) -> pd.DataFrame:
     if  data_name == 'pwc_small':
@@ -487,7 +480,7 @@ if __name__ == '__main__':
     data.x = x
     torch.save(data, f'citationv8_{args.data.method}.pt')
     exit(-1)
-    from core.data_utils.lcc_3 import use_lcc
+    from core.data_utils.lcc import use_lcc
     splits, text, data = load_taglp_pwc_small(args.data)
     print(splits)
     print(text.iloc[0])

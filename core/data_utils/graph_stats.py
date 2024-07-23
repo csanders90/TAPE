@@ -15,24 +15,25 @@ from scipy.sparse import coo_matrix
 import matspy as spy  # https://github.com/alugowski/matspy
 import math
 import argparse
-from graphgps.utility.utils import get_git_repo_root_path, config_device, init_cfg_test
 import os.path as osp
 import numpy as np
 from ogb.linkproppred import PygLinkPropPredDataset
 import random 
-from data_utils.load import load_data_lp
 from tqdm import tqdm 
 import timeit 
 import time 
 import pandas as pd 
-from core.data_utils.lcc_3 import use_lcc, get_largest_connected_component
+
 import networkx as nx
 from torch_geometric.utils import to_undirected 
 from torch_geometric.data import Data
 from typing import Dict, Tuple, List, Union
 from yacs.config import CfgNode as CN
 from data_utils.load_data_lp import get_edge_split, load_text_citationv8
+from graphgps.utility.utils import get_git_repo_root_path, config_device, init_cfg_test
+from data_utils.load import load_data_lp
 from data_utils.load_data_nc import load_embedded_citationv8
+from data_utils.lcc import use_lcc, get_largest_connected_component
 
 
 def time_function(func):
@@ -293,6 +294,26 @@ def calc_diameters(G, name):
     # avg_diameters = max(avg_all_diameters) 
     return avg_diameters
 
+def connected_component_dist(G: nx.Graph, name: str) -> None:
+    # Find all connected components
+    connected_components = list(nx.connected_components(G))
+
+    # Calculate the size of each connected component
+    component_sizes = [len(component) for component in connected_components]
+
+    # Print statistics about connected components
+    print(f"Number of connected components: {len(connected_components)}")
+    print(f"Sizes of connected components: {component_sizes}")
+
+    # Plot the distribution of connected component sizes
+    plt.figure(figsize=(10, 6))
+    plt.hist(component_sizes, bins=range(1, max(component_sizes) + 1), edgecolor='black')
+    plt.title('Distribution of Number of Nodes in Each Connected Component')
+    plt.xlabel('Number of Nodes')
+    plt.ylabel('Frequency')
+    plt.grid(True)
+    plt.savefig(f"{name}_connected_component_dist.png")
+    
 
 def print_data_stats(data, name, scale):
 
@@ -315,22 +336,27 @@ def print_data_stats(data, name, scale):
             data = use_lcc(data)[0]
             m = construct_sparse_adj(data.edge_index.numpy())
             G = nx.from_scipy_sparse_array(m)
-
+            connected_component_dist(G, name)
+            
         if name == 'arxiv_2023':
             print([len(c) for c in sorted(nx.connected_components(G), key=len, reverse=True)][:4])
             data = use_lcc(data)[0]
             m = construct_sparse_adj(data.edge_index.numpy())
             G = nx.from_scipy_sparse_array(m)
-        
+            connected_component_dist(G, name)
+            
         if name == 'pwc_large':
             print([len(c) for c in sorted(nx.connected_components(G), key=len, reverse=True)][:4])
             data = use_lcc(data)[0]
             m = construct_sparse_adj(data.edge_index.numpy())
             G = nx.from_scipy_sparse_array(m)
+            connected_component_dist(G, name)
             
         if name == 'citationv8':
             print([len(c) for c in sorted(nx.connected_components(G), key=len, reverse=True)][:4])
             data, _, G = use_lcc(data)
+            connected_component_dist(G, name)
+            
             
     if name in ['cora', 'pwc_small', 'arxiv_2023', 'pubmed', 'pwc_medium', 'pwc_large', 'citationv8', 'ogbn-arxiv']:
         # all_diameters = calc_diameters(G, name)

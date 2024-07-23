@@ -15,7 +15,7 @@ from torch_geometric.datasets import Planetoid
 from torch_geometric.transforms import RandomLinkSplit
 from graphgps.utility.utils import get_git_repo_root_path # type: ignore
 from typing import Tuple, List, Dict, Set, Any 
-from core.data_utils.lcc_3 import use_lcc
+from data_utils.lcc import use_lcc
 import torch_geometric.utils as pyg_utils
 import networkx as nx 
 
