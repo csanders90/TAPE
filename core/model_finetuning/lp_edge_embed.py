@@ -79,7 +79,7 @@ def parse_args() -> argparse.Namespace:
     r"""Parses the command line arguments."""
     parser = argparse.ArgumentParser(description='GraphGym')
     parser.add_argument('--data', dest='data', type=str, required=True,
-                        default='cora',
+                        default='arxiv_2023',
                         help='data name')
     parser.add_argument('--device', dest='device', required=False, 
                         help='device id')

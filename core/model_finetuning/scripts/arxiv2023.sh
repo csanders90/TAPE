@@ -28,23 +28,25 @@ cd /hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/model_finetu
 
 data="arxiv_2023"
 max_iter=1000
-embedders=("w2v" "tfidf" "original")
+embedders=("w2v" "tfidf")
 decoders=("dot" "concat" "euclidean")
-devices=("cuda:2" "cuda:0" "cuda:1")
+# devices=("cuda:2" "cuda:0" "cuda:1")
+device="cpu"
 
-for embedder in "${embedders[@]}"; do
-    for i in ${!decoders[@]}; do
-        decoder=${decoders[$i]}
-        device=${devices[$i]}
-        echo "python lp_node_embed.py --data $data --embedder $embedder --device $device --decoder $decoder --epoch $max_iter"
-        python lp_node_embed.py --data $data --embedder $embedder --device $device --decoder $decoder --epoch $max_iter &
-    done
+# for embedder in "${embedders[@]}"; do
+#     for i in ${!decoders[@]}; do
+#         decoder=${decoders[$i]}
+#         # device=${devices[$i]}
+#         echo "python lp_node_embed.py --data $data --embedder $embedder --device $device --decoder $decoder --epoch $max_iter"
+#         python lp_node_embed.py --data $data --embedder $embedder --device $device --decoder $decoder --epoch $max_iter &
+#     done
+#     wait 
+# done
+
+for i in ${!decoders[@]}; do
+    decoder=${decoders[$i]}
+    device=${devices[$i]}
+    echo "python lp_edge_embed.py --data $data --embedder $embedder --device $device "
+    python lp_edge_embed.py --data $data --embedder $embedder --device $device --epochs $max_iter &
     wait 
 done
-
-# for i in ${!decoders[@]}; do
-#     decoder=${decoders[$i]}
-#     device=${devices[$i]}
-#     echo "python lp_edge_embed.py --data $data --embedder $embedder --device $device "
-#     python lp_edge_embed.py --data $data --embedder $embedder --device $device --epochs $max_iter
-# done

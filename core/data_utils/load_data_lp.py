@@ -37,6 +37,18 @@ from nltk.tokenize import word_tokenize
 from gensim.models import Word2Vec
 from tqdm import tqdm 
 from lpda.lcc_3 import use_lcc
+import pandas as pd
+from nltk.tokenize import word_tokenize
+import nltk
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
+import nltk
+from nltk.tokenize import word_tokenize
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+
 FILE = 'core/dataset/ogbn_products_orig/ogbn-products.csv'
 FILE_PATH = get_git_repo_root_path() + '/'
 
@@ -349,18 +361,111 @@ def get_average_embedding(text, model):
     else:
         # Return a zero vector if none of the tokens are in the vocabulary
         return np.zeros(model.vector_size)
-    
+
+def load_text_benchmark(data_name: str) -> pd.DataFrame:
+    if  data_name == 'pwc_small':
+        df = load_text_pwc_small('tfidf')
+    if data_name == 'cora':
+        data, df = load_tag_cora()
+    if data_name == 'pubmed':
+        df = load_text_pubmed()
+    if data_name == 'arxiv_2023':
+        df = load_text_arxiv23()
+    if data_name == 'pwc_medium':
+        df = load_text_pwc_medium('tfidf')
+    if data_name == 'ogbn-arxiv':
+        df = load_text_ogbn_arxiv()
+    if data_name == 'citationv8':
+        df = load_text_citationv8()
+    if data_name == 'pwc_large':
+        df = load_text_pwc_large()
+    if type(df) is list:
+        df = pd.DataFrame(df, columns=['text'])
+        return df
+
+
 # TEST CODE
 if __name__ == '__main__':
     
     args = init_cfg_test()
     args = config_device(args)
+
+    # List of datasets to process
+    # 'pwc_small', 'cora', 'pubmed', 'arxiv_2023', 'pwc_medium', 'pwc_large', 'obgn-arxiv', 'citationv8'
+    # datasets = ['pwc_small', 'cora', 'pubmed', 'arxiv_2023', 'pwc_medium', 'pwc_large', 'obgn-arxiv', 'citationv8']
+    datasets = ['pwc_small', 'cora', 'pubmed', 'arxiv_2023', 'pwc_medium', 'pwc_large', 'ogbn-arxiv', 'citationv8']
+    # Initialize an empty DataFrame to store statistics for all datasets
+    all_stats_df = []
     
-    data = load_embedded_citationv8(args.data.method)
-   
-    print(data)
+    for data_name in datasets:
+        # Load dataset
+        df = load_text_benchmark(data_name)
+        
+        # Ensure nltk tokenizers are downloaded
+        nltk.download('punkt')
+        
+        # If df is a list, convert it to a DataFrame^
+        if isinstance(df, list):
+            df = pd.DataFrame(df, columns=['text'])
+        
+        # Tokenize the node features
+        df['tokens'] = df['text'].apply(word_tokenize)
+        df['size_in_bytes'] = df['text'].apply(lambda x: len(x.encode('utf-8')))
+        total_size_in_bytes = df['size_in_bytes'].sum()
+        total_size_in_megabytes = total_size_in_bytes / (1024 * 1024)
+        
+        
+        # Count the number of tokens for each node
+        df['num_tokens'] = df['tokens'].apply(len)
+        
+        # Provide statistical analysis
+        total_tokens = df['num_tokens'].sum()
+        average_tokens_per_node = df['num_tokens'].mean()
+        token_count_distribution = df['num_tokens'].describe()
+        
+        print(f"Total tokens: {total_tokens}")
+        print(f"Average tokens per node: {average_tokens_per_node}")
+        print("Token count distribution:")
+        print(token_count_distribution)
+        
+        # Create a dictionary to store the statistics
+        stats = {
+            'data_name': data_name,
+            'total_tokens': total_tokens,
+            'average_tokens_per_node': average_tokens_per_node,
+            'count': token_count_distribution['count'],
+            'mean': token_count_distribution['mean'],
+            'std': token_count_distribution['std'],
+            'min': token_count_distribution['min'],
+            '25%': token_count_distribution['25%'],
+            '50%': token_count_distribution['50%'],
+            '75%': token_count_distribution['75%'],
+            'max': token_count_distribution['max'],
+            'data size': total_size_in_megabytes
+        }
+        
+        # Append the statistics to the all_stats_df DataFrame
+        all_stats_df.append(stats)
+        
+        # Plot the distribution of token counts
+        plt.figure(figsize=(10, 6))
+        sns.histplot(df['num_tokens'], kde=True, bins=30)
+        plt.title(f'Distribution of Token Counts for {data_name}')
+        plt.xlabel('Number of Tokens')
+        plt.ylabel('Frequency')
+        plt.savefig(f'{data_name}.png')
+
+    # Save the all_stats_df DataFrame to a CSV file
+    all_stats_df = pd.DataFrame(all_stats_df)
+    all_stats_df.to_csv('all_datasets_statistics.csv', index=False)
+
+    print("All statistics have been saved to 'all_datasets_statistics.csv'")
+
     exit(-1)
     from pdb import set_trace as st; st()
+    data = load_embedded_citationv8(args.data.method)
+    print(data)
+    
     preprocessed_texts = [preprocess(t[0]) for t in tqdm(text)]
     print(len(preprocessed_texts))
     # Train a Word2Vec model

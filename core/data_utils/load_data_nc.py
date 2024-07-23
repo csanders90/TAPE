@@ -149,8 +149,9 @@ def load_graph_cora(use_mask) -> Data:
 
 def load_tag_cora()  -> Tuple[Data, List[str]]:
     data, data_citeid = load_graph_cora(use_mask=False) # nc True, lp False
-    # text = load_text_cora(data_citeid)
-    text = None
+    text = load_text_cora(data_citeid)
+    print(f"Number of texts: {len(text)}")
+    print(f"first text: {text[0]}")
     return data, text
 
 
@@ -367,7 +368,7 @@ def load_tag_pubmed(use_mask) -> Tuple[Data, List[str]]:
 
 def load_text_ogbn_arxiv():
     nodeidx2paperid = pd.read_csv(
-        'generated_dataset/ogbn-arxiv/mapping/nodeidx2paperid.csv.gz', compression='gzip')
+        'core/dataset/ogbn_arixv_orig/mapping/nodeidx2paperid.csv.gz', compression='gzip')
 
     tsv_path = FILE_PATH + 'core/dataset/ogbn_arixv_orig/titleabs.tsv'
     raw_text = pd.read_csv(tsv_path,
@@ -455,6 +456,7 @@ def load_embedded_citationv8(method) -> Data:
 
 def load_text_citationv8() -> List[str]:
     df = pd.read_csv(FILE_PATH + 'core/dataset/citationv8_orig/Citation-2015.csv')
+    print(f"Number of texts: {len(df['text'].tolist())}")
     return df['text'].tolist()
 
 
@@ -496,7 +498,7 @@ def load_graph_pwc_large(method):
 
 
 def load_text_pwc_large() -> List[str]:
-    raw_text = pd.read_csv(FILE_PATH + f'core/dataset/pwc_large/pwc_tfidf_large_text.csv')
+    raw_text = pd.read_csv(FILE_PATH + f'core/dataset/pwc_large/pwc_large_papers.csv')
     return raw_text['feat'].tolist()
 
 
