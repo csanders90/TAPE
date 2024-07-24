@@ -5,7 +5,7 @@ import numpy as np
 from torch_geometric.data import Data, InMemoryDataset
 import torch
 from torch_sparse.tensor import SparseTensor
-from ogb.nodeproppred.dataset_pyg import PygNodePropPredDataset, PygLinkPropPredDataset
+from ogb.nodeproppred.dataset_pyg import PygNodePropPredDataset
 from scipy.sparse import coo_matrix
 from tqdm import tqdm 
 from typing import List
@@ -18,7 +18,7 @@ def get_Data(data: Data):
     return data._data
   elif type(data) is Data:
     return data
-  elif type(data) is PygNodePropPredDataset or type(data) is PygLinkPropPredDataset:
+  elif type(data) is PygNodePropPredDataset:
     return data._data
   else:
     return data[0]
