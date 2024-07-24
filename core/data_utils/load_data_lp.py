@@ -53,7 +53,7 @@ def load_taglp_arxiv2023(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
     data.edge_index, _ = coalesce(data.edge_index, None, num_nodes=data.num_nodes)
     data.edge_index, _ = remove_self_loops(data.edge_index)
     print(f"original num of nodes: {data.num_nodes}")
-    data, _, _ = use_lcc(data)
+    # data, _, _ = use_lcc(data)
     if data.is_directed() is True:
         data.edge_index = to_undirected(data.edge_index)
         undirected = True
@@ -116,7 +116,7 @@ def load_taglp_ogbn_arxiv(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
 def load_taglp_pwc_large(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
     # add one default argument
 
-    data = load_graph_pwc_large()
+    data = load_graph_pwc_large(cfg.method)
     text = load_text_pwc_large()
     data.edge_index, _ = coalesce(data.edge_index, None, num_nodes=data.num_nodes)
     data.edge_index, _ = remove_self_loops(data.edge_index)

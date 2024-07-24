@@ -18,6 +18,7 @@ from typing import Tuple, List, Dict, Set, Any
 from data_utils.lcc import use_lcc
 import torch_geometric.utils as pyg_utils
 import networkx as nx 
+# import dgl 
 
 
 FILE = 'core/dataset/ogbn_products_orig/ogbn-products.csv'
@@ -442,7 +443,7 @@ def load_tag_product() -> Tuple[Data, List[str]]:
 
 
 def load_graph_citationv8() -> Data:
-    
+    import dgl
     graph = dgl.load_graphs(FILE_PATH + 'core/dataset/citationv8/Citation-2015.pt')[0][0]
     graph = dgl.to_bidirected(graph)
     from torch_geometric.utils import from_dgl
