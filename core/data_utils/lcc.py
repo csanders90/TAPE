@@ -5,8 +5,7 @@ import numpy as np
 from torch_geometric.data import Data, InMemoryDataset
 import torch
 from torch_sparse.tensor import SparseTensor
-from ogb.nodeproppred import PygNodePropPredDataset
-from ogb.linkproppred import PygLinkPropPredDataset
+from ogb.nodeproppred.dataset_pyg import PygNodePropPredDataset
 from scipy.sparse import coo_matrix
 from tqdm import tqdm 
 from typing import List
@@ -19,7 +18,7 @@ def get_Data(data: Data):
     return data._data
   elif type(data) is Data:
     return data
-  elif type(data) is PygNodePropPredDataset or type(data) is PygLinkPropPredDataset:
+  elif type(data) is PygNodePropPredDataset:
     return data._data
   else:
     return data[0]
@@ -150,16 +149,16 @@ def use_lcc(dataset: InMemoryDataset) -> InMemoryDataset:
       else:
         break
       
-    lcc_index = list(max(nx.connected_components(G), key=len))
+    lcc = list(max(nx.connected_components(G), key=len))
     data = get_Data(dataset)
-    x_new = data.x[lcc_index]
+    x_new = data.x[lcc]
 
     row, col = get_row_col(data.edge_index)
 
-    lcc_set = set(lcc_index)
+    lcc_set = set(lcc)
     mask = np.array([(i in lcc_set and j in lcc_set) for i, j in zip(row, col)])
     filtered_edges = np.column_stack((row[mask], col[mask]))
-    node_mapper = get_node_mapper(lcc_index)
+    node_mapper = get_node_mapper(lcc)
     edges = remap_edges(filtered_edges, node_mapper)
 
     data = Data(
@@ -172,7 +171,7 @@ def use_lcc(dataset: InMemoryDataset) -> InMemoryDataset:
         graph_attrs = None
     )
 
-    return data, lcc_index, G
+    return data, lcc, G
   
 
 def find_scc_direc(data) -> List:
