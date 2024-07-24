@@ -270,6 +270,7 @@ def _avg_degree(G):
     average_value = total_sum / num_values
     return average_value, avg_deg
 
+
 def _gini_coefficient(array: np.ndarray) -> float:
   """Computes the Gini coefficient of a 1-D input array."""
   if array.size == 0:  # pylint: disable=g-explicit-length-test  (numpy arrays have no truth value)
@@ -315,16 +316,16 @@ def _avg_shortest_path(G, data, name, scale):
     return all_avg_shortest_paths
 
 # @time_function
-def _diameters(G, name, scale):
-    avg_diameters = []
-    if name in ['cora', 'pwc_small', 'arxiv_2023']:
-        avg_diameters = nx.diameter(G)
-    else:
-        # approximation of the diameter : max(eccentricity)
-        for i in tqdm(G.nodes()):
-            if i % int(scale) == 0:
-                avg_diameters.append(nx.eccentricity(G, v=i))
-    return avg_diameters
+# def _diameters(G, name, scale):
+#     avg_diameters = []
+#     if name in ['cora', 'pwc_small', 'arxiv_2023']:
+#         avg_diameters = nx.diameter(G)
+#     else:
+#         # approximation of the diameter : max(eccentricity)
+#         for i in tqdm(G.nodes()):
+#             if i % int(scale) == 0:
+#                 avg_diameters.append(nx.eccentricity(G, v=i))
+#     return avg_diameters
 
 
 def plot_cc_dist(G: nx.Graph, name: str) -> None:
@@ -388,7 +389,7 @@ def _largest_connected_component_size(graph: nx.Graph) -> float:
   return np.max(list(map(len, components))) / graph.number_of_nodes()
 
 
-def graph_metrics_nx(graph: nx.Graph) -> Dict[str, float]:
+def graph_metrics_nx(graph: nx.Graph, name: str) -> Dict[str, float]:
     """Computes graph metrics on a networkx graph object.
 
     Arguments:
@@ -396,13 +397,24 @@ def graph_metrics_nx(graph: nx.Graph) -> Dict[str, float]:
     Returns:
         dict from metric names to metric values.
     """
-    result = _counts(graph)
+    result = {'name': name}
+    result.update(_counts(graph))
     degrees = _degrees(graph)
     result['degree_gini'] = _gini_coefficient(degrees)
-    result['approximate_diameter'] = _diameter(graph)
+    
+    if name in ['pubmed', 'pwc_medium', 'ogbn_arxiv', 'pwc_large', 'ogbn-arxiv', 'citationv8']:
+        print(name)
+        result['approximate_diameter'] = np.inf 
+    else:
+        result['approximate_diameter'] = _diameter(graph)
+        result['num_triangles'] = float(
+        np.sum(list(nx.triangles(graph).values())) / 3.0)
+        
     if graph.number_of_nodes() == 0:  # avoid np.mean of empty slice
         result['avg_degree'] = 0.0
         return result
+    
+    
     result['avg_degree'] = float(np.mean(degrees))
     core_numbers = np.array(list(nx.core_number(graph).values()))
     result['coreness_eq_1'] = float(np.mean(core_numbers == 1))
@@ -412,8 +424,7 @@ def graph_metrics_nx(graph: nx.Graph) -> Dict[str, float]:
     result['coreness_gini'] = float(_gini_coefficient(core_numbers))
     result['avg_cc'] = float(np.mean(list(nx.clustering(graph).values())))
     result['transitivity'] = float(nx.transitivity(graph))
-    result['num_triangles'] = float(
-        np.sum(list(nx.triangles(graph).values())) / 3.0)
+    
     result['cc_size'] = float(_largest_connected_component_size(graph))
     result['power_law_estimate'] = _power_law_estimate(degrees)
     return result
@@ -513,18 +524,14 @@ def print_data_stats(data, name, scale):
 # medium_data = ['pwc_medium', 'pubmed']
 # large_data = ['citationv8', 'pwc_large']
 
-def plot_all_cc_dist(data, name):
-    start_time = time.time()
-    m = construct_sparse_adj(data.edge_index.numpy())
-    G = nx.from_scipy_sparse_array(m)
-    print(f"Time taken to create graph: {time.time() - start_time} s")
+def plot_all_cc_dist(G, name):
     
     if not nx.is_connected(G):
         print("Graph is not connected.")
-        plot_cc_dist(G, f"original_{name}")
+        
     else:
         print(f"Graph {name} is connected.")
-        plot_cc_dist(G, f"original_{name}")
+    plot_cc_dist(G, f"original_{name}")
 
     
 if __name__ == '__main__':
@@ -540,16 +547,29 @@ if __name__ == '__main__':
     scale = 10
     scale = args.scale 
 
+    plot_cc = False
+    graph_metrics = True
     
-    for name in ['cora', 'pwc_small', 'arxiv_2023', 'pubmed', 'pwc_medium', 'pwc_large', 'citationv8', 'ogbn-arxiv']:
+    gc = []
+    for name in ['pwc_small', 'cora',  'pubmed', 'arxiv_2023', 'pwc_medium', 'ogbn-arxiv', 'pwc_large', 'citationv8']: 
         print(f"------ Dataset {name}------")
         
         splits, text, data = load_data_lp[name](cfg.data)
+        
+        start_time = time.time()
+        m = construct_sparse_adj(data.edge_index.numpy())
+        G = nx.from_scipy_sparse_array(m)
+        print(f"Time taken to create graph: {time.time() - start_time} s")
+        
+        if  plot_cc:
+            plot_all_cc_dist(G, name)
+        
+        if graph_metrics:
+            gc.append(graph_metrics_nx(G, name))
+            print(gc)
             
-        plot_all_cc_dist(data, name)
-
-
-    
+    gc = pd.DataFrame(gc)
+    gc.to_csv('all_graph_metric.csv', index=False)
 
 
 

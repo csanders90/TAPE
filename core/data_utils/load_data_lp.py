@@ -37,9 +37,8 @@ from data_utils.load_data_nc import load_tag_cora, load_tag_pubmed, \
     load_graph_citeseer, load_graph_citationv8, load_graph_pwc_large, load_text_pwc_large, \
     load_graph_pwc_medium, load_text_pwc_medium, load_text_pwc_small,  load_graph_pwc_small, \
     load_embedded_citationv8
-from data_utils.lcc import use_lcc
 from graphgps.utility.utils import get_git_repo_root_path, config_device, init_cfg_test
-from data_utils.lcc import find_scc_direc, use_lcc_direc
+from data_utils.lcc import find_scc_direc, use_lcc_direc, use_lcc
 
 
 FILE = 'core/dataset/ogbn_products_orig/ogbn-products.csv'
@@ -53,11 +52,11 @@ def load_taglp_arxiv2023(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
     data.edge_index, _ = coalesce(data.edge_index, None, num_nodes=data.num_nodes)
     data.edge_index, _ = remove_self_loops(data.edge_index)
     print(f"original num of nodes: {data.num_nodes}")
-    # data, _, _ = use_lcc(data)
+    data, lcc, _ = use_lcc(data)
+    text = [text[i] for i in lcc]
     if data.is_directed() is True:
         data.edge_index = to_undirected(data.edge_index)
         undirected = True
-    
     
     splits = get_edge_split(data,
                             undirected,
@@ -67,6 +66,9 @@ def load_taglp_arxiv2023(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
                             cfg.include_negatives,
                             cfg.split_labels
                             )
+    print(f"num of nodes after lcc: {data.num_nodes}")
+    print(f"num of edges after lcc: {data.edge_index.shape[1]}")
+    print(f"num of texts in dataset: {len(text)}")
     return splits, text, data
 
 
@@ -74,11 +76,12 @@ def load_taglp_cora(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
     # add one default argument
 
     data, data_citeid = load_graph_cora(False)
+    data, lcc, _ = use_lcc(data)
     text = load_text_cora(data_citeid)
+    text = [text[i] for i in lcc]
     data.edge_index, _ = coalesce(data.edge_index, None, num_nodes=data.num_nodes)
     data.edge_index, _ = remove_self_loops(data.edge_index)
 
-    # text = None
     undirected = data.is_undirected()
 
     splits = get_edge_split(data,
@@ -344,6 +347,7 @@ def preprocess(text):
     tokens = word_tokenize(text.lower())
     return ' '.join(tokens)
 
+
 # Function to get the average embedding for a whole text (e.g., title and abstract combined)
 def get_average_embedding(text, model):
     tokens = preprocess(text)
@@ -359,7 +363,7 @@ def load_text_benchmark(data_name: str) -> pd.DataFrame:
     if  data_name == 'pwc_small':
         df = load_text_pwc_small('tfidf')
     if data_name == 'cora':
-        data, df = load_tag_cora()
+        _, df = load_tag_cora()
     if data_name == 'pubmed':
         df = load_text_pubmed()
     if data_name == 'arxiv_2023':
@@ -376,18 +380,7 @@ def load_text_benchmark(data_name: str) -> pd.DataFrame:
         df = pd.DataFrame(df, columns=['text'])
         return df
 
-
-# TEST CODE
-if __name__ == '__main__':
-    
-    args = init_cfg_test()
-    args = config_device(args)
-
-    # List of datasets to process
-    # 'pwc_small', 'cora', 'pubmed', 'arxiv_2023', 'pwc_medium', 'pwc_large', 'obgn-arxiv', 'citationv8'
-    # datasets = ['pwc_small', 'cora', 'pubmed', 'arxiv_2023', 'pwc_medium', 'pwc_large', 'obgn-arxiv', 'citationv8']
-    datasets = ['pwc_small', 'cora', 'pubmed', 'arxiv_2023', 'pwc_medium', 'pwc_large']
-    # Initialize an empty DataFrame to store statistics for all datasets
+def token_statistic(datasets):
     all_stats_df = []
     
     for data_name in datasets:
@@ -454,6 +447,17 @@ if __name__ == '__main__':
 
     print("All statistics have been saved to 'all_datasets_statistics.csv'")
 
+
+# TEST CODE
+if __name__ == '__main__':
+    
+    args = init_cfg_test()
+    args = config_device(args)
+
+    # List of datasets to process
+    datasets = ['pwc_small', 'cora', 'pubmed', 'arxiv_2023', 'pwc_medium', 'pwc_large']
+
+    token_statistic(datasets)
     exit(-1)
     from pdb import set_trace as st; st()
     data = load_embedded_citationv8(args.data.method)

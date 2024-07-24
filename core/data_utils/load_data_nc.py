@@ -61,8 +61,10 @@ def get_node_mask_ogb(num_nodes: int, idx_splits: Dict[str, torch.Tensor]) -> tu
 
 # Function to parse Cora dataset
 def load_graph_arxiv23() -> Data:
-    return torch.load(FILE_PATH + 'core/dataset/arxiv_2023/graph.pt')
-
+    data = torch.load(FILE_PATH + 'core/dataset/arxiv_2023/graph.pt')
+    data.edge_index = data.adj_t.to_symmetric()
+    
+    return data
 
 # Function to parse PubMed dataset
 def load_text_arxiv23() -> List[str]:
@@ -77,6 +79,7 @@ def load_text_arxiv23() -> List[str]:
 def load_tag_arxiv23() -> Tuple[Data, List[str]]:
     graph = load_graph_arxiv23()
     text = load_text_arxiv23()
+    
     train_id, val_id, test_id, train_mask, val_mask, test_mask = get_node_mask(graph.num_nodes)
     graph.train_id = train_id
     graph.val_id = val_id

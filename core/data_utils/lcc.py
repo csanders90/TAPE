@@ -150,16 +150,16 @@ def use_lcc(dataset: InMemoryDataset) -> InMemoryDataset:
       else:
         break
       
-    lcc = list(max(nx.connected_components(G), key=len))
+    lcc_index = list(max(nx.connected_components(G), key=len))
     data = get_Data(dataset)
-    x_new = data.x[lcc]
+    x_new = data.x[lcc_index]
 
     row, col = get_row_col(data.edge_index)
 
-    lcc_set = set(lcc)
+    lcc_set = set(lcc_index)
     mask = np.array([(i in lcc_set and j in lcc_set) for i, j in zip(row, col)])
     filtered_edges = np.column_stack((row[mask], col[mask]))
-    node_mapper = get_node_mapper(lcc)
+    node_mapper = get_node_mapper(lcc_index)
     edges = remap_edges(filtered_edges, node_mapper)
 
     data = Data(
@@ -172,7 +172,7 @@ def use_lcc(dataset: InMemoryDataset) -> InMemoryDataset:
         graph_attrs = None
     )
 
-    return data, lcc, G
+    return data, lcc_index, G
   
 
 def find_scc_direc(data) -> List:

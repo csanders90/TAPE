@@ -1,0 +1,2 @@
+num_nodes,num_edges,edge_density,degree_gini,approximate_diameter,num_triangles,avg_degree,coreness_eq_1,coreness_geq_2,coreness_geq_5,coreness_geq_10,coreness_gini,avg_cc,transitivity,cc_size,power_law_estimate
+2708.0,10556.0,0.0014399999126942077,0.4051393857320956,inf,1630.0,3.8980798721313477,0.21122599704579026,0.7887740029542097,0.0,0.0,0.20518309946924523,0.24067329850193736,0.09349725626661058,0.9176514032496307,2.3914773148525077
