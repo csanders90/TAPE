@@ -257,7 +257,7 @@ def load_taglp_citationv8(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
 
 
  
-def load_taplp_pwc_large(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
+def load_taglp_pwc_large(cfg: CN) -> Tuple[Dict[str, Data], List[str]]:
     if hasattr(cfg, 'method'):
         pass
     else:
