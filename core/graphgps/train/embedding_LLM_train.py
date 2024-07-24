@@ -72,7 +72,7 @@ class Trainer_embedding_LLM(Trainer):
         self.out_dir = cfg.out_dir
         self.run_dir = None#cfg.run_dir
 
-        self.report_step = 100
+        self.report_step = 1
 
     def _train_mlp(self):
         self.model.train()
@@ -136,10 +136,14 @@ class Trainer_embedding_LLM(Trainer):
         neg_y = torch.zeros(neg_train_edge.size(0))
         y_true = torch.cat([pos_y, neg_y], dim=0)
 
+
         pos_pred, neg_pred = y_pred[y_true == 1].cpu(), y_pred[y_true == 0].cpu()
         y_pred = torch.where(y_pred >= hard_thres, torch.tensor(1), torch.tensor(0))
+        acc = torch.sum(y_true == y_pred) / len(y_true)
 
         result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_pred, neg_pred)
+        result_mrr.update({'ACC': round(acc.tolist(), 5)})
+
         return result_mrr
 
     def finalize(self):

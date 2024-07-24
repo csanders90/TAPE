@@ -273,7 +273,7 @@ def create_logger(repeat):
         'mrr_hit100': Logger(repeat),
         'AUC': Logger(repeat),
         'AP': Logger(repeat),
-        # 'ACC': Logger(repeat)
+        'ACC': Logger(repeat)
     }
 
 

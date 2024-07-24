@@ -229,20 +229,41 @@ class Trainer_NCN(Trainer):
             self._evaluate(self.test_data)
             self.run_result['eval_time'] = time.time() - start_train
 
-    def save_pred(self, pred, true, data):
-        root = os.path.join(self.FILE_PATH, cfg.out_dir, 'pred_record')
-        os.makedirs(root, exist_ok=True)
-        timestamp = time.strftime('%Y%m%d_%H%M%S', time.localtime(time.time()))
-        file_path = os.path.join(root, f'{cfg.dataset.name}_{timestamp}.txt')
+'''    def final_evaluate(self, eval_data: Data):
 
-        with open(file_path, 'w') as f:
-            for idx, subgraph in enumerate(data):
-                indices = torch.where(subgraph['z'] == 1)[0]
-                if len(indices) < 2:
-                    continue
-                corresponding_node_ids = subgraph['node_id'][indices]
-                pred_value = pred[idx]
-                true_value = true[idx]
-                f.write(f"{corresponding_node_ids[0].item()} {corresponding_node_ids[1].item()} {pred_value} {true_value}\n")
+        self.model.eval()
+        self.predictor.eval()
+        pos_edge = eval_data['pos_edge_label_index'].to(self.device)
+        neg_edge = eval_data['neg_edge_label_index'].to(self.device)
+        if eval_data == self.test_data:
+            adj = self.data.full_adj_t
+            h = self.model(self.data.x, adj)
+        else:
+            adj = self.data.adj_t
+            h = self.model(self.data.x, adj)
+        pos_pred = torch.cat([self.predictor(h, adj, pos_edge[perm]).squeeze().cpu()
+                              for perm in PermIterator(pos_edge.device, pos_edge.shape[0], self.batch_size, False)],
+                             dim=0)
+
+        neg_pred = torch.cat([self.predictor(h, adj, neg_edge[perm]).squeeze().cpu()
+                              for perm in PermIterator(neg_edge.device, neg_edge.shape[0], self.batch_size, False)],
+                             dim=0)
+
+        y_pred = torch.cat([pos_pred, neg_pred], dim=0)
+        pos_y = torch.ones(pos_edge.size(1))
+        neg_y = torch.zeros(neg_edge.size(1))
+        y_true = torch.cat([pos_y, neg_y], dim=0)
+        edge_index = pos
+        data_df = {
+            "edge_index0": edge_index_s,
+            "edge_index1": edge_index_t,
+            "pred": y_pred,
+            "gr": y_true,
+        }
+
+        df = pd.DataFrame(data_df)
+        df.to_csv(f'{self.run_dir}/{self.data_name}_test_pred_gr_last_epoch.csv', index=False)
+        return
+'''
 
 

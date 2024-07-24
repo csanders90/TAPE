@@ -285,6 +285,7 @@ class Trainer():
         acc_file = os.path.join(root, to_file)
         self.print_logger.info(f"save to {acc_file}")
         os.makedirs(root, exist_ok=True)
-        save_parmet_tune(self.name_tag, results_dict, acc_file)    
+        save_parmet_tune(self.name_tag, results_dict, acc_file)
+
         
 

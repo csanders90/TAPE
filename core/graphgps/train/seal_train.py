@@ -219,4 +219,36 @@ class Trainer_SEAL(Trainer):
         
         df = pd.DataFrame(data_df)
         df.to_csv(f'{self.run_dir}/{self.data_name}_test_pred_gr_last_epoch.csv', index=False)
-        return 
+        return
+
+'''    def final_evaluate(self, eval_data: Data):
+        self.model.eval()
+        data_loader = DataLoader(eval_data, batch_size=self.batch_size, shuffle=False)
+        y_pred, y_true = [], []
+        edge_index = []
+        for data in data_loader:
+            data = data.to(self.device)
+            self.optimizer.zero_grad()
+            x = data.x
+            edge_weight = data.edge_weight
+            node_id = data.node_id
+            logits = self.model(data.z, data.edge_index, data.batch, x, edge_weight, node_id)
+            y_pred.append(logits.view(-1).cpu())
+            y_true.append(data.y.view(-1).cpu().to(torch.float))
+            edge_index.append(data.)
+
+        y_pred = torch.cat(y_pred, dim=0)
+        y_true = torch.cat(y_true, dim=0)
+        y_pred, y_true = y_pred.cpu(), y_true.cpu()
+
+        data_df = {
+            "edge_index0": edge_index_s,
+            "edge_index1": edge_index_t,
+            "pred": y_pred,
+            "gr": y_true,
+        }
+
+        df = pd.DataFrame(data_df)
+        df.to_csv(f'{self.run_dir}/{self.data_name}_test_pred_gr_last_epoch.csv', index=False)
+        return
+'''
