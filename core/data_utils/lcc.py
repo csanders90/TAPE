@@ -5,20 +5,21 @@ import numpy as np
 from torch_geometric.data import Data, InMemoryDataset
 import torch
 from torch_sparse.tensor import SparseTensor
-from ogb.nodeproppred.dataset_pyg import PygNodePropPredDataset
+from ogb.nodeproppred import PygNodePropPredDataset
+from ogb.linkproppred import PygLinkPropPredDataset
 from scipy.sparse import coo_matrix
-from tqdm import tqdm 
+from tqdm import tqdm
 from typing import List
 import torch_geometric.utils as pyg_utils
 import networkx as nx
-import time 
+import time
 
 def get_Data(data: Data):
   if type(data) is InMemoryDataset:
     return data._data
   elif type(data) is Data:
     return data
-  elif type(data) is PygNodePropPredDataset:
+  elif type(data) is PygNodePropPredDataset or type(data) is PygLinkPropPredDataset:
     return data._data
   else:
     return data[0]
@@ -63,8 +64,8 @@ def get_row_col(edge_index: SparseTensor) -> list:
   elif type(edge_index) is SparseTensor:
     row, col = edge_index.to_torch_sparse_coo_tensor().coalesce().indices().numpy()
   return row, col
-  
-  
+
+
 def get_component(dataset: InMemoryDataset, start: int = 0) -> set:
   # BFS
   """this function detect the llc of a undirected graph with symmetric adjacency matrix
@@ -73,7 +74,7 @@ def get_component(dataset: InMemoryDataset, start: int = 0) -> set:
       dataset (InMemoryDataset): modified graph from ogb or planetoid
       start (int, optional): start node index. Defaults to 0.
       dataset.data.edge_index is a tensor of shape [2, num_edges], default type is numpy.ndarray
-      
+
   Returns:
       set: return a set of the node set of local connected component of the graph
   """
@@ -81,7 +82,7 @@ def get_component(dataset: InMemoryDataset, start: int = 0) -> set:
   visited_nodes = set()
   queued_nodes = set([start])
   row, col = get_row_col(data.edge_index)
-    
+
   while queued_nodes:
     current_node = queued_nodes.pop()
     visited_nodes.update([current_node])
@@ -101,7 +102,7 @@ def get_comp_data(adjacencyList: List[List[int]], start: int = 0) -> set:
     current_node = queued_nodes.pop()
     if visited[current_node]:
       continue
-            
+
     visited[current_node] = True
     visited_nodes.add(current_node)
     neighbors = adjacencyList[current_node] # this call costed O(n) time before. Now it only needs O(#neighbors)
@@ -131,15 +132,15 @@ def construct_sparse_adj(edge_index) -> coo_matrix:
     shape = (edge_index.max() + 1, edge_index.max() + 1)
     m = coo_matrix((vals, (rows, cols)), shape=shape)
     return m
-  
+
 def use_lcc(dataset: InMemoryDataset) -> InMemoryDataset:
     # lcc = get_largest_connected_component(dataset)
     m = construct_sparse_adj(dataset.edge_index.numpy())
-    
+
     start = time.time()
     G = nx.from_scipy_sparse_array(m)
     print('create graph:', time.time() - start)
-    
+
     for i, c in enumerate(sorted(nx.connected_components(G), key=len, reverse=True)):
       if i == 0:
         print([len(c)])
@@ -148,17 +149,17 @@ def use_lcc(dataset: InMemoryDataset) -> InMemoryDataset:
         print([len(c)])
       else:
         break
-      
-    lcc = list(max(nx.connected_components(G), key=len))
+
+    lcc_index = list(max(nx.connected_components(G), key=len))
     data = get_Data(dataset)
-    x_new = data.x[lcc]
+    x_new = data.x[lcc_index]
 
     row, col = get_row_col(data.edge_index)
 
-    lcc_set = set(lcc)
+    lcc_set = set(lcc_index)
     mask = np.array([(i in lcc_set and j in lcc_set) for i, j in zip(row, col)])
     filtered_edges = np.column_stack((row[mask], col[mask]))
-    node_mapper = get_node_mapper(lcc)
+    node_mapper = get_node_mapper(lcc_index)
     edges = remap_edges(filtered_edges, node_mapper)
 
     data = Data(
@@ -166,12 +167,12 @@ def use_lcc(dataset: InMemoryDataset) -> InMemoryDataset:
         edge_index=torch.LongTensor(edges),
         # y=y_new,
         num_nodes=x_new.size()[0],
-        node_attrs=x_new, 
-        edge_attrs = None, 
+        node_attrs=x_new,
+        edge_attrs = None,
         graph_attrs = None
     )
 
-    return data, lcc, G
+    return data, lcc_index, G
   
 
 def find_scc_direc(data) -> List:
