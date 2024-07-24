@@ -24,9 +24,7 @@ from scipy.sparse._csr import csr_matrix
 from graphgps.train.opt_train import (Trainer)
 from graphgps.utility.ncn import PermIterator
 from torch.utils.tensorboard import SummaryWriter
-
 writer = SummaryWriter()
-
 
 class Trainer_embedding_LLM(Trainer):
     def __init__(self,
@@ -40,7 +38,7 @@ class Trainer_embedding_LLM(Trainer):
                  repeat: int,
                  loggers: Dict[str, Logger],
                  print_logger: None,
-                 batch_size=None, ):
+                 batch_size=None,):
         self.device = config_device(cfg).device
         self.model = model.to(self.device)
         self.model_name = cfg.model.type
@@ -58,7 +56,7 @@ class Trainer_embedding_LLM(Trainer):
         self.train_data = splits['train'].to(self.device)
         self.valid_data = splits['valid'].to(self.device)
         self.optimizer = optimizer
-        model_types = ['MLP-minilm', 'MLP-bert', 'MLP-llama', 'MLP-e5-large', 'MLP-tfidf', 'MLP-w2v']
+        model_types = ['MLP-minilm','MLP-bert','MLP-llama','MLP-e5-large', 'MLP-tfidf', 'MLP-w2v']
         self.test_func = {model_type: self._test for model_type in model_types}
         self.evaluate_func = {model_type: self._evaluate for model_type in model_types}
 
@@ -74,7 +72,7 @@ class Trainer_embedding_LLM(Trainer):
 
         self.tensorboard_writer = writer
         self.out_dir = cfg.out_dir
-        self.run_dir = None  # cfg.run_dir
+        self.run_dir = None#cfg.run_dir
 
         self.report_step = 1
 
@@ -139,6 +137,7 @@ class Trainer_embedding_LLM(Trainer):
         pos_y = torch.ones(pos_train_edge.size(0))
         neg_y = torch.zeros(neg_train_edge.size(0))
         y_true = torch.cat([pos_y, neg_y], dim=0)
+
 
         pos_pred, neg_pred = y_pred[y_true == 1].cpu(), y_pred[y_true == 0].cpu()
         y_pred = torch.where(y_pred >= hard_thres, torch.tensor(1), torch.tensor(0))
@@ -209,9 +208,7 @@ class Trainer_embedding_LLM(Trainer):
                 corresponding_node_ids = subgraph['node_id'][indices]
                 pred_value = pred[idx]
                 true_value = true[idx]
-                f.write(
-                    f"{corresponding_node_ids[0].item()} {corresponding_node_ids[1].item()} {pred_value} {true_value}\n")
-
+                f.write(f"{corresponding_node_ids[0].item()} {corresponding_node_ids[1].item()} {pred_value} {true_value}\n")
 
 class Trainer_Triples(Trainer_embedding_LLM):
     def __init__(self,
@@ -224,7 +221,7 @@ class Trainer_Triples(Trainer_embedding_LLM):
                  repeat: int,
                  loggers: Dict[str, Logger],
                  print_logger: None,
-                 batch_size=None, ):
+                 batch_size=None,):
         self.device = config_device(cfg).device
         self.model = model.to(self.device)
         self.model_name = cfg.model.type
@@ -240,7 +237,7 @@ class Trainer_Triples(Trainer_embedding_LLM):
         self.splits = splits
 
         self.optimizer = optimizer
-        model_types = ['MLP-minilm', 'MLP-bert', 'MLP-llama', 'MLP-e5-large', 'MLP-tfidf', 'MLP-w2v']
+        model_types = ['MLP-minilm','MLP-bert','MLP-llama','MLP-e5-large', 'MLP-tfidf', 'MLP-w2v']
         self.test_func = {model_type: self._test for model_type in model_types}
         self.evaluate_func = {model_type: self._evaluate for model_type in model_types}
 
@@ -259,6 +256,8 @@ class Trainer_Triples(Trainer_embedding_LLM):
         self.run_dir = cfg.run_dir
 
         self.report_step = 100
+
+
 
     def _train_mlp(self):
         self.model.train()
@@ -300,6 +299,7 @@ class Trainer_Triples(Trainer_embedding_LLM):
 
         result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_pred, neg_pred)
         return result_mrr
+
 
     def merge_result_rank(self):
         result_test = self.evaluate_func[self.model_name](self.splits['test'])
@@ -378,7 +378,7 @@ class Trainer_embedding_LLM_Cross(Trainer):
             pos_out = self.model(self.train_data.edge_features[perm])
             pos_loss = -torch.log(pos_out + 1e-15).mean()
 
-            neg_out = self.model(self.train_data.edge_features[perm + pos_train_edge.shape[0]])
+            neg_out = self.model(self.train_data.edge_features[perm+pos_train_edge.shape[0]])
             neg_loss = -torch.log(1 - neg_out + 1e-15).mean()
 
             loss = pos_loss + neg_loss
@@ -520,7 +520,7 @@ class Trainer_embedding_LLM_Cross(Trainer):
             pos_out = self.model(self.train_data.edge_features[perm])
             pos_loss = -torch.log(pos_out + 1e-15).mean()
 
-            neg_out = self.model(self.train_data.edge_features[perm + pos_train_edge.shape[0]])
+            neg_out = self.model(self.train_data.edge_features[perm+pos_train_edge.shape[0]])
             neg_loss = -torch.log(1 - neg_out + 1e-15).mean()
 
             loss = pos_loss + neg_loss
