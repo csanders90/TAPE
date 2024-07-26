@@ -427,7 +427,7 @@ if __name__ == '__main__':
     for name in ['citationv8']:  # 'pubmed', 'arxiv_2023', 'pwc_medium', 'ogbn-arxiv', 'pwc_large', 'citationv8', 
         print(f"------ Dataset {name}------")
         
-        splits, text, data = load_data_lp[name](cfg.data, True)
+        splits, text, data = load_data_lp[name](cfg.data, False)
         
         start_time = time.time()
         m = construct_sparse_adj(data.edge_index.numpy())
@@ -438,14 +438,14 @@ if __name__ == '__main__':
             plot_all_cc_dist(G, name)
         
         if graph_metrics:
-            gc.append(graph_metrics_nx(G, name, True))
+            gc.append(graph_metrics_nx(G, name, False))
             print(gc)
             
             gc = pd.DataFrame(gc)
-            gc.to_csv(f'{name}_all_graph_metric_True.csv', index=False)
+            gc.to_csv(f'{name}_all_graph_metric_False.csv', index=False)
         if name in ['cora', 'arxiv_2023', 'citationv8']:
             
-            splits, text, data = load_data_lp[name](cfg.data, False)
+            splits, text, data = load_data_lp[name](cfg.data, True)
             
             start_time = time.time()
             m = construct_sparse_adj(data.edge_index.numpy())
@@ -460,4 +460,4 @@ if __name__ == '__main__':
                 print(gc)
 
     gc = pd.DataFrame(gc)
-    gc.to_csv(f'{name}_all_graph_metric_all.csv', index=False)
+    gc.to_csv(f'{name}_all_graph_metric_True.csv', index=False)

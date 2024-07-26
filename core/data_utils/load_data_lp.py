@@ -250,7 +250,7 @@ def load_taglp_citeseer(cfg: CN, if_lcc) -> Tuple[Dict[str, Data], List[str]]:
 def load_taglp_citationv8(cfg: CN, lcc_bool: bool=True) -> Tuple[Dict[str, Data], List[str]]:
     # add one default argument
     
-    data = load_pyg_citationv8()
+    data = load_embedded_citationv8('tfidf')
     text = load_text_citationv8()
     
     print(f"original num of nodes: {data.num_nodes}")
@@ -265,7 +265,7 @@ def load_taglp_citationv8(cfg: CN, lcc_bool: bool=True) -> Tuple[Dict[str, Data]
     if lcc_bool:
         data, lcc, _ = use_lcc(data)
         text = [text[i] for i in lcc]
-        
+    
     splits = get_edge_split(data,
                             undirected,
                             cfg.device,
