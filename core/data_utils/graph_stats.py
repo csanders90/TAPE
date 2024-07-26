@@ -443,6 +443,8 @@ if __name__ == '__main__':
             
             gc = pd.DataFrame(gc)
             gc.to_csv(f'{name}_all_graph_metric_False.csv', index=False)
+        
+        gc = []
         if name in ['cora', 'arxiv_2023', 'citationv8']:
             
             splits, text, data = load_data_lp[name](cfg.data, True)

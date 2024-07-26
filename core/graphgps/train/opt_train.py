@@ -56,7 +56,7 @@ class Trainer():
         self.optimizer = optimizer
         self.loggers = loggers
         self.print_logger = print_logger
-        
+        self.data_name = cfg.data.name
         # TODO change before the submission
         report_step = {
                 'cora': 1,
@@ -273,7 +273,7 @@ class Trainer():
     def save_result(self, results_dict: Dict[str, float]):  # sourcery skip: avoid-builtin-shadow
         
         root = os.path.join(self.FILE_PATH, cfg.out_dir)
-        acc_file = os.path.join(root, f'{self.data_name}_wb_acc_mrr.csv')
+        acc_file = os.path.join(root, f'{self.data_name}_lm_mrr.csv')
         self.print_logger.info(f"save to {acc_file}")
         os.makedirs(root, exist_ok=True)
         mvari_str2csv(self.name_tag, results_dict, acc_file)

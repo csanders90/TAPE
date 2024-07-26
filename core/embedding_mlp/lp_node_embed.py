@@ -84,7 +84,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--device', dest='device', required=False, 
                         help='device id', default='cpu')
     parser.add_argument('--epoch', dest='epoch', type=int, required=False,
-                        default=200,
+                        default=2,
                         help='data name')
     parser.add_argument('--embedder', dest='embedder', type=str, required=False,
                         default='original',
