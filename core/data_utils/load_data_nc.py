@@ -62,8 +62,7 @@ def get_node_mask_ogb(num_nodes: int, idx_splits: Dict[str, torch.Tensor]) -> tu
 # Function to parse Cora dataset
 def load_graph_arxiv23() -> Data:
     data = torch.load(FILE_PATH + 'core/dataset/arxiv_2023/graph.pt')
-    data.edge_index = data.adj_t.to_symmetric()
-    
+    # data.edge_index = data.adj_t.to_symmetric()
     return data
 
 # Function to parse PubMed dataset
@@ -447,12 +446,18 @@ def load_tag_product() -> Tuple[Data, List[str]]:
 
 def load_graph_citationv8() -> Data:
     import dgl
+    from pdb import set_trace as st; st()
     graph = dgl.load_graphs(FILE_PATH + 'core/dataset/citationv8/Citation-2015.pt')[0][0]
     graph = dgl.to_bidirected(graph)
     from torch_geometric.utils import from_dgl
     graph = from_dgl(graph)
+    graph.num_nodes = graph.edge_index.max() + 1
+    # torch.save(graph, FILE_PATH + 'core/dataset/citationv8/citationv8_pyg2015.pt')
     return graph
 
+def load_pyg_citationv8() -> Data:
+    return torch.load(FILE_PATH + 'core/dataset/citationv8/citationv8_pyg2015.pt')
+    
 
 def load_embedded_citationv8(method) -> Data:
     return torch.load(FILE_PATH + f'core/dataset/citationv8/citationv8_{method}.pt')

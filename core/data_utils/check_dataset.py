@@ -1,9 +1,6 @@
 import argparse
 from load import load_data_lp
 
-
-
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='GraphGym')
     parser.add_argument('--name', type=str, required=False, default='cora')

@@ -49,26 +49,6 @@ def time_function(func):
     return wrapper
 
 
-def _gini_coefficient(array: np.ndarray) -> float:
-  """Computes the Gini coefficient of a 1-D input array."""
-  if array.size == 0:  # pylint: disable=g-explicit-length-test  (numpy arrays have no truth value)
-    return 0.0
-  array = array.astype(np.float32)
-  array += np.finfo(np.float32).eps
-  array = np.sort(array)
-  n = array.shape[0]
-  index = np.arange(1, n + 1)
-  return np.sum((2 * index - n  - 1) * array) / (n * np.sum(array))
-
-
-# @time_function
-def _degree_heterogeneity(graph):
-    degrees = [degree for _, degree in graph.degree()]
-    average_degree = sum(degrees) / len(degrees)
-    variance_degree = sum((degree - average_degree) ** 2 for degree in degrees) / len(degrees)
-    return math.log10(math.sqrt(variance_degree) / average_degree)
-
-
 def plot_adjacency_matrix(G: nx.graph, name: str) -> None:
     """
     Plot the adjacency matrix of a networkx graph.
@@ -105,41 +85,6 @@ def draw_adjacency_matrix(adj: np.array, name: str) -> None:
                   interpolation="none")
     pyplot.savefig(f'{name}')
 
-
-
-def compare_adj(data_name, data_edges):
-    raise NotImplementedError
-    """_summary_
-
-    Args:
-          data_name (_type_): _description_
-          data_edges (_type_): _description_
-    """
-
-    path = osp.join(osp.dirname(osp.realpath(__file__)), './dataset')
-    dataset = Planetoid(path, data_name,
-                        transform=T.NormalizeFeatures())
-    data = dataset[0]
-
-    # check if loaded dataset is the same as Planetoid
-    sorted_data_edges = np.sort(data_edges, axis=0)
-    sorted_data_index = np.sort(data.edge_index.numpy(), axis=0)
-    are_datasets_equal = np.array_equal(sorted_data_edges, sorted_data_index)
-
-    print(sorted_data_edges)
-    print(sorted_data_index)
-    print(f'Are datasets equal? {are_datasets_equal}')
-    # original Planetoid dataset
-    adj = to_torch_coo_tensor(data.edge_index)
-    adj = adj.to_dense().numpy()
-    G = nx.from_numpy_array(adj, create_using=nx.Graph)
-
-    plot_adjacency_matrix(G, f'{data_name}_data.edge_index.png')
-
-    # TAG
-    adj = to_torch_coo_tensor(torch.tensor(data_edges))
-    adj = adj.to_dense().numpy()
-    plot_adjacency_matrix(G, f'{data_name}_data_edges.png')
 
 
 def plot_adj_sparse():
@@ -241,6 +186,27 @@ def construct_sparse_adj(edge_index) -> coo_matrix:
     m = coo_matrix((vals, (rows, cols)), shape=shape)
     return m
 
+
+def _gini_coefficient(array: np.ndarray) -> float:
+  """Computes the Gini coefficient of a 1-D input array."""
+  if array.size == 0:  # pylint: disable=g-explicit-length-test  (numpy arrays have no truth value)
+    return 0.0
+  array = array.astype(np.float32)
+  array += np.finfo(np.float32).eps
+  array = np.sort(array)
+  n = array.shape[0]
+  index = np.arange(1, n + 1)
+  return np.sum((2 * index - n  - 1) * array) / (n * np.sum(array))
+
+
+# @time_function
+def _degree_heterogeneity(graph):
+    degrees = [degree for _, degree in graph.degree()]
+    average_degree = sum(degrees) / len(degrees)
+    variance_degree = sum((degree - average_degree) ** 2 for degree in degrees) / len(degrees)
+    return math.log10(math.sqrt(variance_degree) / average_degree)
+
+
 # @time_function
 def _avg_degree2(G, avg_degree_dict={}):
     avg_degree_list = []
@@ -256,6 +222,7 @@ def _avg_degree2(G, avg_degree_dict={}):
             avg_degree_list.append(degree / len(adj_list))
 
     return np.array(avg_degree_list).mean()
+
 
 # @time_function
 def _avg_degree(G):
@@ -303,29 +270,18 @@ def _avg_cluster(G, name, scale):
     return avg_cluster 
 
 # @time_function
-def _avg_shortest_path(G, data, name, scale):
-    all_avg_shortest_paths = []
+def _avg_shortest_path(G, name, scale):
+    
     if name in ['cora', 'pwc_small', 'arxiv_2023']:
-        all_avg_shortest_paths = nx.average_shortest_path_length(G)
+        avg_st = nx.average_shortest_path_length(G)
     else:
+        all_avg_shortest_paths = []
         for _ in tqdm(range(scale)):
             n1, n2 = random.choices(list(G.nodes()), k=2)
             length = nx.shortest_path_length(G, source=n1, target=n2)
             all_avg_shortest_paths.append(length)
-                    
-    return all_avg_shortest_paths
-
-# @time_function
-# def _diameters(G, name, scale):
-#     avg_diameters = []
-#     if name in ['cora', 'pwc_small', 'arxiv_2023']:
-#         avg_diameters = nx.diameter(G)
-#     else:
-#         # approximation of the diameter : max(eccentricity)
-#         for i in tqdm(G.nodes()):
-#             if i % int(scale) == 0:
-#                 avg_diameters.append(nx.eccentricity(G, v=i))
-#     return avg_diameters
+            avg_st = np.array(all_avg_shortest_paths).mean()
+    return avg_st
 
 
 def plot_cc_dist(G: nx.Graph, name: str) -> None:
@@ -389,7 +345,7 @@ def _largest_connected_component_size(graph: nx.Graph) -> float:
   return np.max(list(map(len, components))) / graph.number_of_nodes()
 
 
-def graph_metrics_nx(graph: nx.Graph, name: str) -> Dict[str, float]:
+def graph_metrics_nx(graph: nx.Graph, name: str, use_lcc: bool) -> Dict[str, float]:
     """Computes graph metrics on a networkx graph object.
 
     Arguments:
@@ -397,10 +353,18 @@ def graph_metrics_nx(graph: nx.Graph, name: str) -> Dict[str, float]:
     Returns:
         dict from metric names to metric values.
     """
-    result = {'name': name}
+    result = {'name': f"{name}_{use_lcc}"}
     result.update(_counts(graph))
     degrees = _degrees(graph)
     result['degree_gini'] = _gini_coefficient(degrees)
+    
+    avg_degree_G, avg_degree_dict = _avg_degree(G)
+    avg_degree_G2 = _avg_degree2(graph, avg_degree_dict)
+    result['avg_deg'] = avg_degree_G
+    result['avg_deg2'] = avg_degree_G2
+
+    result['deg_heterogeneity'] = _degree_heterogeneity(graph)
+    result['avg_shortest_path'] = _avg_shortest_path(graph, name, 1000) if nx.is_connected(G) else np.inf
     
     if name in ['pubmed', 'pwc_medium', 'ogbn_arxiv', 'pwc_large', 'ogbn-arxiv', 'citationv8']:
         print(name)
@@ -413,7 +377,6 @@ def graph_metrics_nx(graph: nx.Graph, name: str) -> Dict[str, float]:
     if graph.number_of_nodes() == 0:  # avoid np.mean of empty slice
         result['avg_degree'] = 0.0
         return result
-    
     
     result['avg_degree'] = float(np.mean(degrees))
     core_numbers = np.array(list(nx.core_number(graph).values()))
@@ -428,96 +391,6 @@ def graph_metrics_nx(graph: nx.Graph, name: str) -> Dict[str, float]:
     result['cc_size'] = float(_largest_connected_component_size(graph))
     result['power_law_estimate'] = _power_law_estimate(degrees)
     return result
-
-
-def print_data_stats(data, name, scale):
-
-    m = construct_sparse_adj(data.edge_index.numpy())
-    start = time.time()
-    G = nx.from_scipy_sparse_array(m)
-    print('create graph:', time.time() - start)
-    
-    heterogeneity = _degree_heterogeneity(G)
-    num_nodes = data.num_nodes
-    num_edges = data.edge_index.shape[1]
-    # avg_degree_arithmetic = int(num_edges / num_nodes)
-    avg_degree_G, avg_degree_dict = _avg_degree(G)
-    avg_degree_G2 = _avg_degree2(G, avg_degree_dict)
-
-    if name in ['cora', 'pwc_small', 'arxiv_2023', 'pubmed', 'pwc_medium', 'pwc_large', 'citationv8', 'ogbn-arxiv']:
-        
-        all_avg_shortest_paths = _avg_shortest_path(G, data, name, scale)
-        try:
-            print(sorted(all_avg_shortest_paths))
-        except:
-            print(all_avg_shortest_paths)
-        
-    avg_cluster = _avg_cluster(G, name)    
-
-    print(f"------ Dataset {name}------ : Whole, "
-            f"Num nodes: {data.num_nodes}, " 
-            f"Num edges: {data.edge_index.shape[1]}, "
-            f"heterogeneity: {heterogeneity}, "
-            # f"avg degree arithmetic: {avg_degree_arithmetic}, "
-            f"avg degree G: {avg_degree_G}, avg degree G2: {avg_degree_G2}, "
-            f"clustering: mean {np.mean(np.array(avg_cluster))}, std {np.std(np.array(avg_cluster))},"
-            f"avg. of avg. shortest paths: {np.mean(all_avg_shortest_paths)}, "
-            f"std. of avg. shortest paths: {np.std(all_avg_shortest_paths)}, "
-            # f"avg. diameter: {np.mean(all_diameters)}, "
-            # f"std. diameter: {np.std(all_diameters)}"
-            )
-    train_edges = splits['train'].pos_edge_label.shape[0]*2
-    valid_edges = splits['valid'].pos_edge_label.shape[0]*2
-    test_edges = splits['test'].pos_edge_label.shape[0]*2
-        
-    new_df = pd.DataFrame({
-        f"Dataset {name}": [
-            num_nodes,
-            num_edges,
-            heterogeneity,
-            # avg_degree_arithmetic,
-            avg_degree_G,
-            avg_degree_G2,
-            np.mean(avg_cluster),
-            np.std(avg_cluster),
-            np.mean(all_avg_shortest_paths),
-            np.std(all_avg_shortest_paths),
-            # np.max(all_diameters),
-            # np.min(all_diameters),
-            int(train_edges), 
-            int(valid_edges),
-            int(test_edges)
-        ]
-    }, index=[
-        "Num nodes",
-        "Num edges",
-        "Heterogeneity",
-        "Avg degree (arithmetic)",
-        "Avg degree (G)",
-        "Avg degree (G2)",
-        "Mean clustering coefficient",
-        "Std. deviation of clustering coefficient",
-        "Mean of avg. shortest paths",
-        "Std. deviation of avg. shortest paths",
-        # "Max diameter",
-        # "Min diameter",
-        "Train edges",
-        "Valid edges",
-        "Test edges"
-    ])
-
-    csv_filename = "data_stats.csv"
-    
-    try:
-        existing_df = pd.read_csv(csv_filename, index_col=0)
-    except FileNotFoundError:
-        existing_df = pd.DataFrame()
-        
-    new_df = new_df.T
-    updated_df = pd.concat([existing_df, new_df])
-
-    updated_df.to_csv(csv_filename)
-    new_df.to_csv(f"{name}_data_stats.csv") 
 
 
 # small_data = ['pwc_small', 'cora', 'arxiv_2023']
@@ -544,17 +417,17 @@ if __name__ == '__main__':
     parser.add_argument('--scale', dest='scale', type=int, required=False,
                         help='data name')
     args = parser.parse_args()
-    scale = 10
+    scale = 100
     scale = args.scale 
 
     plot_cc = False
     graph_metrics = True
     
     gc = []
-    for name in ['pwc_small', 'cora',  'pubmed', 'arxiv_2023', 'pwc_medium', 'ogbn-arxiv', 'pwc_large', 'citationv8']: 
+    for name in ['citationv8']:  # 'pubmed', 'arxiv_2023', 'pwc_medium', 'ogbn-arxiv', 'pwc_large', 'citationv8', 
         print(f"------ Dataset {name}------")
         
-        splits, text, data = load_data_lp[name](cfg.data)
+        splits, text, data = load_data_lp[name](cfg.data, True)
         
         start_time = time.time()
         m = construct_sparse_adj(data.edge_index.numpy())
@@ -565,13 +438,26 @@ if __name__ == '__main__':
             plot_all_cc_dist(G, name)
         
         if graph_metrics:
-            gc.append(graph_metrics_nx(G, name))
+            gc.append(graph_metrics_nx(G, name, True))
             print(gc)
             
+            gc = pd.DataFrame(gc)
+            gc.to_csv(f'{name}_all_graph_metric_True.csv', index=False)
+        if name in ['cora', 'arxiv_2023', 'citationv8']:
+            
+            splits, text, data = load_data_lp[name](cfg.data, False)
+            
+            start_time = time.time()
+            m = construct_sparse_adj(data.edge_index.numpy())
+            G = nx.from_scipy_sparse_array(m)
+            print(f"Time taken to create graph: {time.time() - start_time} s")
+            
+            if  plot_cc:
+                plot_all_cc_dist(G, name)
+            
+            if graph_metrics:
+                gc.append(graph_metrics_nx(G, name, False))
+                print(gc)
+
     gc = pd.DataFrame(gc)
-    gc.to_csv('all_graph_metric.csv', index=False)
-
-
-
-
-
+    gc.to_csv(f'{name}_all_graph_metric_all.csv', index=False)

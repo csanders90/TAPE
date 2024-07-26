@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# LINK=https://drive.google.com/file/d/1ueqmPH2L5flLQjTIgHxLO2-FlGMvyCqy/view?usp=sharing
+# LINK=https://drive.google.com/file/d/1IvP4_NmbGAhuWpc3gShRooivdsZfrxh4/view?usp=sharing
 # If automatic downloading isn't working, the file can be downloaded manually with the above link.
-ggID='1ueqmPH2L5flLQjTIgHxLO2-FlGMvyCqy'
+
+ggID='1IvP4_NmbGAhuWpc3gShRooivdsZfrxh4'
 ggURL='https://drive.google.com/uc?export=download'
 TARGET=dataset.tar.gz
 SHA256SUM=ca63ec67f4be6a03433dad1b7ee6b0d122d8bc57da219d7ac8e59b481bd9b7ff

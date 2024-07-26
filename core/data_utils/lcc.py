@@ -152,8 +152,12 @@ def use_lcc(dataset: InMemoryDataset) -> InMemoryDataset:
       
     lcc_index = list(max(nx.connected_components(G), key=len))
     data = get_Data(dataset)
-    x_new = data.x[lcc_index]
-
+    
+    if data.x is not None:
+      x_new = data.x[lcc_index]
+    else:
+      x_new = None
+      
     row, col = get_row_col(data.edge_index)
 
     lcc_set = set(lcc_index)
@@ -162,17 +166,17 @@ def use_lcc(dataset: InMemoryDataset) -> InMemoryDataset:
     node_mapper = get_node_mapper(lcc_index)
     edges = remap_edges(filtered_edges, node_mapper)
 
-    data = Data(
-        x=x_new,
-        edge_index=torch.LongTensor(edges),
+    new_data = Data(
+        x = x_new,
+        edge_index = torch.LongTensor(edges),
         # y=y_new,
-        num_nodes=x_new.size()[0],
-        node_attrs=x_new, 
+        num_nodes = torch.LongTensor(edges).max().tolist()+1,
+        node_attrs = x_new, 
         edge_attrs = None, 
         graph_attrs = None
     )
 
-    return data, lcc_index, G
+    return new_data, lcc_index, G
   
 
 def find_scc_direc(data) -> List:
