@@ -62,7 +62,7 @@ def get_node_mask_ogb(num_nodes: int, idx_splits: Dict[str, torch.Tensor]) -> tu
 # Function to parse Cora dataset
 def load_graph_arxiv23() -> Data:
     data = torch.load(FILE_PATH + 'core/dataset/arxiv_2023/graph.pt')
-    data.edge_index = data.adj_t.to_symmetric()
+    '''data.edge_index = data.adj_t.to_symmetric()'''
     
     return data
 
