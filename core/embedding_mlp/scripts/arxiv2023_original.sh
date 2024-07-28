@@ -24,13 +24,12 @@ module load compiler/gnu/12
 
 
 
-cd /hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/model_finetuning
+cd /hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/embedding_mlp
 
-data="arxiv_2023"
+data="pubmed"
 max_iter=2000
-embedders=("w2v" "original")
+embedders=("original")
 decoders=("dot" "concat" "euclidean")
-# devices=("cuda:2" "cuda:0" "cuda:1")
 device="cpu"
 
 for embedder in "${embedders[@]}"; do
@@ -38,7 +37,7 @@ for embedder in "${embedders[@]}"; do
         decoder=${decoders[$i]}
         # device=${devices[$i]}
         echo "python lp_node_embed.py --data $data --embedder $embedder --device $device --decoder $decoder --epoch $max_iter"
-        python lp_node_embed.py --data $data --embedder $embedder --device $device --decoder $decoder --epoch $max_iter &
+        python lp_node_embed.py --data $data --embedder $embedder --device $device --decoder $decoder --epoch $max_iter --report_step 200 &
     done
     wait 
 done

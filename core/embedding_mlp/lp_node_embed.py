@@ -51,8 +51,8 @@ split_index_data = {
     'pubmed': 1,
     'arxiv_2023': 1,
     'pwc_medium': 0.2,
-    'citationv8': 0.2,
-    'ogbn_arxiv': 0.2,
+    'citationv8': 0.1,
+    'ogbn-arxiv': 0.2,
     'pwc_large': 0.2
 }
 
@@ -79,12 +79,15 @@ def parse_args() -> argparse.Namespace:
     r"""Parses the command line arguments."""
     parser = argparse.ArgumentParser(description='GraphGym')
     parser.add_argument('--data', dest='data', type=str, required=False,
-                        default='arxiv_2023',
+                        default='ogbn-arxiv',
                         help='data name')
     parser.add_argument('--device', dest='device', required=False, 
                         help='device id', default='cpu')
     parser.add_argument('--epoch', dest='epoch', type=int, required=False,
-                        default=2,
+                        default=1,
+                        help='data name')
+    parser.add_argument('--report_step', dest='report_step', type=int, required=False,
+                        default=1,
                         help='data name')
     parser.add_argument('--embedder', dest='embedder', type=str, required=False,
                         default='original',
@@ -135,7 +138,7 @@ def project_main():
     cfg.embedder.type = args.embedder
     cfg.decoder.type = args.decoder
     cfg.data.scale = split_index_data[args.data]
-
+    cfg.train.report_step = args.report_step
     loggers = create_logger(args.repeat)
     cfg.data.method = cfg.embedder.type
     print_logger = set_printing(cfg)
@@ -143,7 +146,7 @@ def project_main():
     if args.embedder == 'original':
         cfg.data.method = 'tfidf'
         
-    splits, text, data = load_data_lp[cfg.data.name](cfg.data)
+    splits, text, data = load_data_lp[cfg.data.name](cfg.data, True)
     print(f"{cfg.data.name}: num of nodes {data.num_nodes}")
     splits = random_sampling(splits, cfg.data.scale)
     

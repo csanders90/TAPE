@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Change to the directory containing your bash scripts
-cd /hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/model_finetuning/scripts
+cd /hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/embedding_mlp/scripts
 
 # Loop through each .sh file in the directory and submit it using sbatch
 for script in *.sh; do
