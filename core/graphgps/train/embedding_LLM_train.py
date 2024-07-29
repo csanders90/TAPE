@@ -178,7 +178,7 @@ class Trainer_embedding_LLM(Trainer):
         pos_edge_indices = torch.cat(pos_edge_indices, dim=0)
         neg_edge_indices = torch.cat(neg_edge_indices, dim=0)
 
-        visualize_weighted_adjacency_matrix(self.name_tag, self.data.num_nodes, pos_edge, neg_edge, pos_pred, neg_pred)
+        visualize_weighted_adjacency_matrix(self.name_tag, self.train_data.num_nodes, pos_edge, neg_edge, pos_pred, neg_pred)
 
         y_pred = torch.cat([pos_pred, neg_pred], dim=0)
         edge_index = torch.cat([pos_edge, neg_edge], dim=1)
@@ -186,10 +186,10 @@ class Trainer_embedding_LLM(Trainer):
         neg_y = torch.zeros(neg_edge.size(1))
         y_true = torch.cat([pos_y, neg_y], dim=0)
         data_df = {
-            "edge_index0": edge_index[0].detach().numpy(),
-            "edge_index1": edge_index[1].detach().numpy(),
-            "pred": y_pred.detach().numpy(),
-            "gr": y_true.detach().numpy(),
+            "edge_index0": edge_index[0].detach().cpu().numpy(),
+            "edge_index1": edge_index[1].detach().cpu().numpy(),
+            "pred": y_pred.detach().cpu().numpy(),
+            "gr": y_true.detach().cpu().numpy(),
         }
 
         df = pd.DataFrame(data_df)
