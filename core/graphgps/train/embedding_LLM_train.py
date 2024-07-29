@@ -7,6 +7,7 @@ import pandas as pd
 from torch.nn import BCEWithLogitsLoss
 
 sys.path.insert(0, abspath(join(dirname(dirname(__file__)))))
+from metrics_analysis.remap_and_visualize import visualize_weighted_adjacency_matrix
 
 import torch
 import wandb
@@ -176,6 +177,8 @@ class Trainer_embedding_LLM(Trainer):
 
         pos_edge_indices = torch.cat(pos_edge_indices, dim=0)
         neg_edge_indices = torch.cat(neg_edge_indices, dim=0)
+
+        visualize_weighted_adjacency_matrix(self.name_tag, self.data.num_nodes, pos_edge, neg_edge, pos_pred, neg_pred)
 
         y_pred = torch.cat([pos_pred, neg_pred], dim=0)
         edge_index = torch.cat([pos_edge, neg_edge], dim=1)
