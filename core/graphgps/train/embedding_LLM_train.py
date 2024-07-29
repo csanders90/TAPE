@@ -20,7 +20,7 @@ from torch_geometric.loader import DataLoader
 from heuristic.eval import get_metric_score
 from graphgps.utility.utils import config_device, Logger
 from typing import Dict, Tuple
-from scipy.sparse._csr import csr_matrix
+from scipy.sparse._csr import csr_matrix 
 from graphgps.train.opt_train import (Trainer)
 from graphgps.utility.ncn import PermIterator
 from torch.utils.tensorboard import SummaryWriter
@@ -104,10 +104,10 @@ class Trainer_embedding_LLM(Trainer):
             loss = self._train_mlp()
             if epoch % int(self.report_step) == 0:
                 self.results_rank = self.merge_result_rank()
-
+                
                 for key, result in self.results_rank.items():
                     self.loggers[key].add_result(self.run, result)
-
+                    
                     self.tensorboard_writer.add_scalar(f"Metrics/Train/{key}", result[0], epoch)
                     self.tensorboard_writer.add_scalar(f"Metrics/Valid/{key}", result[1], epoch)
                     self.tensorboard_writer.add_scalar(f"Metrics/Test/{key}", result[2], epoch)
@@ -120,7 +120,7 @@ class Trainer_embedding_LLM(Trainer):
 
                 self.print_logger.info('---')
 
-        return
+        return 
 
     @torch.no_grad()
     def _evaluate(self, eval_data: Data):
@@ -209,7 +209,7 @@ class Trainer_embedding_LLM(Trainer):
                 pred_value = pred[idx]
                 true_value = true[idx]
                 f.write(f"{corresponding_node_ids[0].item()} {corresponding_node_ids[1].item()} {pred_value} {true_value}\n")
-
+                
 class Trainer_Triples(Trainer_embedding_LLM):
     def __init__(self,
                  FILE_PATH: str,
@@ -235,7 +235,7 @@ class Trainer_Triples(Trainer_embedding_LLM):
         self.batch_size = batch_size
 
         self.splits = splits
-
+        
         self.optimizer = optimizer
         model_types = ['MLP-minilm','MLP-bert','MLP-llama','MLP-e5-large', 'MLP-tfidf', 'MLP-w2v']
         self.test_func = {model_type: self._test for model_type in model_types}
@@ -257,22 +257,22 @@ class Trainer_Triples(Trainer_embedding_LLM):
 
         self.report_step = 100
 
-
-
+       
+        
     def _train_mlp(self):
         self.model.train()
         total_loss = 0
 
         train_loader = DataLoader(range(self.splits['train'][0].shape[0]), batch_size=self.batch_size, shuffle=True)
-
+        
         for perm in train_loader:
             train_label = self.splits['train'][1][perm]
             train_data = self.splits['train'][0][perm]
-
+            
             self.optimizer.zero_grad()
             if type(train_data) == csr_matrix:
                 train_data = train_data.toarray()
-
+                
             pos_out = self.model(torch.tensor(train_data[train_label == 1]).to(self.device))
             pos_loss = -torch.log(pos_out + 1e-15).mean()
 
@@ -288,18 +288,18 @@ class Trainer_Triples(Trainer_embedding_LLM):
 
     @torch.no_grad()
     def _evaluate(self, eval_data: Dict[str, torch.Tensor]):
-
+        
         if type(eval_data[0]) == csr_matrix:
             eval_data[0] = eval_data[0].toarray()
-
+            
         self.model.eval()
         preds = self.model(torch.tensor(eval_data[0]).to(self.device))
         pos_pred = preds[eval_data[1] == 1].squeeze().cpu()
         neg_pred = preds[eval_data[1] == 0].squeeze().cpu()
-
+        
         result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_pred, neg_pred)
         return result_mrr
-
+    
 
     def merge_result_rank(self):
         result_test = self.evaluate_func[self.model_name](self.splits['test'])
@@ -310,7 +310,7 @@ class Trainer_Triples(Trainer_embedding_LLM):
             key: (result_train[key], result_valid[key], result_test[key])
             for key in result_test.keys()
         }
-
+    
     def finalize(self):
         import time
         for _ in range(1):
