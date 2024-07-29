@@ -259,25 +259,22 @@ class Trainer_NCN(Trainer):
         neg_pred = torch.cat(neg_pred, dim=0)
 
 
+        visualize_weighted_adjacency_matrix(self.name_tag, self.data.num_nodes, pos_edge, neg_edge, pos_pred, neg_pred)
+
         y_pred = torch.cat([pos_pred, neg_pred], dim=0)
-        pos_pred = pos_pred.detach().cpu()
-        neg_pred = neg_pred.detach().cpu()
-        result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_pred, neg_pred)
         edge_index = torch.cat([pos_edge, neg_edge],dim=1)
         pos_y = torch.ones(pos_edge.size(1))
         neg_y = torch.zeros(neg_edge.size(1))
         y_true = torch.cat([pos_y, neg_y], dim=0)
         data_df = {
-            "edge_index0": edge_index[0].detach().cpu().numpy(),
-            "edge_index1": edge_index[1].detach().cpu().numpy(),
-            "pred": y_pred.detach().cpu().numpy(),
-            "gr": y_true.detach().cpu().numpy(),
+            "edge_index0": edge_index[0].detach().numpy(),
+            "edge_index1": edge_index[1].detach().numpy(),
+            "pred": y_pred.detach().numpy(),
+            "gr": y_true.detach().numpy(),
         }
 
         df = pd.DataFrame(data_df)
-        auc = result_mrr['AUC']
-        mrr = result_mrr['MRR']
-        df.to_csv(f'{self.out_dir}/{self.name_tag}_AUC_{auc}_MRR_{mrr}.csv', index=False)
+        df.to_csv(f'{self.out_dir}/{self.data_name}_test_pred_gr_last_epoch.csv', index=False)
         self.run_result['eval_time'] = time.time() - start_train
         return
 
