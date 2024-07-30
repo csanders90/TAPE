@@ -175,11 +175,6 @@ class Trainer_embedding_LLM(Trainer):
         pos_pred = torch.cat(pos_pred, dim=0)
         neg_pred = torch.cat(neg_pred, dim=0)
 
-        pos_edge_indices = torch.cat(pos_edge_indices, dim=0)
-        neg_edge_indices = torch.cat(neg_edge_indices, dim=0)
-
-        visualize_weighted_adjacency_matrix(self.name_tag, self.train_data.num_nodes, pos_edge, neg_edge, pos_pred, neg_pred)
-
         y_pred = torch.cat([pos_pred, neg_pred], dim=0)
         edge_index = torch.cat([pos_edge, neg_edge], dim=1)
         pos_y = torch.ones(pos_edge.size(1))
@@ -193,9 +188,10 @@ class Trainer_embedding_LLM(Trainer):
         }
 
         df = pd.DataFrame(data_df)
-        df.to_csv(f'{self.out_dir}/{self.data_name}_test_pred_gr_last_epoch.csv', index=False)
+        df.to_csv(f'{self.out_dir}/{self.name_tag}_test_pred_gr_last_epoch.csv', index=False)
         self.run_result['eval_time'] = time.time() - start_train
         return
+
 
     def save_pred(self, pred, true, data):
         root = os.path.join(self.FILE_PATH, cfg.out_dir, 'pred_record')
