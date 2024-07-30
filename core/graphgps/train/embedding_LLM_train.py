@@ -176,6 +176,9 @@ class Trainer_embedding_LLM(Trainer):
         neg_pred = torch.cat(neg_pred, dim=0)
 
         y_pred = torch.cat([pos_pred, neg_pred], dim=0)
+        pos_pred = pos_pred.detach().cpu()
+        neg_pred = neg_pred.detach().cpu()
+        result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_pred, neg_pred)
         edge_index = torch.cat([pos_edge, neg_edge], dim=1)
         pos_y = torch.ones(pos_edge.size(1))
         neg_y = torch.zeros(neg_edge.size(1))
@@ -188,7 +191,10 @@ class Trainer_embedding_LLM(Trainer):
         }
 
         df = pd.DataFrame(data_df)
-        df.to_csv(f'{self.out_dir}/{self.name_tag}_test_pred_gr_last_epoch.csv', index=False)
+
+        auc = result_mrr['AUC']
+        mrr = result_mrr['MRR']
+        df.to_csv(f'{self.out_dir}/{self.name_tag}_AUC_{auc}_MRR_{mrr}.csv', index=False)
         self.run_result['eval_time'] = time.time() - start_train
         return
 
