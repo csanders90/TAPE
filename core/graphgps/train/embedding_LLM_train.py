@@ -72,7 +72,7 @@ class Trainer_embedding_LLM(Trainer):
         self.out_dir = cfg.out_dir
         self.run_dir = None#cfg.run_dir
 
-        self.report_step = 1
+        self.report_step = cfg.train.report_step
 
     def _train_mlp(self):
         self.model.train()

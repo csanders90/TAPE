@@ -424,7 +424,7 @@ if __name__ == '__main__':
     graph_metrics = True
     
     gc = []
-    for name in ['citationv8']:  # 'pubmed', 'arxiv_2023', 'pwc_medium', 'ogbn-arxiv', 'pwc_large', 'citationv8', 
+    for name in ['pwc_medium']:  # 'arxiv_2023', 'pwc_medium', 'ogbn-arxiv', 'pwc_large', 'citationv8', 
         print(f"------ Dataset {name}------")
         
         splits, text, data = load_data_lp[name](cfg.data, False)
