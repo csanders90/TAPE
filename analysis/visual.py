@@ -53,17 +53,47 @@ def error_mrr_pos(y_pred_pos, pos_edge_index, y_pred_neg, k_list):
     ranking_list = 0.5 * (optimistic_rank + pessimistic_rank) + 1
 
     plot_rank_list(ranking_list, 'pos')
-    len = ranking_list.shape[0]
+    plt.figure(figsize=(10, 6))
+    plt.hist(ranking_list.numpy(), bins=30, edgecolor='black')
+    plt.title('Histogram of Tensor Distribution')
+    plt.xlabel('Value')
+    plt.ylabel('Frequency')
+    plt.savefig('pos_2neg_hist.png')
+    # Define the error range (x-axis range considered as error)
+    norm_interval = [0.8, 1.0] 
+    error_ranges = [[int(i*ranking_list.max().item())-1 for i in norm_interval]] # Example error ranges, adjust as needed
+    
+    # Plot histogram
+    plt.figure(figsize=(10, 6))
+    n, bins, patches = plt.hist(ranking_list.numpy(), bins=30, edgecolor='black')
+    
+    for i in range(len(patches)):
+        bin_center = 0.5 * (bins[i] + bins[i+1])
+        for error_range in error_ranges:
+            if error_range[0] <= bin_center <= error_range[1]:
+                patches[i].set_facecolor('r') 
+                break  
+            else:
+                patches[i].set_facecolor('b') 
+    # Add labels and title
+    plt.title('Histogram of Tensor Distribution with Error Ranges Highlighted, Pos ranked lower than Neg')
+    plt.xlabel('Value')
+    plt.ylabel('Frequency')
+    plt.savefig('pos_2neg_hist.png')
+
+    len_rank = ranking_list.shape[0]
     result = {}
     for k in k_list:
-        result[f'mrr_hit{round(k/len, 2)}'] = (ranking_list <= k).sum(0)/len
-    
+        result[f'mrr_hit{round(k/len_rank, 2)}'] = (ranking_list <= k).sum(0)/len_rank
     
     ranking_list = ranking_list.cpu().numpy().astype(int)
-    analysis_interval = [0.9, 1.0]
-    rank_interval = ranking_list.min() + ((ranking_list.max() - ranking_list.min()) * np.array(analysis_interval)).astype(int)
-    pos_edge_index_err = pos_edge_index[rank_interval[0]:rank_interval[1]]
-    pos_rank_err = ranking_list[rank_interval[0]:rank_interval[1]]
+    # rank_interval = ranking_list.min() + ((ranking_list.max() - ranking_list.min()) * np.array(norm_interval)).astype(int)
+    error_mask = np.zeros(ranking_list.shape[0], dtype=bool)
+    for errors in error_ranges:
+        error_mask = error_mask | ((ranking_list > errors[0]) & (ranking_list < errors[1]))
+        
+    pos_edge_index_err = pos_edge_index[error_mask, :]
+    pos_rank_err = ranking_list[error_mask]
         
     return result, pos_edge_index_err, pos_rank_err
 
@@ -83,9 +113,34 @@ def error_mrr_neg(y_pred_neg, neg_edge_index, y_pred_pos, k_list):
     
     plot_rank_list(ranking_list, 'neg')
     
+    len_rank = ranking_list.shape[0]
     result = {}
     for k in k_list:
-        result[f'mrr_hit{k}'] = (ranking_list <= k).sum(0).to(torch.float)/y_pred_pos.shape[0]
+        result[f'mrr_hit{round(k/len_rank, 2)}'] = (ranking_list <= k).sum(0)/len_rank
+    
+    plt.figure(figsize=(10, 6))
+    plt.hist(ranking_list.numpy(), bins=30, edgecolor='black')
+    plt.title('Histogram of Tensor Distribution')
+    plt.xlabel('Value')
+    plt.ylabel('Frequency')
+    plt.savefig('pos_2neg_hist.png')
+
+    norm_interval = [0.0, 0.4] 
+    error_ranges = [[int(i*ranking_list.max().item())-1 for i in norm_interval]] # Example error ranges, adjust as needed
+    plt.figure(figsize=(10, 6))
+    n, bins, patches = plt.hist(ranking_list.numpy(), bins=30, edgecolor='black')
+    for i in range(len(patches)):
+        bin_center = 0.5 * (bins[i] + bins[i+1])
+        for error_range in error_ranges:
+            if error_range[0] <= bin_center <= error_range[1]:
+                patches[i].set_facecolor('r') 
+                break  
+            else:
+                patches[i].set_facecolor('b') 
+    plt.title('Histogram of Tensor Distribution with Error Ranges Highlighted, Neg ranked lower than Pos')
+    plt.xlabel('Value')
+    plt.ylabel('Frequency')
+    plt.savefig('pos_2neg_hist.png')
     
     ranking_list = ranking_list.cpu().numpy().astype(int)
     analysis_interval = [0, 0.1]
@@ -163,3 +218,102 @@ def find_optimal_threshold(pos_probs, neg_probs, thresholds=None):
     
     return best_threshold, best_accuracy
 
+def load_csv(file_path):
+    """
+    Load a CSV file into a pandas DataFrame.
+
+    Parameters:
+    file_path (str): The path to the CSV file.
+
+    Returns:
+    pd.DataFrame: DataFrame containing the data from the CSV file.
+    """
+    try:
+        # Load the CSV file into a DataFrame
+        df = pd.read_csv(file_path)
+        return df
+    except FileNotFoundError:
+        print(f"Error: The file at {file_path} was not found.")
+    except pd.errors.EmptyDataError:
+        print("Error: The file is empty.")
+    except pd.errors.ParserError:
+        print("Error: There was an issue parsing the file.")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+
+
+if __name__ == '__main__':
+    import os
+    import sys
+    from IPython.display import display, Markdown
+    import pandas as pd
+    from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
+    import torch 
+    from visual import find_optimal_threshold, get_metric_invariant
+    from matplotlib import pyplot as plt
+    
+    # Assuming your target directory is one level up from the current working directory
+    notebook_dir = os.getcwd()  
+    target_dir = os.path.abspath(os.path.join(notebook_dir, '..'))
+
+    sys.path.insert(0, target_dir)
+    from core.data_utils.load import load_data_lp
+    from core.graphgps.utility.utils import init_cfg_test
+
+    cfg = init_cfg_test()
+    splits, text, data = load_data_lp[cfg.data.name](cfg.data)
+    
+
+    # Example usage
+    FILE_PATH = '/hkfs/work/workspace/scratch/cc7738-benchmark_tag/educational_demo/'
+    file_path = FILE_PATH + 'err_ncnc_llama/llama-cora-origin_dot_AUC_0.903_MRR_0.228.csv'
+    data = load_csv(file_path)
+
+    # evaluator = Evaluator(name='ogbl-collab')
+    evaluator_hit = Evaluator(name='ogbl-collab')
+    evaluator_mrr = Evaluator(name='ogbl-citation2')
+
+    pred = data['pred'].tolist()
+    gr = data['gr'].tolist()
+    source = data['edge_index0'].tolist()
+    target = data['edge_index1'].tolist()
+
+    pos_mask = data[data['gr'] == 1.0]
+    pos_index = pos_mask[['edge_index0', 'edge_index1']]
+
+    neg_mask = data[data['gr'] == 0.0]
+    neg_index = neg_mask[['edge_index0', 'edge_index1']]
+
+    P2 = neg_mask['pred'].to_numpy()
+    P1 = pos_mask['pred'].to_numpy()
+
+    plt.figure(figsize=(12, 8))
+
+    # Plot distributions of probabilities
+    plt.hist(P2, bins=100, alpha=0.5, color='blue', label='Positive Class')
+    plt.hist(P1, bins=100, alpha=0.5, color='red', label='Negative Class')
+    best_threshold, best_accuracy= find_optimal_threshold(P2, P1)
+
+    plt.axvline(best_threshold, color='green', linestyle='--', label=f'Optimal Threshold = {best_threshold:.2f}')
+    plt.xlabel('Probability')
+    plt.ylabel('Frequency')
+    plt.legend()
+    plt.title('Probability Distributions with Optimal Threshold')
+    plt.savefig('optimal_threshold.png')
+
+
+    k_list  = [0.1, 0.2, 0.3, 0.5, 1]
+    pos_index = torch.tensor(pos_index.to_numpy())
+    neg_index = torch.tensor(neg_index.to_numpy())
+    P1 = torch.tensor(P1)
+    P2 = torch.tensor(P2)
+    mrr_pos2neg, mrr_neg2pos, result_auc_test, pos_edge_index_err, pos_rank_err, neg_edge_index_err, neg_rank_err = get_metric_invariant(P1, pos_index, P2, neg_index, k_list)
+
+    print(mrr_pos2neg)
+    print(result_auc_test)
+    print(mrr_neg2pos)
+
+    for row in pos_edge_index_err:
+        src = text[row[0]]
+        tgt = text[row[1]]
+        display(Markdown(f"**Source:** {src}  \n**Target:** {tgt}"))
