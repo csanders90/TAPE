@@ -141,13 +141,15 @@ def error_mrr_neg(y_pred_neg, neg_edge_index, y_pred_pos, k_list):
     plt.xlabel('Value')
     plt.ylabel('Frequency')
     plt.savefig('pos_2neg_hist.png')
-    
+
     ranking_list = ranking_list.cpu().numpy().astype(int)
-    analysis_interval = [0, 0.1]
-    rank_interval = ranking_list.min() + ((ranking_list.max() - ranking_list.min()) * np.array(analysis_interval)).astype(int)
-    neg_edge_index_err = neg_edge_index[rank_interval[0]:rank_interval[1]]
-    neg_rank_err = ranking_list[rank_interval[0]:rank_interval[1]]
-     
+    error_mask = np.zeros(ranking_list.shape[0], dtype=bool)
+    for errors in error_ranges:
+        error_mask = error_mask | ((ranking_list > errors[0]) & (ranking_list < errors[1]))
+        
+    neg_edge_index_err = neg_edge_index[error_mask, :]
+    neg_rank_err = ranking_list[error_mask]
+
     return result, neg_edge_index_err, neg_rank_err
 
 
@@ -198,6 +200,8 @@ def plot_rank_list(position: torch.tensor, label: str, sample_size: int=20):
     
 
 def find_optimal_threshold(pos_probs, neg_probs, thresholds=None):
+    assert ValueError("Pos and Neg Prob should be switched.") if pos_probs.max() < neg_probs.max() else None
+    
     if thresholds is None:
         # Generate thresholds from 0 to 1 with a step size
         thresholds = np.linspace(0, 1, num=100)
