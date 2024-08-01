@@ -11,6 +11,8 @@ from matplotlib import pyplot as plt
 import random 
 from tqdm import tqdm 
 import numpy as np 
+import pandas as pd
+
 
 def plot_pessimistic_rank(y_pred_pos, y_pred_neg):
     plt.figure(figsize=(12, 8))
@@ -60,7 +62,7 @@ def error_mrr_pos(y_pred_pos, pos_edge_index, y_pred_neg, k_list):
     plt.ylabel('Frequency')
     plt.savefig('pos_2neg_hist.png')
     # Define the error range (x-axis range considered as error)
-    norm_interval = [0.8, 1.0] 
+    norm_interval = [0.2, 1.0] 
     error_ranges = [[int(i*ranking_list.max().item())-1 for i in norm_interval]] # Example error ranges, adjust as needed
     
     # Plot histogram
@@ -97,7 +99,7 @@ def error_mrr_pos(y_pred_pos, pos_edge_index, y_pred_neg, k_list):
         
     return result, pos_edge_index_err, pos_rank_err
 
-# Define the reciprocal ranks for each query
+
 
 def error_mrr_neg(y_pred_neg, neg_edge_index, y_pred_pos, k_list):
     # calculate ranks
@@ -199,28 +201,24 @@ def plot_rank_list(position: torch.tensor, label: str, sample_size: int=20):
     plt.savefig(f'plot_rank_{label}_{id}.png')
     
 
-def find_optimal_threshold(pos_probs, neg_probs, thresholds=None):
-    assert ValueError("Pos and Neg Prob should be switched.") if pos_probs.max() < neg_probs.max() else None
-    
-    if thresholds is None:
-        # Generate thresholds from 0 to 1 with a step size
-        thresholds = np.linspace(0, 1, num=100)
-    
+def find_opt_thres(pos_probs, neg_probs, thres=None):
+    if thres is None:
+        thres = np.linspace(0, 1, num=100)
     y_true = np.concatenate([np.ones(len(pos_probs)), np.zeros(len(neg_probs))])
     y_scores = np.concatenate([pos_probs, neg_probs])
-    
-    best_threshold = 0
-    best_accuracy = 0
-    
-    for threshold in thresholds:
-        y_pred = (y_scores >= threshold).astype(int)
-        accuracy = accuracy_score(y_true, y_pred)
-        
-        if accuracy > best_accuracy:
-            best_accuracy = accuracy
-            best_threshold = threshold
-    
-    return best_threshold, best_accuracy
+    best_thres = 0
+    best_acc = 0
+    for t in thres:
+        y_pred = (y_scores >= t).astype(int)
+        acc = accuracy_score(y_true, y_pred)
+        if acc > best_acc:
+            best_acc = acc
+            best_thres = t
+
+    pos_pred = (pos_probs >= best_thres).astype(int)
+    neg_pred = (neg_probs >= best_thres).astype(int)
+    return best_thres, best_acc, pos_pred, neg_pred
+
 
 def load_csv(file_path):
     """
@@ -246,6 +244,81 @@ def load_csv(file_path):
         print(f"An unexpected error occurred: {e}")
 
 
+def load_results(file_path):
+    data = load_csv(file_path)
+    
+    if data is not None:
+        print(data.head())  # Print the first few rows of the DataFrame
+
+    pos_mask = data[data['gr'] == 1.0]
+    pos_index = pos_mask[['edge_index0', 'edge_index1']]
+
+    neg_mask = data[data['gr'] == 0.0]
+    neg_index = neg_mask[['edge_index0', 'edge_index1']]
+    P1 = pos_mask['pred'].to_numpy()
+    P2 = neg_mask['pred'].to_numpy()
+    neg_index = neg_index.to_numpy()
+    pos_index = pos_index.to_numpy()
+    
+    return P1, P2, pos_index, neg_index
+
+
+def plot_pos_neg_histogram(Pos, Neg, best_thres=None):
+    plt.figure(figsize=(12, 8))
+    # Plot distributions of probabilities
+    plt.hist(Pos, bins=100, alpha=0.5, color='blue', label='Positive Class')
+    plt.hist(Neg, bins=100, alpha=0.5, color='red', label='Negative Class')
+
+    plt.axvline(best_thres, color='green', linestyle='--', label=f'Optimal Threshold = {best_thres:.2f}')
+    plt.xlabel('Probability')
+    plt.ylabel('Frequency')
+    plt.legend()
+    plt.title('Probability Distributions with Optimal Threshold')
+    plt.savefig('optimal_threshold.png')
+    
+    
+def visual_adjacency(name, num_nodes, pos_edges, neg_edges, pos_weight, neg_weight):
+    """
+    Visualizes the adjacency matrix of a graph with positive and negative edges, 
+    using edge weights to determine color density.
+
+    Parameters:
+    - name (str): The name of the graph.
+    - num_nodes (int): The number of nodes in the graph.
+    - pos_edges (ndarray): Array of positive edges, each edge represented by [row, col].
+    - neg_edges (ndarray): Array of negative edges, each edge represented by [row, col].
+    - pos_weight (ndarray): Weights for positive edges, values between 0 and 1.
+    - neg_weight (ndarray): Weights for negative edges, values between 0 and 1.
+    """
+    
+    fig_size = (40, 40) if num_nodes > 100000 else (20, 20)
+    fig, ax = plt.subplots(figsize=fig_size)
+
+    ax.set_xlim(-0.5, num_nodes - 0.5)
+    ax.set_ylim(-0.5, num_nodes - 0.5)
+    ax.set_aspect('equal')
+
+    pos_weight[pos_weight == 0] = 0.5
+    neg_weight[neg_weight == 0] = 0.5
+
+    scatter_pos = ax.scatter(pos_edges[:, 1], pos_edges[:, 0], color='blue', alpha=pos_weight, label='Positive Edges', s=100)
+    scatter_neg = ax.scatter(neg_edges[:, 1], neg_edges[:, 0], color='red', alpha=neg_weight, label='Negative Edges', s=100)
+    plt.title(f'Adjacency Matrix - {name}')
+    plt.legend(loc='upper right')
+    plt.savefig(f'Adjacency_Matrix_{name}.png')
+    plt.close()
+
+
+def shared_rows(pos_index_llama, neg_index_llama):
+    
+    set1 = set(map(tuple, pos_index_llama))
+    set2 = set(map(tuple, neg_index_llama))
+    shared_rows = set1.intersection(set2)
+    shared_rows_array = np.array(list(shared_rows))
+    print(f'There are {len(shared_rows)} shared rows between the two arrays.')
+    return shared_rows_array
+
+
 if __name__ == '__main__':
     import os
     import sys
@@ -253,71 +326,53 @@ if __name__ == '__main__':
     import pandas as pd
     from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
     import torch 
-    from visual import find_optimal_threshold, get_metric_invariant
+   
     from matplotlib import pyplot as plt
-    
+    from core.data_utils.load import load_data_lp
+    from core.graphgps.utility.utils import init_cfg_test
     # Assuming your target directory is one level up from the current working directory
     notebook_dir = os.getcwd()  
     target_dir = os.path.abspath(os.path.join(notebook_dir, '..'))
 
     sys.path.insert(0, target_dir)
-    from core.data_utils.load import load_data_lp
-    from core.graphgps.utility.utils import init_cfg_test
 
     cfg = init_cfg_test()
     splits, text, data = load_data_lp[cfg.data.name](cfg.data)
-    
 
-    # Example usage
-    FILE_PATH = '/hkfs/work/workspace/scratch/cc7738-benchmark_tag/educational_demo/'
-    file_path = FILE_PATH + 'err_ncnc_llama/llama-cora-origin_dot_AUC_0.903_MRR_0.228.csv'
-    data = load_csv(file_path)
-
-    # evaluator = Evaluator(name='ogbl-collab')
     evaluator_hit = Evaluator(name='ogbl-collab')
     evaluator_mrr = Evaluator(name='ogbl-citation2')
+    
+    FILE_PATH = '/hkfs/work/workspace/scratch/cc7738-benchmark_tag/educational_demo/'
+    llama_cora_path = FILE_PATH + 'err_ncnc_llama/llama-cora-origin_dot_AUC_0.903_MRR_0.228.csv'
 
-    pred = data['pred'].tolist()
-    gr = data['gr'].tolist()
-    source = data['edge_index0'].tolist()
-    target = data['edge_index1'].tolist()
-
-    pos_mask = data[data['gr'] == 1.0]
-    pos_index = pos_mask[['edge_index0', 'edge_index1']]
-
-    neg_mask = data[data['gr'] == 0.0]
-    neg_index = neg_mask[['edge_index0', 'edge_index1']]
-
-    P2 = neg_mask['pred'].to_numpy()
-    P1 = pos_mask['pred'].to_numpy()
-
-    plt.figure(figsize=(12, 8))
-
-    # Plot distributions of probabilities
-    plt.hist(P2, bins=100, alpha=0.5, color='blue', label='Positive Class')
-    plt.hist(P1, bins=100, alpha=0.5, color='red', label='Negative Class')
-    best_threshold, best_accuracy= find_optimal_threshold(P2, P1)
-
-    plt.axvline(best_threshold, color='green', linestyle='--', label=f'Optimal Threshold = {best_threshold:.2f}')
-    plt.xlabel('Probability')
-    plt.ylabel('Frequency')
-    plt.legend()
-    plt.title('Probability Distributions with Optimal Threshold')
-    plt.savefig('optimal_threshold.png')
-
-
+    P1_llama, P2_llama, pos_index_llama, neg_index_llama = load_results(llama_cora_path)
+    best_thres_llama, best_acc_llama, pos_pred_llama, neg_pred_llama = find_opt_thres(P1_llama, P2_llama)
+    
+    plot_pos_neg_histogram(P1_llama, P2_llama, best_thres_llama)
+    
+    pos_weight = (pos_pred_llama == 1).astype(int)
+    neg_weight = (neg_pred_llama == 0).astype(int)
+    visual_adjacency('llama_cora', data.num_nodes, pos_index_llama, neg_index_llama, pos_weight, neg_weight)
+    
+    
     k_list  = [0.1, 0.2, 0.3, 0.5, 1]
-    pos_index = torch.tensor(pos_index.to_numpy())
-    neg_index = torch.tensor(neg_index.to_numpy())
-    P1 = torch.tensor(P1)
-    P2 = torch.tensor(P2)
-    mrr_pos2neg, mrr_neg2pos, result_auc_test, pos_edge_index_err, pos_rank_err, neg_edge_index_err, neg_rank_err = get_metric_invariant(P1, pos_index, P2, neg_index, k_list)
-
-    print(mrr_pos2neg)
-    print(result_auc_test)
-    print(mrr_neg2pos)
-
-    for row in pos_edge_index_err:
+    mrr_pos2neg, mrr_neg2pos, result_auc_test, pos_edge_index_err, pos_rank_err, neg_edge_index_err, neg_rank_err = get_metric_invariant(torch.tensor(P1_llama), torch.tensor(pos_index_llama), torch.tensor(P2_llama), torch.tensor(neg_index_llama), k_list)
+        
+    ncnc_cora_path = FILE_PATH + '/err_ncnc_llama/ncnc-cora_AUC_0.9669_MRR_0.5275.csv'
+    P1, P2, pos_index, neg_index = load_results(ncnc_cora_path)
+    best_thres, best_acc, pos_pred, neg_pred = find_opt_thres(P1, P2)
+    plot_pos_neg_histogram(P1, P2, best_thres)
+    
+    pos_weight = (pos_pred == 1).astype(int)
+    neg_weight = (neg_pred == 0).astype(int)
+    visual_adjacency('ncnc_cora', data.num_nodes, pos_index, neg_index, pos_weight, neg_weight)
+    mrr_pos2neg, mrr_neg2pos, result_auc_test, pos_edge_index_err, pos_rank_err, neg_edge_index_err, neg_rank_err = get_metric_invariant(torch.tensor(P1), torch.tensor(pos_index), torch.tensor(P2), torch.tensor(neg_index), k_list)
+    
+    shared_rows(neg_index_llama, neg_index)
+    shared_pos_error = shared_rows(pos_index_llama, pos_index)
+    
+    for row in shared_pos_error:
         src = text[row[0]]
         tgt = text[row[1]]
+        print(f"{row[0]}**Source:** {src}  \n {row[1]}**Target:** {tgt}")
         display(Markdown(f"**Source:** {src}  \n**Target:** {tgt}"))

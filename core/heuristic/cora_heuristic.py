@@ -12,7 +12,7 @@ from torch_geometric.data import Data, InMemoryDataset
 from torch_geometric.transforms import RandomLinkSplit
 from heuristic.lsf import CN, AA, RA, InverseRA
 from heuristic.gsf import Ben_PPR, shortest_path, katz_apro, katz_close, SymPPR
-from core.slimg.mlp_dot_product import pairwise_prediction
+# from core.slimg.mlp_dot_product import pairwise_prediction
 import matplotlib.pyplot as plt
 from core.data_utils.graph_stats import plot_coo_matrix, construct_sparse_adj
 from core.graphgps.utility.utils import get_git_repo_root_path, append_acc_to_excel, append_mrr_to_excel
@@ -77,12 +77,12 @@ def eval_cora_mrr() -> None:
     #     # calc mrr and hits@k
     #     result_dict.update({f'{use_heuristic}': result})
 
-    for use_heuristic in ['pairwise_pred']:
-        for dist in ['dot']:
-            pos_test_pred = pairwise_prediction(dataset._data.x, pos_test_index, dist)
-            neg_test_pred = pairwise_prediction(dataset._data.x, neg_test_index, dist)
-            result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
-            result_dict.update({f'{use_heuristic}_{dist}': result})
+    # for use_heuristic in ['pairwise_pred']:
+    #     for dist in ['dot']:
+    #         pos_test_pred = pairwise_prediction(dataset._data.x, pos_test_index, dist)
+    #         neg_test_pred = pairwise_prediction(dataset._data.x, neg_test_index, dist)
+    #         result = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
+    #         result_dict.update({f'{use_heuristic}_{dist}': result})
 
     return result_dict
 
@@ -147,22 +147,22 @@ def eval_cora_acc() -> None:
 
         result_acc.update({f"{use_gsf}_acc" :acc})
 
-    for use_heuristic in ['pairwise_pred']:
-        for dist in ['dot']:
-            scores = pairwise_prediction(dataset._data.x, test_index, dist)
-            test_pred = torch.zeros(scores.shape)
-            cutoff = 0.25
-            thres = scores.max()*cutoff 
-            test_pred[scores <= thres] = 0
-            test_pred[scores > thres] = 1
-            acc = torch.sum(test_pred == labels)/labels.shape[0]
+    # for use_heuristic in ['pairwise_pred']:
+    #     for dist in ['dot']:
+    #         scores = pairwise_prediction(dataset._data.x, test_index, dist)
+    #         test_pred = torch.zeros(scores.shape)
+    #         cutoff = 0.25
+    #         thres = scores.max()*cutoff 
+    #         test_pred[scores <= thres] = 0
+    #         test_pred[scores > thres] = 1
+    #         acc = torch.sum(test_pred == labels)/labels.shape[0]
             
-            plt.figure()
-            plt.plot(test_pred)
-            plt.plot(labels)
-            plt.savefig(f'{use_heuristic}.png')
+    #         plt.figure()
+    #         plt.plot(test_pred)
+    #         plt.plot(labels)
+    #         plt.savefig(f'{use_heuristic}.png')
         
-        result_acc.update({f"{use_heuristic}_acc" :acc})
+    #    result_acc.update({f"{use_heuristic}_acc" :acc})
         
     return result_acc
         
