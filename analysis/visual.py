@@ -12,6 +12,8 @@ import random
 from tqdm import tqdm 
 import numpy as np 
 import pandas as pd
+from typing import List, Dict, Tuple
+import torch
 
 
 def plot_pessimistic_rank(y_pred_pos, y_pred_neg):
@@ -155,23 +157,81 @@ def error_mrr_neg(y_pred_neg, neg_edge_index, y_pred_pos, k_list):
     return result, neg_edge_index_err, neg_rank_err
 
 
-def get_metric_invariant(pos_test_pred, pos_edge_index, neg_test_pred, neg_edge_index, k_list):
 
-    k_rank = [int(k * neg_test_pred.shape[0]) for k in k_list] 
-
-    mrr_pos2neg, pos_edge_index_err, pos_rank_err = error_mrr_pos(pos_test_pred, pos_edge_index, neg_test_pred.repeat(pos_test_pred.size(0), 1), k_rank)
-    mrr_neg2pos, neg_edge_index_err, neg_rank_err = error_mrr_neg(neg_test_pred, neg_edge_index, pos_test_pred.repeat(neg_test_pred.size(0), 1), k_rank)
+def get_metric_invariant(
+    pos_test_pred: torch.Tensor,
+    pos_edge_index: torch.Tensor,
+    neg_test_pred: torch.Tensor,
+    neg_edge_index: torch.Tensor,
+    k_list: List[float]
+) -> Tuple[float, float, Dict[str, float], float, float, float, float]:
+    """
+    Computes metrics for evaluating link prediction models.
     
+    :param pos_test_pred: Tensor of positive test predictions.
+    :param pos_edge_index: Tensor of positive edge indices.
+    :param neg_test_pred: Tensor of negative test predictions.
+    :param neg_edge_index: Tensor of negative edge indices.
+    :param k_list: List of float values representing thresholds for ranking.
+    :return: Tuple containing the MRR for positive-to-negative and negative-to-positive predictions,
+             AUC and AP scores as a dictionary, and errors in edge index and rank.
+    """
+    
+    # Type checks
+    if not isinstance(pos_test_pred, torch.Tensor) or not isinstance(pos_edge_index, torch.Tensor):
+        pos_test_pred = torch.tensor(pos_test_pred)
+        pos_edge_index = torch.tensor(pos_edge_index)
+    if not isinstance(neg_test_pred, torch.Tensor) or not isinstance(neg_edge_index, torch.Tensor):
+        neg_test_pred = torch.tensor(neg_test_pred)
+        neg_edge_index = torch.tensor(neg_edge_index)
+    
+    # Ensure k_list is sorted and convert k values to integer indices
+    k_rank = [int(k * neg_test_pred.shape[0]) for k in k_list]
+    
+    # Ensure tensor dimensions are compatible
+    if pos_test_pred.size(0) != pos_edge_index.size(0):
+        raise ValueError("pos_test_pred and pos_edge_index size mismatch")
+    if neg_test_pred.size(0) != neg_edge_index.size(0):
+        raise ValueError("neg_test_pred and neg_edge_index size mismatch")
+
+    # Calculate metrics using provided functions
+    mrr_pos2neg, pos_edge_index_err, pos_rank_err = error_mrr_pos(
+        pos_test_pred,
+        pos_edge_index,
+        neg_test_pred.repeat(pos_test_pred.size(0), 1),
+        k_rank
+    )
+    mrr_neg2pos, neg_edge_index_err, neg_rank_err = error_mrr_neg(
+        neg_test_pred,
+        neg_edge_index,
+        pos_test_pred.repeat(neg_test_pred.size(0), 1),
+        k_rank
+    )
+    
+    # Concatenate predictions and true labels
     test_pred = torch.cat([pos_test_pred, neg_test_pred])
-    test_true = torch.cat([torch.ones(pos_test_pred.size(0), dtype=int), 
-                            torch.zeros(neg_test_pred.size(0), dtype=int)])
+    test_true = torch.cat([
+        torch.ones(pos_test_pred.size(0), dtype=torch.int),
+        torch.zeros(neg_test_pred.size(0), dtype=torch.int)
+    ])
 
+    # Evaluate AUC
     result_auc_test = evaluate_auc(test_pred, test_true)
-
-    result_auc_test['AUC'] = (result_auc_test['AUC'])
-    result_auc_test['AP'] = (result_auc_test['AP'])
     
-    return mrr_pos2neg, mrr_neg2pos, result_auc_test, pos_edge_index_err, pos_rank_err, neg_edge_index_err, neg_rank_err
+    # Ensure result_auc_test contains expected keys
+    if 'AUC' not in result_auc_test or 'AP' not in result_auc_test:
+        raise KeyError("result_auc_test must contain 'AUC' and 'AP' keys")
+    
+    # Return results
+    return (
+        mrr_pos2neg,
+        mrr_neg2pos,
+        result_auc_test,
+        pos_edge_index_err,
+        pos_rank_err,
+        neg_edge_index_err,
+        neg_rank_err
+    )
 
 
 def plot_rank_list(position: torch.tensor, label: str, sample_size: int=20):
