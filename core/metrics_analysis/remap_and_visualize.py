@@ -84,14 +84,11 @@ def visualize_weighted_adjacency_matrix(name, num_nodes, pos_edge_index, neg_edg
     ax.set_xlim(-0.5, num_nodes - 0.5)
     ax.set_ylim(-0.5, num_nodes - 0.5)
     ax.set_aspect('equal')  # Ensure the plot is square
-
-    # 将张量移到CPU并转换为NumPy数组
     pos_edges = pos_edge_index.t().cpu().numpy()
     neg_edges = neg_edge_index.t().cpu().numpy()
     pos_weight = pos_weight.cpu().detach().numpy()
     neg_weight = neg_weight.cpu().detach().numpy()
 
-    # Normalize weights for colormap
     pos_norm = (pos_weight - pos_weight.min()) / (pos_weight.max() - pos_weight.min())
     neg_norm = 1 - (neg_weight - neg_weight.min()) / (
                 neg_weight.max() - neg_weight.min())  # Reverse normalization for negative weights
