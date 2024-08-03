@@ -21,11 +21,13 @@ from torch_geometric.loader import DataLoader
 from heuristic.eval import get_metric_score
 from graphgps.utility.utils import config_device, Logger
 from typing import Dict, Tuple
-from scipy.sparse._csr import csr_matrix 
+from scipy.sparse._csr import csr_matrix
 from graphgps.train.opt_train import (Trainer)
 from graphgps.utility.ncn import PermIterator
 from torch.utils.tensorboard import SummaryWriter
+
 writer = SummaryWriter()
+
 
 class Trainer_embedding_LLM(Trainer):
     def __init__(self,
@@ -39,7 +41,7 @@ class Trainer_embedding_LLM(Trainer):
                  repeat: int,
                  loggers: Dict[str, Logger],
                  print_logger: None,
-                 batch_size=None,):
+                 batch_size=None, ):
         self.device = config_device(cfg).device
         self.model = model.to(self.device)
         self.model_name = cfg.model.type
@@ -57,7 +59,7 @@ class Trainer_embedding_LLM(Trainer):
         self.train_data = splits['train'].to(self.device)
         self.valid_data = splits['valid'].to(self.device)
         self.optimizer = optimizer
-        model_types = ['MLP-minilm','MLP-bert','MLP-llama','MLP-e5-large', 'MLP-tfidf', 'MLP-w2v']
+        model_types = ['MLP-minilm', 'MLP-bert', 'MLP-llama', 'MLP-e5-large', 'MLP-tfidf', 'MLP-w2v']
         self.test_func = {model_type: self._test for model_type in model_types}
         self.evaluate_func = {model_type: self._evaluate for model_type in model_types}
 
@@ -73,7 +75,7 @@ class Trainer_embedding_LLM(Trainer):
 
         self.tensorboard_writer = writer
         self.out_dir = cfg.out_dir
-        self.run_dir = None#cfg.run_dir
+        self.run_dir = None  # cfg.run_dir
 
         self.report_step = 1
 
@@ -105,10 +107,10 @@ class Trainer_embedding_LLM(Trainer):
             loss = self._train_mlp()
             if epoch % int(self.report_step) == 0:
                 self.results_rank = self.merge_result_rank()
-                
+
                 for key, result in self.results_rank.items():
                     self.loggers[key].add_result(self.run, result)
-                    
+
                     self.tensorboard_writer.add_scalar(f"Metrics/Train/{key}", result[0], epoch)
                     self.tensorboard_writer.add_scalar(f"Metrics/Valid/{key}", result[1], epoch)
                     self.tensorboard_writer.add_scalar(f"Metrics/Test/{key}", result[2], epoch)
@@ -121,7 +123,7 @@ class Trainer_embedding_LLM(Trainer):
 
                 self.print_logger.info('---')
 
-        return 
+        return
 
     @torch.no_grad()
     def _evaluate(self, eval_data: Data):
@@ -138,7 +140,6 @@ class Trainer_embedding_LLM(Trainer):
         pos_y = torch.ones(pos_train_edge.size(0))
         neg_y = torch.zeros(neg_train_edge.size(0))
         y_true = torch.cat([pos_y, neg_y], dim=0)
-
 
         pos_pred, neg_pred = y_pred[y_true == 1].cpu(), y_pred[y_true == 0].cpu()
         y_pred = torch.where(y_pred >= hard_thres, torch.tensor(1), torch.tensor(0))
@@ -163,7 +164,6 @@ class Trainer_embedding_LLM(Trainer):
 
         for perm in PermIterator(pos_edge.device, pos_edge.shape[1], self.batch_size, False):
             pos_pred_batch = self.model(self.embedding[pos_edge][0], self.embedding[pos_edge][1]).squeeze().cpu()
-
             pos_pred.append(pos_pred_batch)  # Append to list
             pos_edge_indices.append(pos_edge[:, perm].cpu())
 
@@ -172,8 +172,8 @@ class Trainer_embedding_LLM(Trainer):
             neg_pred.append(neg_pred_batch)  # Append to list
             neg_edge_indices.append(neg_edge[:, perm].cpu())
 
-        pos_pred = torch.cat(pos_pred, dim=0)
-        neg_pred = torch.cat(neg_pred, dim=0)
+        pos_pred = torch.cat(pos_pred, dim=0)[:pos_edge.size(1)]
+        neg_pred = torch.cat(neg_pred, dim=0)[:pos_edge.size(1)]
 
         y_pred = torch.cat([pos_pred, neg_pred], dim=0)
         pos_pred = pos_pred.detach().cpu()
@@ -183,6 +183,7 @@ class Trainer_embedding_LLM(Trainer):
         pos_y = torch.ones(pos_edge.size(1))
         neg_y = torch.zeros(neg_edge.size(1))
         y_true = torch.cat([pos_y, neg_y], dim=0)
+
         data_df = {
             "edge_index0": edge_index[0].detach().cpu().numpy(),
             "edge_index1": edge_index[1].detach().cpu().numpy(),
@@ -198,7 +199,6 @@ class Trainer_embedding_LLM(Trainer):
         self.run_result['eval_time'] = time.time() - start_train
         return
 
-
     def save_pred(self, pred, true, data):
         root = os.path.join(self.FILE_PATH, cfg.out_dir, 'pred_record')
         os.makedirs(root, exist_ok=True)
@@ -213,8 +213,10 @@ class Trainer_embedding_LLM(Trainer):
                 corresponding_node_ids = subgraph['node_id'][indices]
                 pred_value = pred[idx]
                 true_value = true[idx]
-                f.write(f"{corresponding_node_ids[0].item()} {corresponding_node_ids[1].item()} {pred_value} {true_value}\n")
-                
+                f.write(
+                    f"{corresponding_node_ids[0].item()} {corresponding_node_ids[1].item()} {pred_value} {true_value}\n")
+
+
 class Trainer_Triples(Trainer_embedding_LLM):
     def __init__(self,
                  FILE_PATH: str,
@@ -226,7 +228,7 @@ class Trainer_Triples(Trainer_embedding_LLM):
                  repeat: int,
                  loggers: Dict[str, Logger],
                  print_logger: None,
-                 batch_size=None,):
+                 batch_size=None, ):
         self.device = config_device(cfg).device
         self.model = model.to(self.device)
         self.model_name = cfg.model.type
@@ -240,9 +242,9 @@ class Trainer_Triples(Trainer_embedding_LLM):
         self.batch_size = batch_size
 
         self.splits = splits
-        
+
         self.optimizer = optimizer
-        model_types = ['MLP-minilm','MLP-bert','MLP-llama','MLP-e5-large', 'MLP-tfidf', 'MLP-w2v']
+        model_types = ['MLP-minilm', 'MLP-bert', 'MLP-llama', 'MLP-e5-large', 'MLP-tfidf', 'MLP-w2v']
         self.test_func = {model_type: self._test for model_type in model_types}
         self.evaluate_func = {model_type: self._evaluate for model_type in model_types}
 
@@ -262,22 +264,20 @@ class Trainer_Triples(Trainer_embedding_LLM):
 
         self.report_step = 100
 
-       
-        
     def _train_mlp(self):
         self.model.train()
         total_loss = 0
 
         train_loader = DataLoader(range(self.splits['train'][0].shape[0]), batch_size=self.batch_size, shuffle=True)
-        
+
         for perm in train_loader:
             train_label = self.splits['train'][1][perm]
             train_data = self.splits['train'][0][perm]
-            
+
             self.optimizer.zero_grad()
             if type(train_data) == csr_matrix:
                 train_data = train_data.toarray()
-                
+
             pos_out = self.model(torch.tensor(train_data[train_label == 1]).to(self.device))
             pos_loss = -torch.log(pos_out + 1e-15).mean()
 
@@ -293,18 +293,17 @@ class Trainer_Triples(Trainer_embedding_LLM):
 
     @torch.no_grad()
     def _evaluate(self, eval_data: Dict[str, torch.Tensor]):
-        
+
         if type(eval_data[0]) == csr_matrix:
             eval_data[0] = eval_data[0].toarray()
-            
+
         self.model.eval()
         preds = self.model(torch.tensor(eval_data[0]).to(self.device))
         pos_pred = preds[eval_data[1] == 1].squeeze().cpu()
         neg_pred = preds[eval_data[1] == 0].squeeze().cpu()
-        
+
         result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_pred, neg_pred)
         return result_mrr
-    
 
     def merge_result_rank(self):
         result_test = self.evaluate_func[self.model_name](self.splits['test'])
@@ -315,7 +314,7 @@ class Trainer_Triples(Trainer_embedding_LLM):
             key: (result_train[key], result_valid[key], result_test[key])
             for key in result_test.keys()
         }
-    
+
     def finalize(self):
         import time
         for _ in range(1):
@@ -383,7 +382,7 @@ class Trainer_embedding_LLM_Cross(Trainer):
             pos_out = self.model(self.train_data.edge_features[perm])
             pos_loss = -torch.log(pos_out + 1e-15).mean()
 
-            neg_out = self.model(self.train_data.edge_features[perm+pos_train_edge.shape[0]])
+            neg_out = self.model(self.train_data.edge_features[perm + pos_train_edge.shape[0]])
             neg_loss = -torch.log(1 - neg_out + 1e-15).mean()
 
             loss = pos_loss + neg_loss
@@ -525,7 +524,7 @@ class Trainer_embedding_LLM_Cross(Trainer):
             pos_out = self.model(self.train_data.edge_features[perm])
             pos_loss = -torch.log(pos_out + 1e-15).mean()
 
-            neg_out = self.model(self.train_data.edge_features[perm+pos_train_edge.shape[0]])
+            neg_out = self.model(self.train_data.edge_features[perm + pos_train_edge.shape[0]])
             neg_loss = -torch.log(1 - neg_out + 1e-15).mean()
 
             loss = pos_loss + neg_loss
