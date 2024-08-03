@@ -42,7 +42,7 @@ class Trainer():
         self.emb = emb
         
         # params
-        self.model_name = cfg.decoder.type 
+        self.model_name = cfg.model.type
         self.data_name = cfg.data.name
         self.FILE_PATH = FILE_PATH 
         self.name_tag = cfg.wandb.name_tag
