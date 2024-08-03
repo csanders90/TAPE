@@ -4,17 +4,22 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
 import torch 
 
-from sklearn.metrics import roc_auc_score
-from sklearn.metrics import accuracy_score
-from sklearn.metrics import average_precision_score
+from sklearn.metrics import (roc_auc_score, accuracy_score, average_precision_score)
 from matplotlib import pyplot as plt
 import random 
 from tqdm import tqdm 
 import numpy as np 
-import pandas as pd
 from typing import List, Dict, Tuple
 import torch
+import scipy.sparse as ssp
+import pandas as pd
+from IPython.display import display, Markdown
 
+from core.heuristic.lsf import CN, AA, RA, InverseRA
+from core.heuristic.gsf import Ben_PPR, shortest_path, katz_apro, katz_close, SymPPR
+from core.data_utils.load import load_data_lp
+from core.data_utils.lcc import use_lcc
+from core.graphgps.utility.utils import init_cfg_test
 
 def plot_pessimistic_rank(y_pred_pos, y_pred_neg):
     plt.figure(figsize=(12, 8))
@@ -62,7 +67,9 @@ def error_mrr_pos(y_pred_pos, pos_edge_index, y_pred_neg, k_list):
     plt.title('Histogram of Tensor Distribution')
     plt.xlabel('Value')
     plt.ylabel('Frequency')
-    plt.savefig('pos_2neg_hist.png')
+    plt.show()
+    
+    # plt.savefig('pos_2neg_hist.png')
     # Define the error range (x-axis range considered as error)
     norm_interval = [0.2, 1.0] 
     error_ranges = [[int(i*ranking_list.max().item())-1 for i in norm_interval]] # Example error ranges, adjust as needed
@@ -83,7 +90,8 @@ def error_mrr_pos(y_pred_pos, pos_edge_index, y_pred_neg, k_list):
     plt.title('Histogram of Tensor Distribution with Error Ranges Highlighted, Pos ranked lower than Neg')
     plt.xlabel('Value')
     plt.ylabel('Frequency')
-    plt.savefig('pos_2neg_hist.png')
+    plt.show()
+    # plt.savefig('pos_2neg_hist.png')
 
     len_rank = ranking_list.shape[0]
     result = {}
@@ -127,7 +135,7 @@ def error_mrr_neg(y_pred_neg, neg_edge_index, y_pred_pos, k_list):
     plt.title('Histogram of Tensor Distribution')
     plt.xlabel('Value')
     plt.ylabel('Frequency')
-    plt.savefig('pos_2neg_hist.png')
+    plt.show()
 
     norm_interval = [0.0, 0.4] 
     error_ranges = [[int(i*ranking_list.max().item())-1 for i in norm_interval]] # Example error ranges, adjust as needed
@@ -144,7 +152,7 @@ def error_mrr_neg(y_pred_neg, neg_edge_index, y_pred_pos, k_list):
     plt.title('Histogram of Tensor Distribution with Error Ranges Highlighted, Neg ranked lower than Pos')
     plt.xlabel('Value')
     plt.ylabel('Frequency')
-    plt.savefig('pos_2neg_hist.png')
+    plt.show()
 
     ranking_list = ranking_list.cpu().numpy().astype(int)
     error_mask = np.zeros(ranking_list.shape[0], dtype=bool)
@@ -157,7 +165,6 @@ def error_mrr_neg(y_pred_neg, neg_edge_index, y_pred_pos, k_list):
     return result, neg_edge_index_err, neg_rank_err
 
 
-
 def get_metric_invariant(
     pos_test_pred: torch.Tensor,
     pos_edge_index: torch.Tensor,
@@ -168,33 +175,40 @@ def get_metric_invariant(
     """
     Computes metrics for evaluating link prediction models.
     
-    :param pos_test_pred: Tensor of positive test predictions.
-    :param pos_edge_index: Tensor of positive edge indices.
-    :param neg_test_pred: Tensor of negative test predictions.
-    :param neg_edge_index: Tensor of negative edge indices.
-    :param k_list: List of float values representing thresholds for ranking.
-    :return: Tuple containing the MRR for positive-to-negative and negative-to-positive predictions,
-             AUC and AP scores as a dictionary, and errors in edge index and rank.
+    Parameters:
+        pos_test_pred (torch.Tensor): Tensor of positive test predictions.
+        pos_edge_index (torch.Tensor): Tensor of positive edge indices.
+        neg_test_pred (torch.Tensor): Tensor of negative test predictions.
+        neg_edge_index (torch.Tensor): Tensor of negative edge indices.
+        k_list (List[float]): List of float values representing thresholds for ranking.
+        
+    Returns:
+        Tuple[float, float, Dict[str, float], float, float, float, float]: 
+            - MRR for positive-to-negative predictions
+            - MRR for negative-to-positive predictions
+            - Dictionary containing AUC and AP scores
+            - Errors in positive edge indices
+            - Errors in positive ranks
+            - Errors in negative edge indices
+            - Errors in negative ranks
     """
     
-    # Type checks
-    if not isinstance(pos_test_pred, torch.Tensor) or not isinstance(pos_edge_index, torch.Tensor):
-        pos_test_pred = torch.tensor(pos_test_pred)
-        pos_edge_index = torch.tensor(pos_edge_index)
-    if not isinstance(neg_test_pred, torch.Tensor) or not isinstance(neg_edge_index, torch.Tensor):
-        neg_test_pred = torch.tensor(neg_test_pred)
-        neg_edge_index = torch.tensor(neg_edge_index)
+    # Ensure inputs are Tensors
+    pos_test_pred = torch.as_tensor(pos_test_pred)
+    pos_edge_index = torch.as_tensor(pos_edge_index)
+    neg_test_pred = torch.as_tensor(neg_test_pred)
+    neg_edge_index = torch.as_tensor(neg_edge_index)
     
     # Ensure k_list is sorted and convert k values to integer indices
-    k_rank = [int(k * neg_test_pred.shape[0]) for k in k_list]
+    k_rank = sorted(int(k * neg_test_pred.size(0)) for k in k_list)
     
-    # Ensure tensor dimensions are compatible
+    # Check tensor dimensions
     if pos_test_pred.size(0) != pos_edge_index.size(0):
-        raise ValueError("pos_test_pred and pos_edge_index size mismatch")
+        raise ValueError("Size mismatch: pos_test_pred and pos_edge_index")
     if neg_test_pred.size(0) != neg_edge_index.size(0):
-        raise ValueError("neg_test_pred and neg_edge_index size mismatch")
+        raise ValueError("Size mismatch: neg_test_pred and neg_edge_index")
 
-    # Calculate metrics using provided functions
+    # Calculate MRR and errors
     mrr_pos2neg, pos_edge_index_err, pos_rank_err = error_mrr_pos(
         pos_test_pred,
         pos_edge_index,
@@ -215,11 +229,11 @@ def get_metric_invariant(
         torch.zeros(neg_test_pred.size(0), dtype=torch.int)
     ])
 
-    # Evaluate AUC
+    # Evaluate AUC and AP
     result_auc_test = evaluate_auc(test_pred, test_true)
     
     # Ensure result_auc_test contains expected keys
-    if 'AUC' not in result_auc_test or 'AP' not in result_auc_test:
+    if not all(key in result_auc_test for key in ['AUC', 'AP']):
         raise KeyError("result_auc_test must contain 'AUC' and 'AP' keys")
     
     # Return results
@@ -274,7 +288,7 @@ def find_opt_thres(pos_probs, neg_probs, thres=None):
         if acc > best_acc:
             best_acc = acc
             best_thres = t
-
+    
     pos_pred = (pos_probs >= best_thres).astype(int)
     neg_pred = (neg_probs >= best_thres).astype(int)
     return best_thres, best_acc, pos_pred, neg_pred
@@ -334,7 +348,7 @@ def plot_pos_neg_histogram(Pos, Neg, best_thres=None):
     plt.ylabel('Frequency')
     plt.legend()
     plt.title('Probability Distributions with Optimal Threshold')
-    plt.savefig('optimal_threshold.png')
+    plt.show()
     
     
 def visual_adjacency(name, num_nodes, pos_edges, neg_edges, pos_weight, neg_weight):
@@ -379,6 +393,55 @@ def shared_rows(pos_index_llama, neg_index_llama):
     return shared_rows_array
 
 
+def tensor_to_csr_matrix(edge_index: torch.tensor):
+    src = edge_index[0].numpy()
+    dst = edge_index[1].numpy()
+    num_nodes = edge_index.max().item() + 1  # Assuming node indices are 0-based
+    adj_coo = ssp.csr_matrix((np.ones(src.shape[0]), (src, dst)), shape=(num_nodes, num_nodes))
+    return adj_coo
+
+
+def eval_mix_heuristic(data, pos_edge_index_err):
+    pos_edge_index_err = torch.as_tensor(pos_edge_index_err)
+    heuristic_feat = []
+    for use_lsf in ['CN', 'AA', 'RA', 'InverseRA']:
+        edge_index = tensor_to_csr_matrix(data.edge_index)
+        scores, edge_index = eval(use_lsf)(edge_index, pos_edge_index_err.T)
+        heuristic_feat.append(scores.numpy())
+        
+    for use_gsf in ['Ben_PPR', 'shortest_path', 'katz_apro', 'katz_close', 'SymPPR']:
+        edge_index = tensor_to_csr_matrix(data.edge_index)
+        scores, edge_index = eval(use_gsf)(edge_index, pos_edge_index_err.T)
+        heuristic_feat.append(scores.numpy())
+
+    feat_pro = []
+    for rows in pos_edge_index_err:
+        feat_pro.append((data.x[rows[0]] @ data.x[rows[1]]).item())
+    feat_pro = np.array(feat_pro)
+    heuristic_feat.append(feat_pro)
+    heuristic_feat = np.vstack(heuristic_feat)
+        
+    if len(heuristic_feat.shape) == 2:
+        row_sums = heuristic_feat.sum(axis=1, keepdims=True)
+        normalized_feat = heuristic_feat / row_sums
+
+    return  normalized_feat 
+
+
+def save_error_examples(type_2, text):
+    data = []
+
+    for row in type_2:
+        src = text[row[0]]
+        tgt = text[row[1]]
+        data.append({'Source': src, 'Target': tgt})
+
+        # Display each example (optional)
+        # display(Markdown(f"**Source:** {src}  \n**Target:** {tgt}"))
+
+    df = pd.DataFrame(data)
+    return df
+
 if __name__ == '__main__':
     import os
     import sys
@@ -418,7 +481,7 @@ if __name__ == '__main__':
     k_list  = [0.1, 0.2, 0.3, 0.5, 1]
     mrr_pos2neg, mrr_neg2pos, result_auc_test, pos_edge_index_err, pos_rank_err, neg_edge_index_err, neg_rank_err = get_metric_invariant(torch.tensor(P1_llama), torch.tensor(pos_index_llama), torch.tensor(P2_llama), torch.tensor(neg_index_llama), k_list)
         
-    ncnc_cora_path = FILE_PATH + '/err_ncnc_llama/ncnc-cora_AUC_0.9669_MRR_0.5275.csv'
+    ncnc_cora_path = FILE_PATH + 'err_ncnc_llama/ncnc-cora_AUC_0.9669_MRR_0.5275.csv'
     P1, P2, pos_index, neg_index = load_results(ncnc_cora_path)
     best_thres, best_acc, pos_pred, neg_pred = find_opt_thres(P1, P2)
     plot_pos_neg_histogram(P1, P2, best_thres)
@@ -436,3 +499,6 @@ if __name__ == '__main__':
         tgt = text[row[1]]
         print(f"{row[0]}**Source:** {src}  \n {row[1]}**Target:** {tgt}")
         display(Markdown(f"**Source:** {src}  \n**Target:** {tgt}"))
+        
+        
+
