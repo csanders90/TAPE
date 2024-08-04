@@ -1066,6 +1066,8 @@ def save_run_results_to_csv(cfg, loggers, seed, run_id):
     for key in loggers:
         result_dict['model'] = cfg.model.type
         result_dict['seed'] = seed
+        if key == 'ACC': # we remove the ACC metric
+            continue 
         _, _, _, test_bvalid = loggers[key].calc_run_stats(run_id)
         result_dict[key] = test_bvalid
 

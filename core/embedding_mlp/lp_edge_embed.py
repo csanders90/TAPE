@@ -79,7 +79,7 @@ def parse_args() -> argparse.Namespace:
     r"""Parses the command line arguments."""
     parser = argparse.ArgumentParser(description='GraphGym')
     parser.add_argument('--data', dest='data', type=str, required=True,
-                        default='arxiv_2023',
+                        default='cora',
                         help='data name')
     parser.add_argument('--device', dest='device', required=False, 
                         help='device id')
@@ -193,6 +193,8 @@ def project_main():
     result_dict = {}
     for key in loggers:
         print(key)
+        if key == 'ACC':
+            continue
         _, _, _, valid_test, _, _ = trainer.loggers[key].calc_all_stats()
         result_dict[key] = valid_test
 
