@@ -116,6 +116,7 @@ def parse_args() -> argparse.Namespace:
                         help='Mark yaml as done after a job has finished.')
     parser.add_argument('opts', default=None, nargs=argparse.REMAINDER,
                         help='See graphgym/config.py for remaining options.')
+    parser.add_argument('--cfg', type=str, required=True)
     return parser.parse_args()
 
 yaml_file = {   
@@ -133,6 +134,7 @@ def project_main(): # sourcery skip: avoid-builtin-shadow, low-code-quality
     # process params
     args = parse_args()
     args.cfg_file = yaml_file[args.model]
+    args.cfg_file = args.cfg
     cfg = set_cfg(FILE_PATH, args.cfg_file)
     cfg.merge_from_list(args.opts)
 
