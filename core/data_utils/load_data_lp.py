@@ -208,7 +208,7 @@ def time_function(func):
     return wrapper
 
 @time_function
-def load_taglp_pubmed(cfg: CN, if_lcc) -> Tuple[Dict[str, Data], List[str]]:
+def load_taglp_pubmed(cfg: CN, if_lcc=False) -> Tuple[Dict[str, Data], List[str]]:
     # add one default argument
 
     data = load_graph_pubmed(False)

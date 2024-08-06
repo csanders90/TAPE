@@ -28,7 +28,7 @@ from graphgps.utility.utils import (
 )
 import time 
 from torch_geometric.graphgym.utils.comp_budget import params_count
-from data_utils.load import load_data_lp
+from data_utils.load import load_data_lp, load_taglp_pubmed
 from create_dataset import process_texts, process_nodefeat, load_or_generate_datasets
 from sklearn.metrics import accuracy_score
 from sklearn.ensemble import RandomForestClassifier
@@ -36,6 +36,7 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 from graphgps.train.embedding_LLM_train import Trainer_Triples
 from graphgps.utility.utils import save_run_results_to_csv
+
 "this script aims to compare rf and mlp based on concatenated embeddings"
 FILE_PATH = f'{get_git_repo_root_path()}/'
 
@@ -79,19 +80,20 @@ def parse_args() -> argparse.Namespace:
     r"""Parses the command line arguments."""
     parser = argparse.ArgumentParser(description='GraphGym')
     parser.add_argument('--data', dest='data', type=str, required=True,
-                        default='cora',
+                        default='pubmed',
                         help='data name')
     parser.add_argument('--device', dest='device', required=False, 
                         help='device id')
-    parser.add_argument('--epochs', dest='epoch', type=int, required=False,
-                        default=200,
+    parser.add_argument('--epoch', dest='epoch', type=int, required=False,
+                        default=5,
                         help='data name')
     parser.add_argument('--embedder', dest='embedder', type=str, required=False,
-                        default='w2v',
+                        default='tfidf',
                         help='word embedding method')
-    # parser.add_argument('--score', dest='score', type=str, required=False, default='mlp_score',
-    #                     help='score')
-    parser.add_argument('--repeat', type=int, default=5,
+    parser.add_argument('--report_step', dest='report_step', type=int, required=False,
+                        default=1,
+                        help='data name')
+    parser.add_argument('--repeat', type=int, default=2,
                         help='The number of repeated jobs.')
     parser.add_argument('opts', default=None, nargs=argparse.REMAINDER,
                         help='See graphgym/config.py for remaining options.')
@@ -112,7 +114,8 @@ def project_main():
     cfg.device = args.device
     cfg.train.epochs = args.epoch
     cfg.embedder.type = args.embedder
-
+    cfg.train.report_step = args.report_step
+    
     writer = SummaryWriter()
     cfg.run_dir = writer.log_dir
     
@@ -122,7 +125,8 @@ def project_main():
     cfg.data.method = cfg.embedder.type
     print_logger = set_printing(cfg)
     
-    splits, text, _ = load_data_lp[cfg.data.name](cfg.data)
+    # splits, text, _ = load_data_lp[cfg.data.name](cfg.data)    
+    splits, text, _ = load_taglp_pubmed(cfg.data)
     splits = random_sampling(splits, cfg.data.scale)
 
     if cfg.data.name in ['pwc_small', 'pwc_medium', 'pwc_large', 'citationv8']:

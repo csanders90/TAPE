@@ -83,17 +83,17 @@ def parse_args() -> argparse.Namespace:
                         help='data name')
     parser.add_argument('--device', dest='device', required=False, 
                         help='device id', default='cpu')
-    parser.add_argument('--epoch', dest='epoch', type=int, required=False,
-                        default=1,
+    parser.add_argument('--epoch', dest='epoch', type=int, required=True,
+                        default=4,
                         help='data name')
     parser.add_argument('--report_step', dest='report_step', type=int, required=False,
                         default=1,
                         help='data name')
-    parser.add_argument('--embedder', dest='embedder', type=str, required=False,
+    parser.add_argument('--embedder', dest='embedder', type=str, required=True,
                         default='original',
                         help='word embedding method')
-    parser.add_argument('--decoder', dest='decoder', type=str, required=False,
-                        default='dot', choices=['concat', 'dot', 'euclidean'],
+    parser.add_argument('--decoder', dest='decoder', type=str, required=True,
+                        default='euclidean', choices=['concat', 'dot', 'euclidean'],
                         help='word embedding method')
     parser.add_argument('--score', dest='score', type=str, required=False, default='mlp_score',
                         help='decoder name')

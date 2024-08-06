@@ -22,6 +22,7 @@ from scipy.sparse._csr import csr_matrix
 from graphgps.train.opt_train import (Trainer)
 from graphgps.utility.ncn import PermIterator
 from torch.utils.tensorboard import SummaryWriter
+
 writer = SummaryWriter()
 
 class Trainer_embedding_LLM(Trainer):
@@ -37,6 +38,7 @@ class Trainer_embedding_LLM(Trainer):
                  loggers: Dict[str, Logger],
                  print_logger: None,
                  batch_size=None,):
+        
         self.device = config_device(cfg).device
         self.model = model.to(self.device)
         self.model_name = cfg.model.type
@@ -100,6 +102,7 @@ class Trainer_embedding_LLM(Trainer):
     def train(self):
         for epoch in range(1, self.epochs + 1):
             loss = self._train_mlp()
+            
             if epoch % int(self.report_step) == 0:
                 self.results_rank = self.merge_result_rank()
                 
@@ -111,6 +114,7 @@ class Trainer_embedding_LLM(Trainer):
                     self.tensorboard_writer.add_scalar(f"Metrics/Test/{key}", result[2], epoch)
 
                     train_hits, valid_hits, test_hits = result
+                    
                     if key in ['MRR', 'Hits@100', 'AUC']:
                         self.print_logger.info(
                             f'Run: {self.run + 1:02d}, Key: {key}, '
@@ -181,6 +185,7 @@ class Trainer_Triples(Trainer_embedding_LLM):
                  loggers: Dict[str, Logger],
                  print_logger: None,
                  batch_size=None,):
+        
         self.device = config_device(cfg).device
         self.model = model.to(self.device)
         self.model_name = cfg.model.type
@@ -214,7 +219,7 @@ class Trainer_Triples(Trainer_embedding_LLM):
         self.out_dir = cfg.out_dir
         self.run_dir = cfg.run_dir
 
-        self.report_step = 100
+        self.report_step = cfg.train.report_step
 
        
         
@@ -249,10 +254,12 @@ class Trainer_Triples(Trainer_embedding_LLM):
     def _evaluate(self, eval_data: Dict[str, torch.Tensor]):
         
         if type(eval_data[0]) == csr_matrix:
-            eval_data[0] = eval_data[0].toarray()
+            array_data = eval_data[0].toarray()
+        else:
+            array_data = eval_data[0]
             
         self.model.eval()
-        preds = self.model(torch.tensor(eval_data[0]).to(self.device))
+        preds = self.model(torch.tensor(array_data).to(self.device))
         pos_pred = preds[eval_data[1] == 1].squeeze().cpu()
         neg_pred = preds[eval_data[1] == 0].squeeze().cpu()
         
