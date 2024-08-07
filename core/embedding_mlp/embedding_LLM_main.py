@@ -76,6 +76,7 @@ if __name__ == '__main__':
     cfg.device = args.device
     splits, text, data = load_data_lp[cfg.data.name](cfg.data)
     splits = random_sampling(splits, args.downsampling)
+    start_emb = time.time()
     if cfg.model.product == 'cross':
         cfg.wandb.name_tag = cfg.wandb.name_tag + '_cross'
         saved_features_path = './' + cfg.embedder.type + cfg.data.name + '_cross_saved_edge_features.pt'
@@ -188,6 +189,7 @@ if __name__ == '__main__':
                 test_edge_features = torch.cat(test_edge_features, dim=0)
             edge_features = [train_edge_features, valid_edge_features, test_edge_features]
             torch.save(edge_features, saved_features_path)
+        emb_time = time.time() - start_emb
         splits['train'].edge_features = edge_features[0]
         splits['valid'].edge_features = edge_features[1]
         splits['test'].edge_features = edge_features[2]
@@ -245,15 +247,17 @@ if __name__ == '__main__':
         print_logger.info(f"Inference time: {trainer.run_result['eval_time']}")
     else:
         cfg.wandb.name_tag = cfg.wandb.name_tag + '_' + cfg.model.product
-        saved_features_path = './' + cfg.embedder.type + cfg.data.name + 'saved_node_features.pt'
+        saved_features_path = './' + cfg.embedder.type + '_' + cfg.data.name + '_saved_node_features.pt'
         if os.path.exists(saved_features_path):
             node_features = torch.load(saved_features_path)
         else:
             if cfg.embedder.type == 'minilm':
                 model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2', device=cfg.device)
+                emb_params = model.get_params()
                 node_features = model.encode(text, batch_size=256)
             elif cfg.embedder.type == 'e5-large':
                 model = SentenceTransformer('intfloat/e5-large-v2', device=cfg.device)
+                emb_params = model.get_params()
                 node_features = model.encode(text, normalize_embeddings=True, batch_size=256)
             elif cfg.embedder.type == 'llama':
                 from huggingface_hub import HfFolder
@@ -268,6 +272,7 @@ if __name__ == '__main__':
                     torch_dtype=torch.bfloat16,
                     device_map="auto",
                 )
+                emb_params = model.get_params()
                 node_features = []
                 batch_size = 64
                 for i in range(0, len(text), batch_size):
@@ -284,6 +289,7 @@ if __name__ == '__main__':
             elif cfg.embedder.type == 'bert':
                 tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
                 model = BertModel.from_pretrained("bert-base-uncased").to(cfg.device)
+                emb_params = model.get_params()
                 node_features = []
                 batch_size = 256
                 for i in range(0, len(text), batch_size):
@@ -296,8 +302,9 @@ if __name__ == '__main__':
                         node_features.append(batch_features)
                 node_features = torch.cat(node_features, dim=0)
             torch.save(node_features, saved_features_path)
+        emb_time = time.time() - start_emb
+
         node_features = torch.tensor(node_features)
-        print(node_features.shape)
 
         for run_id in range(args.repeat):
             seed = run_id + args.start_seed
@@ -349,6 +356,9 @@ if __name__ == '__main__':
         trainer.save_result(result_dict)
 
         cfg.model.params = params_count(model)
+        print_logger.info(f"Results for: {cfg.model.type}")
+        print_logger.info(f"Embed Model Params: {emb_params}")
+        print_logger.info(f"Embed time: {emb_time}")
         print_logger.info(f'Num parameters: {cfg.model.params}')
         trainer.finalize()
         print_logger.info(f"Inference time: {trainer.run_result['eval_time']}")
