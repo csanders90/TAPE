@@ -253,11 +253,11 @@ if __name__ == '__main__':
         else:
             if cfg.embedder.type == 'minilm':
                 model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2', device=cfg.device)
-                emb_params = model.get_params()
+                emb_params = params_count(model)
                 node_features = model.encode(text, batch_size=256)
             elif cfg.embedder.type == 'e5-large':
                 model = SentenceTransformer('intfloat/e5-large-v2', device=cfg.device)
-                emb_params = model.get_params()
+                emb_params = params_count(model)
                 node_features = model.encode(text, normalize_embeddings=True, batch_size=256)
             elif cfg.embedder.type == 'llama':
                 from huggingface_hub import HfFolder
@@ -272,7 +272,7 @@ if __name__ == '__main__':
                     torch_dtype=torch.bfloat16,
                     device_map="auto",
                 )
-                emb_params = model.get_params()
+                emb_params = params_count(model)
                 node_features = []
                 batch_size = 64
                 for i in range(0, len(text), batch_size):
@@ -289,7 +289,7 @@ if __name__ == '__main__':
             elif cfg.embedder.type == 'bert':
                 tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
                 model = BertModel.from_pretrained("bert-base-uncased").to(cfg.device)
-                emb_params = model.get_params()
+                emb_params = params_count(model)
                 node_features = []
                 batch_size = 256
                 for i in range(0, len(text), batch_size):
