@@ -68,6 +68,7 @@ if __name__ == '__main__':
     cfg.model.device = args.device
     cfg.device = args.device
     cfg.train.epochs = args.epoch
+    cfg.train.report_step = 1
     cfg.model.product = args.product
 
     torch.set_num_threads(cfg.num_threads)
