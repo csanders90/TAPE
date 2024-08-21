@@ -2,7 +2,7 @@
 #SBATCH --time=8:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=20
-#SBATCH --partition=cpuonly
+#SBATCH --partition=normal
 #SBATCH --job-name=tag_struc2vec
 #SBATCH --mem-per-cpu=1600mb
 

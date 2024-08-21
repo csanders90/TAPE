@@ -4,6 +4,7 @@ import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from ge.classify import read_node_label, Classifier
 from ge.models.line_tf import LINE
+import argparse
 from sklearn.linear_model import LogisticRegression
 
 import matplotlib.pyplot as plt
@@ -27,23 +28,41 @@ import itertools
 import scipy.sparse as ssp
 
 from heuristic.eval import get_metric_score
-from data_utils.load import load_data_lp
+from data_utils.load import load_graph_lp as data_loader
 from core.data_utils.graph_stats import plot_coo_matrix, construct_sparse_adj
+from data_utils.load_data_lp import get_edge_split
 from core.graph_embed.tune_utils import (
     get_git_repo_root_path,
     param_tune_acc_mrr
 )
+from graphgps.utility.utils import (
+    set_cfg,
+    get_git_repo_root_path,
+    append_acc_to_excel,
+    append_mrr_to_excel
+)
 import wandb 
 
+
+def parse_args() -> argparse.Namespace:
+    r"""Parses the command line arguments."""
+    parser = argparse.ArgumentParser(description='GraphGym')
+    parser.add_argument('--cfg', dest='cfg_file', type=str, required=False,
+                        default='core/yamls/cora/gcns/ncn.yaml',
+                        help='The configuration file path.')
+
+    parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
+                        default='core/yamls/cora/gcns/ncn.yaml',
+                        help='The configuration file path.')
+   
+    return parser.parse_args()
 
 if __name__ == "__main__":
 
     FILE_PATH = get_git_repo_root_path() + '/'
-
-    cfg_file = FILE_PATH + "core/configs/arxiv_2023/line.yaml"
-    # # Load args file
-    with open(cfg_file, "r") as f:
-        cfg = CN.load_cfg(f)
+    args = parse_args()
+    
+    cfg = set_cfg(FILE_PATH, args.cfg_file)
 
     # Set Pytorch environment
     torch.set_num_threads(cfg.num_threads)
@@ -60,7 +79,16 @@ if __name__ == "__main__":
         device = 'cpu'
         
     max_iter = cfg.model.line.max_iter
-    dataset, data_cited, splits = load_data_lp[cfg.data.name](cfg)
+    dataset, _ = data_loader[cfg.data.name](cfg)
+    undirected = dataset.is_undirected()
+    splits = get_edge_split(dataset,
+                            undirected,
+                            cfg.data.device,
+                            cfg.data.split_index[1],
+                            cfg.data.split_index[2],
+                            cfg.data.include_negatives,
+                            cfg.data.split_labels
+                            )
     
     full_edge_index = splits['test'].edge_index
     full_edge_weight = torch.ones(full_edge_index.size(1))
@@ -70,9 +98,6 @@ if __name__ == "__main__":
     plot_coo_matrix(m, f'test_edge_index.png')
     
     full_A = ssp.csr_matrix((full_edge_weight.view(-1), (full_edge_index[0], full_edge_index[1])), shape=(num_nodes, num_nodes)) 
-
-    evaluator_hit = Evaluator(name='ogbl-collab')
-    evaluator_mrr = Evaluator(name='ogbl-citation2')
     
     result_dict = {}
     # Access individual parameters
@@ -122,18 +147,20 @@ if __name__ == "__main__":
     pos_pred = pos_test_pred[:, 1]
     neg_pred = neg_test_pred[:, 1]
     result_mrr = get_metric_score(evaluator_hit, evaluator_mrr, pos_pred, neg_pred)
-    results_acc.update(result_mrr)
+    result_mrr['ACC'] = acc
+    results_mrr = {f'{method}_mrr': result_mrr}
 
     print(results_acc)
 
     root = FILE_PATH + 'results'
-    acc_file = root + f'/{cfg.data.name}_acc_{method}.csv'
-
+    acc_file = root + f'/{cfg.data.name}_acc.csv'
+    mrr_file = root +  f'/{cfg.data.name}_mrr.csv'
     if not os.path.exists(root):
         os.makedirs(root, exist_ok=True)
     
     id = wandb.util.generate_id()
-    param_tune_acc_mrr(id, results_acc, acc_file, cfg.data.name, method)
+    append_acc_to_excel(id, results_acc, acc_file, cfg.data.name, method)
+    append_mrr_to_excel(id, results_mrr, mrr_file, cfg.data.name, method)
     
 
 

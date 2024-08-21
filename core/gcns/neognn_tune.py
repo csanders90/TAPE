@@ -120,17 +120,17 @@ if __name__ == "__main__":
             f"\n Valid: {2 * splits['train']['pos_edge_label'].shape[0]} samples,"
             f"\n Test: {2 * splits['test']['pos_edge_label'].shape[0]} samples")
         dump_cfg(cfg)
-        hyperparameter_search = {'hidden_channels': [64, 128, 256, 512, 1024, 2048, 4096, 8192], 
-                                 'num_layers': [1, 2, 3, 4], 
-                                 'mlp_num_layers': [1, 2, 3, 4],
+        hyperparameter_search = {'hidden_channels': [64],#, 128, 256, 512, 1024, 2048, 4096, 8192], 
+                                 'num_layers': [1],# 2, 3, 4], 
+                                 'mlp_num_layers': [3],#[1, 2, 3, 4],
                                  'f_edge_dim': [8], 
                                  'f_node_dim': [128], 
-                                 'dropout': [0.2],#[0, 0.1, 0.2, 0.3, 0.4, 0.5],
+                                 'dropout': [0, 0.1, 0.2, 0.3, 0.4, 0.5],
                                  'batch_size': [1024],#[128, 256, 512, 1024], 
                                  'lr': [0.001]#[0.01, 0.001, 0.0001]
                                  } 
                                 # Pubmed: bs: 128, 'lr': 0.0001 'hidden_channels': 128, ' num_layers': 1, 'mlp_num_layers': 4, 'f_node_dim': 128, 'f_edge_dim': 8, 'batch_size': 128, 'lr': 0.0001, 'dropout': 0.2}
-                                # Arxiv_2023: bs: 1024, 'lr': 0.001 'hidden_channels': 256, ' num_layers': 1, 'mlp_num_layers': 3, 'f_node_dim': 128, 'f_edge_dim': 8, 'batch_size': 128, 'lr': 0.001, 'dropout': 0.2}
+                                # Arxiv_2023: bs: 1024, 'lr': 0.001 'hidden_channels': 64, ' num_layers': 1, 'mlp_num_layers': 3, 'f_node_dim': 128, 'f_edge_dim': 8, 'dropout': 0.2,
 
         print_logger.info(f"hypersearch space: {hyperparameter_search}")
         for hidden_channels, num_layers, mlp_num_layers, f_edge_dim, f_node_dim, dropout, batch_size, lr in tqdm(

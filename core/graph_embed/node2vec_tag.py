@@ -5,29 +5,33 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 import numpy as np
 import scipy.sparse as ssp
 import torch
+import argparse
+import wandb
 import matplotlib.pyplot as plt
-from core.data_utils.graph_stats import plot_coo_matrix, construct_sparse_adj
 from ogb.linkproppred import Evaluator
 from heuristic.eval import get_metric_score
 from graph_embed.ge.models import Node2Vec
 from yacs.config import CfgNode as CN
+from sklearn.manifold import TSNE
+from torch_geometric.graphgym.utils.comp_budget import params_count
+from heuristic.pubmed_heuristic import get_pubmed_casestudy   
 import networkx as nx 
-from torch_geometric.graphgym.cmd_args import parse_args
+# from torch_geometric.graphgym.cmd_args import parse_args
 from torch_geometric.graphgym.config import (cfg)
 from graph_embed.node2vec_tagplus import node2vec
-from data_utils.load import load_data_lp as data_loader
+from sklearn.neural_network import MLPClassifier
 
-from core.graphgps.utility.utils import get_git_repo_root_path, append_acc_to_excel, append_mrr_to_excel
+from data_utils.load_data_lp import get_edge_split
+from data_utils.load import load_graph_lp as data_loader
+from data_utils.graph_stats import plot_coo_matrix, construct_sparse_adj
+from graphgps.utility.utils import (
+    set_cfg,
+    get_git_repo_root_path,
+    append_acc_to_excel,
+    append_mrr_to_excel
+)
 
 FILE_PATH = get_git_repo_root_path() + '/'
-
-
-def set_cfg(args):
-    with open(args.cfg_file, "r") as f:
-        cfg = CN.load_cfg(f)
-    return cfg
-
-
         
 def eval_embed(embed,  splits, visual=True):
     """train the classifier and return the pred
@@ -51,7 +55,6 @@ def eval_embed(embed,  splits, visual=True):
     X_test = embed[X_test_index]
     X_test = np.multiply(X_test[:, 1], (X_test[:, 0]))
     
-    from sklearn.neural_network import MLPClassifier
     clf = MLPClassifier(hidden_layer_sizes=(100,), 
                         activation='relu', 
                         solver='adam', 
@@ -83,6 +86,7 @@ def eval_embed(embed,  splits, visual=True):
     evaluator_hit = Evaluator(name='ogbl-collab')
     evaluator_mrr = Evaluator(name='ogbl-citation2')
     result_mrr = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
+    result_mrr['ACC'] = acc
     results_mrr = {'node2vec_mrr': result_mrr}
     
     if visual:
@@ -106,8 +110,16 @@ def eval_embed(embed,  splits, visual=True):
 def eval_pubmed_mrr_acc(args) -> None:
     """load text attribute graph in link predicton setting
     """
-    dataset, data_cited, splits = data_loader[args.data.name](args)
-    
+    dataset, _ = data_loader[args.data.name](args)
+    undirected = dataset.is_undirected()
+    splits = get_edge_split(dataset,
+                            undirected,
+                            cfg.data.device,
+                            cfg.data.split_index[1],
+                            cfg.data.split_index[2],
+                            cfg.data.include_negatives,
+                            cfg.data.split_labels
+                            )
     # ust test edge_index as full_A
     full_edge_index = splits['test'].edge_index
     full_edge_weight = torch.ones(full_edge_index.size(1))
@@ -118,11 +130,6 @@ def eval_pubmed_mrr_acc(args) -> None:
     
     full_A = ssp.csr_matrix((full_edge_weight.view(-1), (full_edge_index[0], full_edge_index[1])), shape=(num_nodes, num_nodes)) 
 
-    evaluator_hit = Evaluator(name='ogbl-collab')
-    evaluator_mrr = Evaluator(name='ogbl-citation2')
-    
-        
-    result_dict = {}
     # Access individual parameters
     walk_length = args.model.node2vec.walk_length
     num_walks = args.model.node2vec.num_walks
@@ -135,28 +142,36 @@ def eval_pubmed_mrr_acc(args) -> None:
     iter = args.model.node2vec.iter
 
     # model 
-    for use_heuristic in ['node2vec']:
-        G = nx.from_scipy_sparse_matrix(full_A, create_using=nx.Graph())
-        model = Node2Vec(G, walk_length=walk_length, 
-                         num_walks=num_walks,
-                        p=p, 
-                        q=q, 
-                        workers=workers, 
-                        use_rejection_sampling=use_rejection_sampling)
-        
-        model.train(embed_size=embed_size,
-                    window_size = ws, 
-                    iter = iter)
-        
-        embeddings = model.get_embeddings()
+    # for use_heuristic in ['node2vec']:
+    G = nx.from_scipy_sparse_matrix(full_A, create_using=nx.Graph())
+    model = Node2Vec(G, walk_length=walk_length, 
+                        num_walks=num_walks,
+                    p=p, 
+                    q=q, 
+                    workers=workers, 
+                    use_rejection_sampling=use_rejection_sampling)
+    
+    model.train(embed_size=embed_size,
+                window_size = ws, 
+                iter = iter)
+    
+    embeddings = model.get_embeddings()
 
 
     return eval_embed(embeddings, splits)
 
-from sklearn.manifold import TSNE
-from heuristic.pubmed_heuristic import get_pubmed_casestudy   
+def parse_args() -> argparse.Namespace:
+    r"""Parses the command line arguments."""
+    parser = argparse.ArgumentParser(description='GraphGym')
+    parser.add_argument('--cfg', dest='cfg_file', type=str, required=False,
+                        default='core/yamls/cora/gcns/ncn.yaml',
+                        help='The configuration file path.')
 
-
+    parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
+                        default='core/yamls/cora/gcns/ncn.yaml',
+                        help='The configuration file path.')
+   
+    return parser.parse_args()
 
 
 # main function 
@@ -178,6 +193,7 @@ if __name__ == "__main__":
     mrr_file = root +  f'/{cfg.data.name}_mrr.csv'
     if not os.path.exists(root):
         os.makedirs(root, exist_ok=True)
-    append_acc_to_excel(results_acc, acc_file, cfg.data.name)
-    append_mrr_to_excel(results_mrr, mrr_file)
-
+    
+    id = wandb.util.generate_id()
+    append_acc_to_excel(id, results_acc, acc_file, cfg.data.name, 'node2vec')
+    append_mrr_to_excel(id, results_mrr, mrr_file, cfg.data.name, 'node2vec')

@@ -4,6 +4,7 @@ import sys
 import numpy as np
 import time
 import datetime
+import re
 import pytz
 import torch
 import git
@@ -19,7 +20,6 @@ from torch_geometric.utils import remove_self_loops
 from typing import Tuple, List, Dict
 import logging
 from yacs.config import CfgNode
-import torch 
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from transformers import AutoTokenizer, AutoModel
@@ -171,6 +171,15 @@ def append_acc_to_excel(uuid_val, metrics_acc, root, name, method):
 
     return upt_Data
 
+def convert_to_float(value):
+    if isinstance(value, str):
+        # Попытка извлечь число перед символом '±' или любую строку, не являющуюся числом
+        match = re.match(r"([+-]?[0-9]*[.]?[0-9]+)", value)
+        if match:
+            return float(match.group(0))
+        else:
+            return None
+    return value
 
 def append_mrr_to_excel(uuid_val, metrics_mrr, root, name, method):
  
@@ -180,7 +189,6 @@ def append_mrr_to_excel(uuid_val, metrics_mrr, root, name, method):
             csv_columns = ['Metric'] + list(v.keys())
         csv_numbers.append([f'{k}_{uuid_val}_{name}_{method}'] + list(v.values()))
     
-    print(csv_numbers)
 
     try:
         Data = pd.read_csv(root)[:-1]
@@ -192,10 +200,24 @@ def append_mrr_to_excel(uuid_val, metrics_mrr, root, name, method):
     new_df = pd.DataFrame(csv_numbers, columns = csv_columns)
     new_Data = pd.concat([Data, new_df])
     
-    highest_values = new_Data.apply(lambda column: max(column, default=None))
-    Best_list = ['Best'] + highest_values[1:].tolist()
-    Best_df = pd.DataFrame([Best_list], columns=csv_columns)
-    upt_Data = pd.concat([new_Data, Best_df])
+    extracted_means = new_Data.applymap(convert_to_float)
+
+    columns_without_none = extracted_means.dropna(axis=1, how='any')
+
+    highest_values = columns_without_none.apply(lambda column: max(column, default=None))
+    
+    Best_list = ['Best'] + highest_values.tolist()
+    # print(csv_columns)
+    print(Best_list)
+    print(new_Data.columns)
+    print(len(Best_list))
+    print(len(new_Data.columns))
+    # print(len(csv_columns))
+    # while len(Best_list) < len(new_Data.columns):
+    #     Best_list += [None] * (len(new_Data.columns) - len(Best_list))
+
+    Best_df = pd.DataFrame([Best_list], columns=new_Data.columns)
+    upt_Data = pd.concat([new_Data, Best_df], ignore_index=True)
     
     upt_Data.to_csv(root, index=False)
     

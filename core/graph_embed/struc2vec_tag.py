@@ -5,9 +5,12 @@ import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
 import torch
+import csv
+import time
 import argparse
 import scipy.sparse as ssp
 from sklearn.linear_model import LogisticRegression
+from torch_geometric.graphgym.utils.comp_budget import params_count
 from sklearn.manifold import TSNE
 from torch_geometric.graphgym.cmd_args import parse_args
 from torch_geometric.graphgym.config import cfg
@@ -65,11 +68,10 @@ if __name__ == "__main__":
     else:
         device = 'cpu'
     
-    dataset, data_cited = data_loader[cfg.data.name](cfg)
+    dataset, _ = data_loader[cfg.data.name](cfg)
     # Access individual parameters
     max_iter = cfg.model.struc2vec.max_iter
     undirected = dataset.is_undirected()
-    # print(cfg)
     splits = get_edge_split(dataset,
                             undirected,
                             cfg.data.device,
@@ -86,9 +88,6 @@ if __name__ == "__main__":
     
     full_A = ssp.csr_matrix((full_edge_weight.view(-1), (full_edge_index[0], full_edge_index[1])), shape=(num_nodes, num_nodes)) 
 
-    evaluator_hit = Evaluator(name='ogbl-collab')
-    evaluator_mrr = Evaluator(name='ogbl-citation2')
-
     result_dict = {}
     
     adj = to_scipy_sparse_matrix(full_edge_index)
@@ -104,11 +103,13 @@ if __name__ == "__main__":
                       data=cfg.data.name, 
                       reuse=False, 
                       temp_path=f'./temp_path')
-    
+    start = time.time()
     model.train(embed_size=128, 
                 window_size=5, 
-                workers=20)
-
+                workers=20,
+                epochs=5)#cfg.model.struc2vec.max_iter)
+    end= time.time()
+    
     embed = model.get_embeddings()
 
     # Load the array back from the npz file
@@ -126,7 +127,16 @@ if __name__ == "__main__":
     X_test = embed[X_test_index]
     X_test = np.multiply(X_test[:, 1], (X_test[:, 0]))
     
-
+    file_path = 'model_parameters.csv'
+    file_exists = os.path.exists(file_path)
+    with open(file_path, mode='a', newline='') as file:
+        writer = csv.writer(file)
+        if not file_exists:
+            writer.writerow(["Model Name", "Total num", "Time 1 epoch"])
+        total_params = model.count_parameters()
+        model_name = model.__class__.__name__
+        writer.writerow([model_name, total_params, (end - start) / cfg.model.struc2vec.max_iter])
+    
     clf = LogisticRegression(solver='lbfgs', max_iter=max_iter, multi_class='auto')
     clf.fit(X_train, y_train)
     
@@ -145,10 +155,13 @@ if __name__ == "__main__":
     
     evaluator_hit = Evaluator(name='ogbl-collab')
     evaluator_mrr = Evaluator(name='ogbl-citation2')
+    
     pos_pred = pos_test_pred[:, 1]
     neg_pred = neg_test_pred[:, 1]
     result_mrr = get_metric_score(evaluator_hit, evaluator_mrr, pos_pred, neg_pred)
+    result_mrr['ACC'] = acc
     results_mrr = {'node2vec_mrr': result_mrr}
+    
     print(results_acc, results_mrr)
 
 
@@ -160,7 +173,7 @@ if __name__ == "__main__":
     
     id = wandb.util.generate_id()
     append_acc_to_excel(id, results_acc, acc_file, cfg.data.name, 'struc2vec')
-    append_mrr_to_excel(id, results_mrr, mrr_file, 'struc2vec')
+    append_mrr_to_excel(id, results_mrr, mrr_file, cfg.data.name, 'struc2vec')
     
 
 
