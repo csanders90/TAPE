@@ -1,6 +1,6 @@
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
+# import dgl
 import torch
 import pandas as pd
 import numpy as np
@@ -10,11 +10,16 @@ import json
 from ogb.nodeproppred import PygNodePropPredDataset
 import torch_geometric.transforms as T
 from sklearn.preprocessing import normalize
-from torch_geometric.data import InMemoryDataset, Dataset, Data
+from torch_geometric.data import Data
 from torch_geometric.datasets import Planetoid
 from torch_geometric.transforms import RandomLinkSplit
-from utils import get_git_repo_root_path, time_logger
+from graphgps.utility.utils import get_git_repo_root_path # type: ignore
 from typing import Tuple, List, Dict, Set, Any 
+from data_utils.lcc import use_lcc
+import torch_geometric.utils as pyg_utils
+import networkx as nx 
+# import dgl 
+
 
 FILE = 'core/dataset/ogbn_products_orig/ogbn-products.csv'
 FILE_PATH = get_git_repo_root_path() + '/'
@@ -54,11 +59,11 @@ def get_node_mask_ogb(num_nodes: int, idx_splits: Dict[str, torch.Tensor]) -> tu
     return train_mask, val_mask, test_mask
 
 
-
 # Function to parse Cora dataset
 def load_graph_arxiv23() -> Data:
-    return torch.load(FILE_PATH + 'core/dataset/arxiv_2023/graph.pt')
-
+    data = torch.load(FILE_PATH + 'core/dataset/arxiv_2023/graph.pt')
+    # data.edge_index = data.adj_t.to_symmetric()
+    return data
 
 # Function to parse PubMed dataset
 def load_text_arxiv23() -> List[str]:
@@ -73,6 +78,7 @@ def load_text_arxiv23() -> List[str]:
 def load_tag_arxiv23() -> Tuple[Data, List[str]]:
     graph = load_graph_arxiv23()
     text = load_text_arxiv23()
+    
     train_id, val_id, test_id, train_mask, val_mask, test_mask = get_node_mask(graph.num_nodes)
     graph.train_id = train_id
     graph.val_id = val_id
@@ -145,8 +151,10 @@ def load_graph_cora(use_mask) -> Data:
 
 
 def load_tag_cora()  -> Tuple[Data, List[str]]:
-    data, data_citeid = load_graph_cora()
+    data, data_citeid = load_graph_cora(use_mask=False) # nc True, lp False
     text = load_text_cora(data_citeid)
+    print(f"Number of texts: {len(text)}")
+    print(f"first text: {text[0]}")
     return data, text
 
 
@@ -200,16 +208,17 @@ def load_text_cora(data_citeid) -> List[str]:
 
 
 # Function to parse PubMed dataset
-
 def load_graph_product():
     raise NotImplementedError
     # Add your implementation here
+    
     
 def load_text_product() -> List[str]:
     text = pd.read_csv(FILE_PATH + 'core/dataset/ogbn_products_orig/ogbn-products_subset.csv')
     text = [f'Product:{ti}; Description: {cont}\n'for ti,
             cont in zip(text['title'], text['content'])]
     return text
+
 
 # Function to parse PubMed dataset
 def load_tag_product() -> Tuple[Data, List[str]]:
@@ -340,6 +349,7 @@ def load_graph_pubmed(use_mask) -> Data:
             edge_attrs = None, 
             graph_attrs = None
         )
+      
         
 # Function to parse PubMed dataset
 def load_text_pubmed() -> List[str]:
@@ -361,7 +371,7 @@ def load_tag_pubmed(use_mask) -> Tuple[Data, List[str]]:
 
 def load_text_ogbn_arxiv():
     nodeidx2paperid = pd.read_csv(
-        'generated_dataset/ogbn_arxiv/mapping/nodeidx2paperid.csv.gz', compression='gzip')
+        FILE_PATH + 'core/dataset/ogbn_arixv_orig/mapping/nodeidx2paperid.csv.gz', compression='gzip')
 
     tsv_path = FILE_PATH + 'core/dataset/ogbn_arixv_orig/titleabs.tsv'
     raw_text = pd.read_csv(tsv_path,
@@ -374,8 +384,7 @@ def load_text_ogbn_arxiv():
         'Title: ' + ti + '\n' + 'Abstract: ' + ab
         for ti, ab in zip(df['title'], df['abs'])
     ]
-    
-    
+      
     
 def load_graph_ogbn_arxiv(use_mask):
     dataset = PygNodePropPredDataset(root='./generated_dataset',
@@ -418,7 +427,7 @@ def load_graph_ogbn_arxiv(use_mask):
             
 
 def load_tag_ogbn_arxiv() -> List[str]:
-    graph = load_graph_ogbn_arxiv()
+    graph = load_graph_ogbn_arxiv(False)
     text = load_text_ogbn_arxiv()
     return graph, text
 
@@ -435,15 +444,116 @@ def load_tag_product() -> Tuple[Data, List[str]]:
     return data, text
 
 
+def load_graph_citationv8() -> Data:
+    import dgl
+    from pdb import set_trace as st; st()
+    graph = dgl.load_graphs(FILE_PATH + 'core/dataset/citationv8/Citation-2015.pt')[0][0]
+    graph = dgl.to_bidirected(graph)
+    from torch_geometric.utils import from_dgl
+    graph = from_dgl(graph)
+    graph.num_nodes = graph.edge_index.max() + 1
+    # torch.save(graph, FILE_PATH + 'core/dataset/citationv8/citationv8_pyg2015.pt')
+    return graph
+
+def load_pyg_citationv8() -> Data:
+    return torch.load(FILE_PATH + 'core/dataset/citationv8/citationv8_pyg2015.pt')
+    
+
+def load_embedded_citationv8(method) -> Data:
+    return torch.load(FILE_PATH + f'core/dataset/citationv8/citationv8_{method}.pt')
+    
+
+def load_text_citationv8() -> List[str]:
+    df = pd.read_csv(FILE_PATH + 'core/dataset/citationv8_orig/Citation-2015.csv')
+    print(f"Number of texts: {len(df['text'].tolist())}")
+    return df['text'].tolist()
+
+
+def load_tag_citationv8() -> Tuple[Data, List[str]]:
+    graph = load_graph_citationv8()
+    text = None
+    train_id, val_id, test_id, train_mask, val_mask, test_mask = get_node_mask(graph.num_nodes)
+    graph.train_id = train_id
+    graph.val_id = val_id
+    graph.test_id = test_id
+    graph.train_mask = train_mask
+    graph.val_mask = val_mask
+    graph.test_mask = test_mask
+    return graph, text
+
+
+def load_graph_citeseer() -> Data:
+    # load data
+    data_name = 'CiteSeer'
+    dataset = Planetoid('./generated_dataset', data_name, transform=T.NormalizeFeatures())
+    data = dataset[0]
+    return data
+
+
+def load_text_citeseer() -> List[str]:
+
+    return None
+
+
+def load_tag_citeseer() -> Tuple[Data, List[str]]:
+    graph = load_graph_citeseer()
+    text = load_text_citeseer()
+    return graph, text
+
+
+def load_graph_pwc_large(method):
+    graph = torch.load(FILE_PATH+f'core/dataset/pwc_large/pwc_{method}_large_undirec.pt')
+    return graph 
+
+
+def load_text_pwc_large() -> List[str]:
+    raw_text = pd.read_csv(FILE_PATH + f'core/dataset/pwc_large/pwc_large_papers.csv')
+    return raw_text['feat'].tolist()
+
+
+def load_graph_pwc_medium(method):
+    return torch.load(FILE_PATH+f'core/dataset/pwc_medium/pwc_{method}_medium_undirec.pt')
+
+
+def load_text_pwc_medium(method) -> List[str]:
+    raw_text = pd.read_csv(FILE_PATH + f'core/dataset/pwc_medium/pwc_{method}_medium_text.csv')
+    return raw_text['feat'].tolist()
+
+
+def load_graph_pwc_small(method):
+    return torch.load(FILE_PATH+f'core/dataset/pwc_small/pwc_{method}_small_undirec.pt') 
+
+
+def load_text_pwc_small(method) -> List[str]:
+    raw_text = pd.read_csv(FILE_PATH + f'core/dataset/pwc_small/pwc_{method}_small_text.csv')
+    return raw_text['feat'].tolist()
+    
+    
+def extract_lcc_pwc_undir() -> Data:
+    # return the largest connected components with text attrs
+    graph = torch.load(FILE_PATH+'core/dataset/pwc_large/pwc_tfidf_large_undir.pt')
+    data_lcc = use_lcc(graph)
+    root = '/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/'
+    torch.save(data_lcc, root+'core/dataset/pwc_large/pwc_tfidf_medium_undir.pt')
+    from pdb import set_trace as st; st()
+    return 
+
+
 # Test code
 if __name__ == '__main__':
+    graph = load_graph_citeseer()
+    print(type(graph))
+    graph, text = load_tag_citeseer()
+    print(type(text))
+
+
     graph = load_graph_arxiv23()
     # print(type(graph))
     graph, text = load_tag_arxiv23()
     print(type(graph))
     print(type(text))
 
-    graph, _ = load_graph_cora(True)
+    '''graph, _ = load_graph_cora(True)
     # print(type(graph))
     graph, text = load_tag_cora()
     print(type(graph))
@@ -460,4 +570,9 @@ if __name__ == '__main__':
     graph = load_graph_pubmed()
     graph, text = load_tag_pubmed()
     print(type(graph))
+    print(type(text))'''
+
+    graph = load_graph_citationv8()
+    print(type(graph))
+    graph, text = load_tag_citationv8()
     print(type(text))

@@ -8,7 +8,7 @@ from core.data_utils.dataset import CustomPygDataset
 from core.data_utils.load import load_data
 from core.data_utils.dataset import CustomPygDataset
 from core.data_utils.load_lp import load_lp_data
-from core.utils import init_path, time_logger
+from core.graphgps.utility.utils import init_path, time_logger
 
 
 

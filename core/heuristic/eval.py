@@ -156,25 +156,25 @@ def get_prediction(full_A, use_heuristic, pos_test_edge, neg_test_edge):
 
     return pos_test_pred, neg_test_pred
 
-def get_metric_score(evaluator_hit, evaluator_mrr, pos_train_pred, pos_val_pred, neg_val_pred, pos_test_pred, neg_test_pred):
-    k_list = [1, 3, 10, 100]
+# def get_metric_score(evaluator_hit, evaluator_mrr, pos_train_pred, pos_val_pred, neg_val_pred, pos_test_pred, neg_test_pred):
+#     k_list = [1, 3, 10, 100]
 
-    result_mrr_train = evaluate_mrr(evaluator_mrr, pos_train_pred, neg_val_pred)
-    result_mrr_val = evaluate_mrr(evaluator_mrr, pos_val_pred, neg_val_pred )
-    result_mrr_test = evaluate_mrr(evaluator_mrr, pos_test_pred, neg_test_pred)
+#     result_mrr_train = evaluate_mrr(evaluator_mrr, pos_train_pred, neg_val_pred)
+#     result_mrr_val = evaluate_mrr(evaluator_mrr, pos_val_pred, neg_val_pred )
+#     result_mrr_test = evaluate_mrr(evaluator_mrr, pos_test_pred, neg_test_pred)
 
-    result = {
-        'MRR': (
-            result_mrr_train['MRR'],
-            result_mrr_val['MRR'],
-            result_mrr_test['MRR'],
-        )
-    }
-    for K in [1,3,10, 100]:
-        result[f'Hits@{K}'] = (result_mrr_train[f'mrr_hit{K}'], result_mrr_val[f'mrr_hit{K}'], result_mrr_test[f'mrr_hit{K}'])
+#     result = {
+#         'MRR': (
+#             result_mrr_train['MRR'],
+#             result_mrr_val['MRR'],
+#             result_mrr_test['MRR'],
+#         )
+#     }
+#     for K in [1,3,10, 100]:
+#         result[f'Hits@{K}'] = (result_mrr_train[f'mrr_hit{K}'], result_mrr_val[f'mrr_hit{K}'], result_mrr_test[f'mrr_hit{K}'])
 
 
-    return result
+#     return result
 
 def get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred):
 
@@ -194,7 +194,7 @@ def get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
     result['mrr_hit20']  = (result_mrr_test['mrr_hit20'])
     result['mrr_hit50']  = (result_mrr_test['mrr_hit50'])
     result['mrr_hit100']  = (result_mrr_test['mrr_hit100'])
-
+    # print(result_mrr_test['mrr_hit100'])
     test_pred = torch.cat([pos_test_pred, neg_test_pred])
     test_true = torch.cat([torch.ones(pos_test_pred.size(0), dtype=int), 
                             torch.zeros(neg_test_pred.size(0), dtype=int)])

@@ -3,39 +3,25 @@
 	// Hover to view descriptions of existing attributes.
 	// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
 	"version": "0.2.0",
-	"argsurations": [
-		{
-			"name": "Python: Current File",
-			"type": "python",
-			"request": "launch",
-			"program": "${file}",
-			"console": "integratedTerminal",
-			"justMyCode": false,
-			// "args": ["--cfg", "core/configs/arxiv_2023/struc2vec.yaml", "--sweep", "core/configs/arxiv_2023/struc2vec_sp1.yaml"],
-			"args": [
-				"--data",
-				"cora",
-				"--device",
-				"cpu"
-			],
-		}
-	],
 	"configurations": [
+		
 		{
 			"name": "Python Debugger: Current File with Arguments",
 			"type": "debugpy",
 			"request": "launch",
 			"program": "${file}",
 			"console": "integratedTerminal",
+			"justMyCode": true,
+			"python.tensorboard.logDirectory": "/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/gcns/runs", 
 			"args": [
 				"--data",
-				"cora",
-				"--device",
-				"cpu",
-				"--epochs",
+				"arxiv_2023",
+				// "--device",
+				// "cpu",
+				"--epoch",
 				"100",
-				"--model",
-				"GAT"
+				"--embedder",
+				"w2v"
 			],
 		}
 	]

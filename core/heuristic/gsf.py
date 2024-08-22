@@ -153,7 +153,8 @@ def shortest_path(A, edge_index, remove=False):
         scores.append(1/(sp))
         
     print(f'evaluated shortest path for {len(scores)} edges')
-    return torch.FloatTensor(scores)
+    return torch.FloatTensor(scores), None
+
 
 def katz_apro(A, edge_index, beta=0.005, path_len=3, remove=False):
 
@@ -189,7 +190,7 @@ def katz_apro(A, edge_index, beta=0.005, path_len=3, remove=False):
     
             
     print(f'evaluated katz apro for {len(scores)} edges')
-    return torch.FloatTensor(scores)
+    return torch.FloatTensor(scores), None
 
 
 def katz_close(A, edge_index, beta=0.005):
@@ -207,6 +208,6 @@ def katz_close(A, edge_index, beta=0.005):
         scores.append(sim[s,t])
 
     print(f'evaluated katz close for {len(scores)} edges')
-    return torch.FloatTensor(scores)
+    return torch.FloatTensor(scores), None
 
 

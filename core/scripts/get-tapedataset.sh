@@ -1,10 +1,19 @@
 #!/usr/bin/env bash
-# LINK=https://drive.google.com/uc?export=download&id=1ueqmPH2L5flLQjTIgHxLO2-FlGMvyCqy
+# LINK=https://drive.google.com/file/d/1IvP4_NmbGAhuWpc3gShRooivdsZfrxh4/view?usp=sharing
 # If automatic downloading isn't working, the file can be downloaded manually with the above link.
-ggID='1ueqmPH2L5flLQjTIgHxLO2-FlGMvyCqy'
+# To update dataset 
+# 1. transfer file to local machine: rsync -av -e ssh --progress cc7738@horeka.scc.kit.edu:/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/dataset latest_dataset_26july/
+# 2. zip file: tar -cvzf latest_dataset_26july.tar.gz latest_dataset_26july
+# 3. upload to google drive -> get shareable link -> get file id
+# 4. update ggID and ggURL below
+# 5. run this script
+# 6. gdown $google link (https://drive.google.com/file/d/1IvP4_NmbGAhuWpc3gShRooivdsZfrxh4/view?usp=sharing)
+
+
+ggID='1IvP4_NmbGAhuWpc3gShRooivdsZfrxh4'
 ggURL='https://drive.google.com/uc?export=download'
 TARGET=dataset.tar.gz
-SHA256SUM=38527f730115b6389c8a60ae435c92d81de56f59fe4d36e78641b46c3c4db067
+SHA256SUM=ca63ec67f4be6a03433dad1b7ee6b0d122d8bc57da219d7ac8e59b481bd9b7ff
 
 cd "$(dirname ${BASH_SOURCE[0]})/.."
 
