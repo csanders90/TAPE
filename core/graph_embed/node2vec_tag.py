@@ -1,85 +1,66 @@
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-# Import organization
-
 import numpy as np
 import scipy.sparse as ssp
 import torch
 import argparse
 import wandb
+import time
 import matplotlib.pyplot as plt
+import networkx as nx
+from sklearn.manifold import TSNE
+from sklearn.neural_network import MLPClassifier
 from ogb.linkproppred import Evaluator
+
 from heuristic.eval import get_metric_score
 from graph_embed.ge.models import Node2Vec
-from yacs.config import CfgNode as CN
-from sklearn.manifold import TSNE
-from torch_geometric.graphgym.utils.comp_budget import params_count
-from heuristic.pubmed_heuristic import get_pubmed_casestudy   
-import networkx as nx 
-# from torch_geometric.graphgym.cmd_args import parse_args
-from torch_geometric.graphgym.config import (cfg)
-from graph_embed.node2vec_tagplus import node2vec
-from sklearn.neural_network import MLPClassifier
-
+from tune_utils import save_parameters
 from data_utils.load_data_lp import get_edge_split
 from data_utils.load import load_graph_lp as data_loader
 from data_utils.graph_stats import plot_coo_matrix, construct_sparse_adj
-from graphgps.utility.utils import (
-    set_cfg,
-    get_git_repo_root_path,
-    append_acc_to_excel,
-    append_mrr_to_excel
-)
+from graphgps.utility.utils import set_cfg, get_git_repo_root_path, append_acc_to_excel, append_mrr_to_excel
 
+# Set the file path for the project
 FILE_PATH = get_git_repo_root_path() + '/'
-        
-def eval_embed(embed,  splits, visual=True):
-    """train the classifier and return the pred
+
+
+def parse_args() -> argparse.Namespace:
+    """Parses the command line arguments."""
+    parser = argparse.ArgumentParser(description='GraphGym')
+    parser.add_argument('--cfg', type=str, required=False,
+                        default='core/yamls/cora/gcns/ncn.yaml',
+                        help='The configuration file path.')
+    parser.add_argument('--sweep', type=str, required=False,
+                        default='core/yamls/cora/gcns/ncn.yaml',
+                        help='The configuration file path.')
+    return parser.parse_args()
+
+
+def eval_embed(embed, splits, visual=True):
+    """Trains the classifier and returns predictions.
 
     Args:
-        embed (np.array): embedding vector generated from the graph
-        test_index (torch.tensor): test edge index
-        edge_label (torch.tensor): test edge label
+        embed (np.array): Embedding vectors generated from the graph.
+        splits (dict): Train/test edge splits.
+        visual (bool): Whether to visualize the embeddings using TSNE.
 
     Returns:
-        prediction for edges 
+        tuple: y_pred, results_acc, results_mrr, y_test
     """
-    # train loop
     embed = np.asarray(list(embed.values()))
     X_train_index, y_train = splits['train'].edge_label_index.T, splits['train'].edge_label
-    # dot product
-    X_train = embed[X_train_index]
-    X_train = np.multiply(X_train[:, 1], (X_train[:, 0]))
+
+    # Compute dot products for training and testing
+    X_train = np.multiply(embed[X_train_index[:, 1]], embed[X_train_index[:, 0]])
     X_test_index, y_test = splits['test'].edge_label_index.T, splits['test'].edge_label
-    # dot product 
-    X_test = embed[X_test_index]
-    X_test = np.multiply(X_test[:, 1], (X_test[:, 0]))
-    
-    clf = MLPClassifier(hidden_layer_sizes=(100,), 
-                        activation='relu', 
-                        solver='adam', 
-                        alpha=0.0001, 
-                        batch_size='auto', 
-                        learning_rate_init=0.001, 
-                        power_t=0.5, 
-                        max_iter=200, 
-                        shuffle=True, 
-                        random_state=None, 
-                        tol=0.0001, 
-                        verbose=False, 
-                        warm_start=False, 
-                        momentum=0.9, 
-                        nesterovs_momentum=True, 
-                        early_stopping=False, 
-                        validation_fraction=0.1, 
-                        epsilon=1e-08, 
-                        n_iter_no_change=10, 
-                        max_fun=15000).fit(X_train, y_train)
+    X_test = np.multiply(embed[X_test_index[:, 1]], embed[X_test_index[:, 0]])
 
+    # Train classifier
+    clf = MLPClassifier(hidden_layer_sizes=(100,), max_iter=200).fit(X_train, y_train)
     y_pred = clf.predict(X_test)
-
     acc = clf.score(X_test, y_test)
-    
+
+    # Evaluate predictions
     results_acc = {'node2vec_acc': acc}
     pos_test_pred = torch.tensor(y_pred[y_test == 1])
     neg_test_pred = torch.tensor(y_pred[y_test == 0])
@@ -88,112 +69,86 @@ def eval_embed(embed,  splits, visual=True):
     result_mrr = get_metric_score(evaluator_hit, evaluator_mrr, pos_test_pred, neg_test_pred)
     result_mrr['ACC'] = acc
     results_mrr = {'node2vec_mrr': result_mrr}
-    
+
+    # Visualization
     if visual:
-        model = TSNE(n_components=2,
-                    init="random",
-                    random_state=0,
-                    perplexity=100,
-                    n_iter=300)
-        node_pos = model.fit_transform(X_test)
+        tsne = TSNE(n_components=2, random_state=0, perplexity=100, n_iter=300)
+        node_pos = tsne.fit_transform(X_test)
 
         color_dict = {'0.0': 'r', '1.0': 'b'}
-        color = [color_dict[str(i)] for i in y_test.tolist()]
+        colors = [color_dict[str(label)] for label in y_test.tolist()]
         plt.figure()
         for idx in range(len(node_pos)):
-            plt.scatter(node_pos[idx, 0], node_pos[idx, 1], c=color[idx])
+            plt.scatter(node_pos[idx, 0], node_pos[idx, 1], c=colors[idx])
         plt.legend()
-        plt.savefig(f'cora_node2vec.png')
-    return y_pred, results_acc, results_mrr, y_test 
+        plt.savefig('cora_node2vec.png')
+
+    return y_pred, results_acc, results_mrr, y_test
 
 
-def eval_pubmed_mrr_acc(args) -> None:
-    """load text attribute graph in link predicton setting
-    """
-    dataset, _ = data_loader[args.data.name](args)
+def eval_mrr_acc(cfg) -> None:
+    """Loads the graph data and evaluates embeddings using MRR and accuracy."""
+    dataset, _ = data_loader[cfg.data.name](cfg)
     undirected = dataset.is_undirected()
-    splits = get_edge_split(dataset,
-                            undirected,
-                            cfg.data.device,
-                            cfg.data.split_index[1],
-                            cfg.data.split_index[2],
-                            cfg.data.include_negatives,
-                            cfg.data.split_labels
-                            )
-    # ust test edge_index as full_A
+    splits = get_edge_split(dataset, undirected, cfg.data.device,
+                            cfg.data.split_index[1], cfg.data.split_index[2],
+                            cfg.data.include_negatives, cfg.data.split_labels)
+
+    # Create the full adjacency matrix from test edges
     full_edge_index = splits['test'].edge_index
     full_edge_weight = torch.ones(full_edge_index.size(1))
-    num_nodes = dataset._data.num_nodes
-    
+    num_nodes = dataset.num_nodes
+    full_A = ssp.csr_matrix((full_edge_weight.view(-1), 
+                             (full_edge_index[0], full_edge_index[1])), 
+                             shape=(num_nodes, num_nodes))
+
+    # Visualize the test edge adjacency matrix
     m = construct_sparse_adj(full_edge_index)
-    plot_coo_matrix(m, f'test_edge_index.png')
-    
-    full_A = ssp.csr_matrix((full_edge_weight.view(-1), (full_edge_index[0], full_edge_index[1])), shape=(num_nodes, num_nodes)) 
+    plot_coo_matrix(m, 'test_edge_index.png')
 
-    # Access individual parameters
-    walk_length = args.model.node2vec.walk_length
-    num_walks = args.model.node2vec.num_walks
-    p = args.model.node2vec.p
-    q = args.model.node2vec.q
-    workers = args.model.node2vec.workers
-    use_rejection_sampling = args.model.node2vec.use_rejection_sampling
-    embed_size = args.model.node2vec.embed_size
-    ws = args.model.node2vec.window_size
-    iter = args.model.node2vec.iter
+    # Extract Node2Vec parameters from config
+    node2vec_params = cfg.model.node2vec
+    G = nx.from_scipy_sparse_array(full_A, create_using=nx.Graph())
 
-    # model 
-    # for use_heuristic in ['node2vec']:
-    G = nx.from_scipy_sparse_matrix(full_A, create_using=nx.Graph())
-    model = Node2Vec(G, walk_length=walk_length, 
-                        num_walks=num_walks,
-                    p=p, 
-                    q=q, 
-                    workers=workers, 
-                    use_rejection_sampling=use_rejection_sampling)
+    model = Node2Vec(G, walk_length=node2vec_params.walk_length, 
+                        num_walks=node2vec_params.num_walks,
+                        p=node2vec_params.p, 
+                        q=node2vec_params.q, 
+                        workers=node2vec_params.workers, 
+                        use_rejection_sampling=node2vec_params.use_rejection_sampling)
     
-    model.train(embed_size=embed_size,
-                window_size = ws, 
-                iter = iter)
+    start = time.time()
+    epochs = 5
+    model.train(embed_size=node2vec_params.embed_size,
+                window_size=node2vec_params.window_size, 
+                iter=node2vec_params.max_iter,
+                epochs = epochs)
+    end = time.time()
     
     embeddings = model.get_embeddings()
-
+    root = os.path.join(FILE_PATH, 'results')
+    save_parameters(root, model, start, end, epochs)
 
     return eval_embed(embeddings, splits)
 
-def parse_args() -> argparse.Namespace:
-    r"""Parses the command line arguments."""
-    parser = argparse.ArgumentParser(description='GraphGym')
-    parser.add_argument('--cfg', dest='cfg_file', type=str, required=False,
-                        default='core/yamls/cora/gcns/ncn.yaml',
-                        help='The configuration file path.')
 
-    parser.add_argument('--sweep', dest='sweep_file', type=str, required=False,
-                        default='core/yamls/cora/gcns/ncn.yaml',
-                        help='The configuration file path.')
-   
-    return parser.parse_args()
-
-
-# main function 
 if __name__ == "__main__":
     args = parse_args()
-    # Load args file
-    
-    cfg = set_cfg(args)
-    cfg.merge_from_list(args.opts)
-
+    cfg = set_cfg(FILE_PATH, args.cfg)
 
     # Set Pytorch environment
     torch.set_num_threads(cfg.num_threads)
     
-    y_pred, results_acc, results_mrr, y_test  = eval_pubmed_mrr_acc(cfg)
+    # Run the evaluation
+    y_pred, results_acc, results_mrr, y_test = eval_mrr_acc(cfg)
 
-    root = FILE_PATH + 'results'
-    acc_file = root + f'/{cfg.data.name}_acc.csv'
-    mrr_file = root +  f'/{cfg.data.name}_mrr.csv'
-    if not os.path.exists(root):
-        os.makedirs(root, exist_ok=True)
-    
-    id = wandb.util.generate_id()
-    append_acc_to_excel(id, results_acc, acc_file, cfg.data.name, 'node2vec')
-    append_mrr_to_excel(id, results_mrr, mrr_file, cfg.data.name, 'node2vec')
+    # Save the results
+    root = os.path.join(FILE_PATH, 'results')
+    os.makedirs(root, exist_ok=True)
+
+    acc_file = os.path.join(root, f'{cfg.data.name}_acc.csv')
+    mrr_file = os.path.join(root, f'{cfg.data.name}_mrr.csv')
+
+    run_id = wandb.util.generate_id()
+    append_acc_to_excel(run_id, results_acc, acc_file, cfg.data.name, 'node2vec')
+    append_mrr_to_excel(run_id, results_mrr, mrr_file, cfg.data.name, 'node2vec')

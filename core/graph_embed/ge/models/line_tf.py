@@ -96,6 +96,19 @@ class LINE:
         self._gen_sampling_table()
         self.reset_model()
 
+    def count_parameters(self):
+        total_params = 0
+        
+        if self.order == 'first':
+            total_params += np.prod(self.embedding_dict['first'].get_weights()[0].shape)
+        elif self.order == 'second':
+            total_params += np.prod(self.embedding_dict['second'].get_weights()[0].shape)
+        else:
+            total_params += np.prod(self.embedding_dict['first'].get_weights()[0].shape)
+            total_params += np.prod(self.embedding_dict['second'].get_weights()[0].shape)
+        
+        return total_params
+    
     def reset_training_config(self, batch_size, times):
         self.batch_size = batch_size
         self.steps_per_epoch = (
@@ -120,21 +133,21 @@ class LINE:
 
         for edge in self.graph.edges():
             node_degree[node2idx[edge[0]]
-                         ] += self.graph[edge[0]][edge[1]].get('weight', 1.0)
+                        ] += self.graph[edge[0]][edge[1]].get('weight', 1.0)
 
         total_sum = sum([math.pow(node_degree[i], power)
-                         for i in range(numNodes)])
+                        for i in range(numNodes)])
         norm_prob = [float(math.pow(node_degree[j], power)) /
-                     total_sum for j in range(numNodes)]
+                    total_sum for j in range(numNodes)]
 
         self.node_accept, self.node_alias = create_alias_table(norm_prob)
 
         # create sampling table for edge
         numEdges = self.graph.number_of_edges()
         total_sum = sum([self.graph[edge[0]][edge[1]].get('weight', 1.0)
-                         for edge in self.graph.edges()])
+                        for edge in self.graph.edges()])
         norm_prob = [self.graph[edge[0]][edge[1]].get('weight', 1.0) *
-                     numEdges / total_sum for edge in self.graph.edges()]
+                    numEdges / total_sum for edge in self.graph.edges()]
 
         self.edge_accept, self.edge_alias = create_alias_table(norm_prob)
 

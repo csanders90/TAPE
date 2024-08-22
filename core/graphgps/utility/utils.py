@@ -165,7 +165,7 @@ def append_acc_to_excel(uuid_val, metrics_acc, root, name, method):
 
     # concat and save
     Best_list = ['Best'] + highest_values[1:].tolist()
-    Best_df = pd.DataFrame([Best_list], columns=Data.columns)
+    Best_df = pd.DataFrame([Best_list], columns=new_Data.columns)
     upt_Data = pd.concat([new_Data, Best_df])
     upt_Data.to_csv(root,index=False)
 
@@ -173,7 +173,6 @@ def append_acc_to_excel(uuid_val, metrics_acc, root, name, method):
 
 def convert_to_float(value):
     if isinstance(value, str):
-        # Попытка извлечь число перед символом '±' или любую строку, не являющуюся числом
         match = re.match(r"([+-]?[0-9]*[.]?[0-9]+)", value)
         if match:
             return float(match.group(0))
