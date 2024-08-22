@@ -44,17 +44,17 @@ model:
     out_channels: 32
     negative_slope: 0.1
     dropout: 0.1
-    num_layers: 1
+    num_layers: 3
 
   GAT_Variant:
     heads: 4
     hidden_channels: 32
     negative_slope: 0.1
-    dropout: 0.1
-    num_layers: 1
+    dropout: 0
+    num_layers: 2
     emb: False
     in_channels: None
-    out_channels: 32
+    out_channels: 16
 
   SAGE_Variant:
     in_channels: None
@@ -84,15 +84,15 @@ score:
   type: mlp_score
 
   GAT_Variant:
-    score_in_channels: 32 #must be same as out_channels of GAT
+    score_in_channels: 16 #must be same as out_channels of GAT
     score_hidden_channels: 64
-    score_num_layers_predictor: 3
+    score_num_layers_predictor: 1
     score_dropout: 0.1
     score_out_channels: 1
     score_gin_mlp_layer: 2
     score_cat_node_feat_mf: False
     score_cat_n2v_feat: False
-    score_num_layers: 3
+    score_num_layers: 2
     product: dot
 
   GCN_Variant:
@@ -105,11 +105,10 @@ score:
     score_cat_node_feat_mf: False
     score_cat_n2v_feat: False
     score_num_layers: 3
-    product: inner
+    product: dot
 
-
-  GIN_Variant:
-    score_in_channels: 64
+  SAGE_Variant:
+    score_in_channels: 128
     score_hidden_channels: 64
     score_num_layers_predictor: 3
     score_dropout: 0.1
@@ -120,8 +119,8 @@ score:
     score_num_layers: 3
     product: dot
 
-  SAGE_Variant:
-    score_in_channels: 128
+  GIN_Variant:
+    score_in_channels: 64
     score_hidden_channels: 64
     score_num_layers_predictor: 3
     score_dropout: 0.1
@@ -148,7 +147,7 @@ data:
 
 optimizer:
   type: adam
-  base_lr: 0.015
+  base_lr: 0.0015
   weight_decay: 0.0005
 
 

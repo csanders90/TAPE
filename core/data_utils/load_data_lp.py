@@ -365,7 +365,7 @@ def load_taglp_pwc_medium(cfg: CN, if_lcc) -> Tuple[Dict[str, Data], List[str]]:
     return splits, text, data
 
 
-def load_taglp_pwc_small(cfg: CN, if_lcc) -> Tuple[Dict[str, Data], List[str]]:
+def load_taglp_pwc_small(cfg: CN, if_lcc = True) -> Tuple[Dict[str, Data], List[str]]:
     if hasattr(cfg, 'method'):
         pass
     else:
