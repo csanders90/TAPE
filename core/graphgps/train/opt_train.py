@@ -147,7 +147,7 @@ class Trainer():
     
         return result_mrr
     
-    def _acc(self, pos_pred, neg_pred):
+    def _acc(self, pos_pred: torch.tensor, neg_pred: torch.tensor) -> float:
         hard_thres = (max(torch.max(pos_pred).item(), torch.max(neg_pred).item()) + min(torch.min(pos_pred).item(), torch.min(neg_pred).item())) / 2
 
         # Initialize predictions with zeros and set ones where condition is met
@@ -165,8 +165,7 @@ class Trainer():
         pos_y = torch.ones_like(pos_pred)
         neg_y = torch.zeros_like(neg_pred)
         y = torch.cat([pos_y, neg_y], dim=0)
-        y_logits = torch.cat([pos_pred, neg_pred], dim=0)
-        # Calculate accuracy    
+  
         return (y == y_pred).float().mean().item()
 
 

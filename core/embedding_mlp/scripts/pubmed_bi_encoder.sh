@@ -27,9 +27,9 @@ module load compiler/gnu/12
 cd /hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/embedding_mlp
 
 data="pubmed"
-max_iter=2
+max_iter=2000
 embedders=("original" "w2v" "tfidf")
-decoders=("euclidean")
+decoders=("dot" "concat" "euclidean")
 device="cpu"
 
 for embedder in "${embedders[@]}"; do
@@ -37,7 +37,8 @@ for embedder in "${embedders[@]}"; do
         decoder=${decoders[$i]}
         # device=${devices[$i]}
         echo "python lp_node_embed.py --data $data --embedder $embedder --device $device --decoder $decoder --epoch $max_iter"
-        python lp_node_embed.py --data $data --embedder $embedder --device $device --decoder $decoder --epoch $max_iter --report_step 1 &
+        python lp_node_embed.py --data $data --embedder $embedder --device $device --decoder $decoder --epoch $max_iter --report_step 200 &
     done
     wait 
 done
+

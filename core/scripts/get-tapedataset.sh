@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # LINK=https://drive.google.com/file/d/1IvP4_NmbGAhuWpc3gShRooivdsZfrxh4/view?usp=sharing
+# gdown https://drive.google.com/file/d/1IvP4_NmbGAhuWpc3gShRooivdsZfrxh4/view?usp=drive_link for manual download
 # If automatic downloading isn't working, the file can be downloaded manually with the above link.
 # To update dataset 
 # 1. transfer file to local machine: rsync -av -e ssh --progress cc7738@horeka.scc.kit.edu:/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/dataset latest_dataset_26july/

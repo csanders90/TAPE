@@ -108,7 +108,7 @@ class Trainer_embedding_LLM(Trainer):
                 
                 for key, result in self.results_rank.items():
                     self.loggers[key].add_result(self.run, result)
-                    
+                    self.tensorboard_writer.add_scalar(f"Metrics/Train/loss", loss, epoch)
                     self.tensorboard_writer.add_scalar(f"Metrics/Train/{key}", result[0], epoch)
                     self.tensorboard_writer.add_scalar(f"Metrics/Valid/{key}", result[1], epoch)
                     self.tensorboard_writer.add_scalar(f"Metrics/Test/{key}", result[2], epoch)
@@ -264,8 +264,14 @@ class Trainer_Triples(Trainer_embedding_LLM):
         neg_pred = preds[eval_data[1] == 0].squeeze().cpu()
         
         result_mrr = get_metric_score(self.evaluator_hit, self.evaluator_mrr, pos_pred, neg_pred)
+        acc = self._acc(pos_pred, neg_pred)
+
+        if type(acc) is float:
+            result_mrr.update({'ACC': round(acc, 5)})
+        else:
+            result_mrr.update({'ACC': round(acc.tolist(), 5)})
         return result_mrr
-    
+
 
     def merge_result_rank(self):
         result_test = self.evaluate_func[self.model_name](self.splits['test'])
@@ -276,6 +282,7 @@ class Trainer_Triples(Trainer_embedding_LLM):
             key: (result_train[key], result_valid[key], result_test[key])
             for key in result_test.keys()
         }
+    
     
     def finalize(self):
         import time
