@@ -18,11 +18,27 @@
 				"--device",
 				"cpu",
 				"--epoch",
-				"5",
+				"200",
 				"--embedder",
-				"original",
+				"tfidf",
 				"--decoder",
 				"euclidean"
+
+
+				
+				// "--data",
+				// "pubmed",
+				// "--embedder",
+				// "w2v",
+				// "--device",
+				// "cpu",
+				// "--decoder",
+				// "euclidean",
+				// "--epoch",
+				// "2",
+				// "--report_step",
+				// "1"
+
 			],
 		}
 	]

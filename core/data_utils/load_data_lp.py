@@ -5,8 +5,6 @@ import torch
 import pandas as pd
 from typing import Dict
 import numpy as np
-import scipy.sparse as ssp
-import json
 import pandas as pd
 from nltk.tokenize import word_tokenize
 import nltk
@@ -27,7 +25,7 @@ from nltk.tokenize import word_tokenize
 from gensim.models import Word2Vec
 from tqdm import tqdm 
 import time
-from data_utils.dataset import CustomLinkDataset
+
 from data_utils.load_data_nc import load_tag_cora, load_tag_pubmed, \
     load_tag_product, load_tag_ogbn_arxiv, load_tag_product, \
     load_tag_arxiv23, load_graph_cora, load_graph_pubmed, \
@@ -46,65 +44,76 @@ FILE_PATH = get_git_repo_root_path() + '/'
 
 
 # arxiv_2023
-def load_taglp_arxiv2023(cfg: CN, lcc_bool: bool=True) -> Tuple[Dict[str, Data], List[str]]:
+def load_taglp_arxiv2023(cfg: CN, if_lcc: bool=True, alg_name: str='', node_features=None) -> Tuple[Dict[str, Data], List[str]]:
 
     data, text = load_tag_arxiv23()
     data.edge_index, _ = coalesce(data.edge_index, None, num_nodes=data.num_nodes)
     data.edge_index, _ = remove_self_loops(data.edge_index)
     print(f"original num of nodes: {data.num_nodes}")
     
-    if lcc_bool:
+    if if_lcc:
         data, lcc, _ = use_lcc(data)
         text = [text[i] for i in lcc]
+    
+    if node_features is not None:
+        data.x = node_features
         
     if data.is_directed() is True:
         data.edge_index = to_undirected(data.edge_index)
         undirected = True
     
-    splits = get_edge_split(data,
-                            undirected,
-                            cfg.device,
-                            cfg.split_index[1],
-                            cfg.split_index[2],
-                            cfg.include_negatives,
-                            cfg.split_labels
-                            )
-    print(f"num of nodes after lcc: {data.num_nodes}")
-    print(f"num of edges after lcc: {data.edge_index.shape[1]}")
-    print(f"num of texts in dataset: {len(text)}")
-    return splits, text, data
+    if alg_name.lower() == 'hl-gnn':
+        return [], [], data
+    else:
+        splits = get_edge_split(data,
+                                undirected,
+                                cfg.device,
+                                cfg.split_index[1],
+                                cfg.split_index[2],
+                                cfg.include_negatives,
+                                cfg.split_labels
+                                )
+        print(f"num of nodes after lcc: {data.num_nodes}")
+        print(f"num of edges after lcc: {data.edge_index.shape[1]}")
+        print(f"num of texts in dataset: {len(text)}")
+        return splits, text, data
 
 
-def load_taglp_cora(cfg: CN, lcc_bool: bool=True) -> Tuple[Dict[str, Data], List[str]]:
+def load_taglp_cora(cfg: CN, if_lcc: bool=True, alg_name: str='', node_features=None) -> Tuple[Dict[str, Data], List[str]]:
     # add one default argument
 
     data, data_citeid = load_graph_cora(False)
     text = load_text_cora(data_citeid)
     
-    if lcc_bool: 
+    if if_lcc: 
         data, lcc, _ = use_lcc(data)
         
         text = [text[i] for i in lcc]
+    
+    if node_features is not None:
+        data.x = node_features
         
     data.edge_index, _ = coalesce(data.edge_index, None, num_nodes=data.num_nodes)
     data.edge_index, _ = remove_self_loops(data.edge_index)
     print(f"original num of nodes: {data.num_nodes}")
-    
-    undirected = data.is_undirected()
+    if alg_name.lower() == 'hl-gnn':
+        return [], [], data
+    else:
+        undirected = data.is_undirected()
 
-    splits = get_edge_split(data,
-                            undirected,
-                            cfg.device,
-                            cfg.split_index[1],
-                            cfg.split_index[2],
-                            cfg.include_negatives,
-                            cfg.split_labels
-                            )
-    print(f"num of nodes after lcc: {data.num_nodes}")
-    print(f"num of edges after lcc: {data.edge_index.shape[1]}")
-    print(f"num of texts in dataset: {len(text)}")
-    
-    return splits, text, data
+        splits = get_edge_split(data,
+                                undirected,
+                                cfg.device,
+                                cfg.split_index[1],
+                                cfg.split_index[2],
+                                cfg.include_negatives,
+                                cfg.split_labels
+                                )
+        print(f"num of nodes after lcc: {data.num_nodes}")
+        print(f"num of edges after lcc: {data.edge_index.shape[1]}")
+        print(f"num of texts in dataset: {len(text)}")
+        
+        return splits, text, data
 
 
 def load_taglp_ogbn_arxiv(cfg: CN, if_lcc) -> Tuple[Dict[str, Data], List[str]]:
@@ -208,25 +217,37 @@ def time_function(func):
     return wrapper
 
 @time_function
-def load_taglp_pubmed(cfg: CN, if_lcc=False) -> Tuple[Dict[str, Data], List[str]]:
+def load_taglp_pubmed(cfg: CN, if_lcc: bool=True, alg_name: str='', node_features=None) -> Tuple[Dict[str, Data], List[str]]:
     # add one default argument
 
+    # I added this condition for planetoid, later I will delete
     data = load_graph_pubmed(False)
     text = load_text_pubmed()
-    data.edge_index = to_undirected(data.edge_index)
-    data.edge_index, _ = coalesce(data.edge_index, None, num_nodes=data.num_nodes)
-    data.edge_index, _ = remove_self_loops(data.edge_index)
-    undirected = data.is_undirected()
+    if if_lcc: 
+        data, lcc, _ = use_lcc(data)
+        text = [text[i] for i in lcc]
+    
+    if node_features is not None:
+        data.x = node_features
+           
+    if alg_name.lower() == 'hl-gnn':
+        return [], [], data
+    else:
+        data.edge_index = to_undirected(data.edge_index)
+        data.edge_index, _ = coalesce(data.edge_index, None, num_nodes=data.num_nodes)
+        data.edge_index, _ = remove_self_loops(data.edge_index)
+        undirected = data.is_undirected()
 
-    splits = get_edge_split(data,
-                            undirected,
-                            cfg.device,
-                            cfg.split_index[1],
-                            cfg.split_index[2],
-                            cfg.include_negatives,
-                            cfg.split_labels
-                            )
-    return splits, text, data
+        splits = get_edge_split(data,
+                                undirected,
+                                cfg.device,
+                                cfg.split_index[1],
+                                cfg.split_index[2],
+                                cfg.include_negatives,
+                                cfg.split_labels
+                                )
+        return splits, text, data
+        
 
 def load_taglp_citeseer(cfg: CN, if_lcc) -> Tuple[Dict[str, Data], List[str]]:
     # add one default argument
@@ -342,7 +363,7 @@ def load_taglp_pwc_medium(cfg: CN, if_lcc) -> Tuple[Dict[str, Data], List[str]]:
     return splits, text, data
 
 
-def load_taglp_pwc_small(cfg: CN, if_lcc) -> Tuple[Dict[str, Data], List[str]]:
+def load_taglp_pwc_small(cfg: CN, if_lcc = True) -> Tuple[Dict[str, Data], List[str]]:
     if hasattr(cfg, 'method'):
         pass
     else:

@@ -42,7 +42,7 @@ class Trainer():
         self.emb = emb
         
         # params
-        self.model_name = cfg.decoder.type 
+        self.model_name = cfg.model.type
         self.data_name = cfg.data.name
         self.FILE_PATH = FILE_PATH 
         self.name_tag = cfg.wandb.name_tag
@@ -269,12 +269,15 @@ class Trainer():
         return best_valid_mean_metric, best_auc_metric, result_all_run
     
 
-    def save_result(self, results_dict: Dict[str, float]):  # sourcery skip: avoid-builtin-shadow
+    def save_result(self, results_dict: Dict[str, float], emb_name=None):  # sourcery skip: avoid-builtin-shadow
         
         root = os.path.join(self.FILE_PATH, cfg.out_dir)
         acc_file = os.path.join(root, f'{self.data_name}_lm_mrr.csv') #{random.randint(1, 100)}/
         self.print_logger.info(f"save to {acc_file}")
         os.makedirs(root, exist_ok=True)
+        print('NAME: ', self.name_tag)
+        if emb_name is not None:
+            self.name_tag += f'-{emb_name}' 
         mvari_str2csv(self.name_tag, results_dict, acc_file)
 
 
