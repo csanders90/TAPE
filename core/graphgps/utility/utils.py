@@ -23,7 +23,7 @@ from yacs.config import CfgNode
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from transformers import AutoTokenizer, AutoModel
-from sentence_transformers import SentenceTransformer
+# from sentence_transformers import SentenceTransformer
 import torch.nn.functional as F
 from tqdm import tqdm
 from torch.utils.data import DataLoader, TensorDataset

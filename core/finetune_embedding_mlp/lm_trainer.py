@@ -218,7 +218,7 @@ def parse_args() -> argparse.Namespace:
     r"""Parses the command line arguments."""
     parser = argparse.ArgumentParser(description='GraphGym')
     parser.add_argument('--cfg', dest='cfg_file', type=str, required=False,
-                        default='core/yamls/cora/lms/ft-deberta.yaml',
+                                default='core/yamls/cora/lms/llama.yaml',
                         help='The configuration file path.')
     parser.add_argument('--repeat', type=int, default=5,
                         help='The number of repeated jobs.')

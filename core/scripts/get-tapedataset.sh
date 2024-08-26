@@ -8,7 +8,7 @@
 # 3. upload to google drive -> get shareable link -> get file id
 # 4. update ggID and ggURL below
 # 5. run this script
-# 6. gdown $google link (https://drive.google.com/file/d/1IvP4_NmbGAhuWpc3gShRooivdsZfrxh4/view?usp=sharing)
+# 6. gdown $google link (https://drive.google.com/uc?export=download&id=1IvP4_NmbGAhuWpc3gShRooivdsZfrxh4)
 
 
 ggID='1IvP4_NmbGAhuWpc3gShRooivdsZfrxh4'
