@@ -14,14 +14,14 @@
 			"justMyCode": true,
 			"python.tensorboard.logDirectory": "/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/gcns/runs", 
 			"args": [
-				"--data",
-				"arxiv_2023",
+				// "--data",
+				// "arxiv_2023",
 				// "--device",
 				// "cpu",
-				"--epoch",
-				"100",
-				"--embedder",
-				"w2v"
+				// "--epoch",
+				// "100",
+				// "--embedder",
+				// "w2v"
 			],
 		}
 	]

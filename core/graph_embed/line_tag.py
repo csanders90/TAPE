@@ -13,7 +13,7 @@ from sklearn.linear_model import LogisticRegression
 from ogb.linkproppred import Evaluator
 
 # Custom imports
-from ge.models.line_tf import LINE
+from core.graph_embed.examples.line_tf import LINE
 from tune_utils import save_parameters
 from heuristic.eval import get_metric_score
 from data_utils.load import load_graph_lp as data_loader
