@@ -13,6 +13,7 @@ from typing import List
 import torch_geometric.utils as pyg_utils
 import networkx as nx
 import time
+from networkx import from_scipy_sparse_matrix as from_scipy_sparse_array
 
 def get_Data(data: Data):
   if type(data) is InMemoryDataset:
@@ -138,7 +139,7 @@ def use_lcc(dataset: InMemoryDataset) -> InMemoryDataset:
     m = construct_sparse_adj(dataset.edge_index.numpy())
 
     start = time.time()
-    G = nx.from_scipy_sparse_array(m)
+    G = from_scipy_sparse_array(m)
     print('create graph:', time.time() - start)
 
     for i, c in enumerate(sorted(nx.connected_components(G), key=len, reverse=True)):
@@ -168,7 +169,7 @@ def use_lcc(dataset: InMemoryDataset) -> InMemoryDataset:
 
     new_data = Data(
         x = x_new,
-        edge_index = torch.LongTensor(edges),
+        edge_index = torch.LongTensor(edges).T,
         # y=y_new,
         num_nodes = torch.LongTensor(edges).max().tolist()+1,
         node_attrs = x_new,

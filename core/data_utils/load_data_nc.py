@@ -111,8 +111,8 @@ def load_graph_cora(use_mask) -> Data:
     data_edges = np.array(edges[~(edges == None).max(1)], dtype='int')
     data_edges = np.vstack((data_edges, np.fliplr(data_edges)))
 
-    dataset = Planetoid('./generated_dataset', 'cora',
-                        transform=T.NormalizeFeatures())
+    # dataset = Planetoid('./generated_dataset', 'cora',
+    #                    transform=T.NormalizeFeatures())
 
     x = torch.tensor(data_X).float()
     edge_index = torch.LongTensor(data_edges).T.clone().detach().long()
@@ -152,6 +152,7 @@ def load_graph_cora(use_mask) -> Data:
 
 def load_tag_cora() -> Tuple[Data, List[str]]:
     data, data_citeid = load_graph_cora(use_mask=False)  # nc True, lp False
+
     text = load_text_cora(data_citeid)
     print(f"Number of texts: {len(text)}")
     print(f"first text: {text[0]}")
@@ -179,7 +180,7 @@ def load_text_cora(data_citeid) -> List[str]:
 
     text = []
     not_loaded = []
-    i = 0
+    i, j = 0, 0
     for pid in data_citeid:
         fn = pid_filename[pid]
         try:
@@ -204,6 +205,7 @@ def load_text_cora(data_citeid) -> List[str]:
             i += 1
 
     print(f"not loaded {i} papers.")
+    print(f"not loaded {i} paperid.")
     return text
 
 
@@ -535,8 +537,6 @@ def extract_lcc_pwc_undir() -> Data:
     data_lcc = use_lcc(graph)
     root = '/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/'
     torch.save(data_lcc, root + 'core/dataset/pwc_large/pwc_tfidf_medium_undir.pt')
-    from pdb import set_trace as st;
-    st()
     return
 
 

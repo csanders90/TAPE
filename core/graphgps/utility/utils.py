@@ -19,7 +19,6 @@ from torch_geometric.graphgym.config import (cfg,
 from torch_geometric.utils import remove_self_loops
 from typing import Tuple, List, Dict
 import logging
-from yacs.config import CfgNode
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from transformers import AutoTokenizer, AutoModel

@@ -92,9 +92,10 @@ def load_taglp_cora(cfg: CN, if_lcc: bool=True, alg_name: str='', node_features=
     
     if node_features is not None:
         data.x = node_features
-        
-    data.edge_index, _ = coalesce(data.edge_index, None, num_nodes=data.num_nodes)
-    data.edge_index, _ = remove_self_loops(data.edge_index)
+    
+    edge_index = coalesce(data.edge_index, None, num_nodes=data.num_nodes)
+    edge_index = remove_self_loops(edge_index.T)[0]
+    data.edge_index = edge_index
     print(f"original num of nodes: {data.num_nodes}")
     if alg_name.lower() == 'hl-gnn':
         return [], [], data

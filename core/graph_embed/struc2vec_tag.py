@@ -23,6 +23,7 @@ from graphgps.utility.utils import (
     append_mrr_to_excel
 )
 from ge.models.struc2vec import Struc2Vec
+from networkx import from_scipy_sparse_matrix as from_scipy_sparse_array
 
 # Function to parse command line arguments
 def parse_args() -> argparse.Namespace:
@@ -54,7 +55,7 @@ def preprocess_data(cfg):
     
     full_A = ssp.csr_matrix((full_edge_weight.view(-1), (full_edge_index[0], full_edge_index[1])), shape=(num_nodes, num_nodes))
     adj = to_scipy_sparse_matrix(full_edge_index)
-    G = nx.from_scipy_sparse_array(adj)
+    G = from_scipy_sparse_array(adj)
     
     return dataset, splits, G, full_A
 
