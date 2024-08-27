@@ -146,7 +146,7 @@ class LMTrainer():
             per_device_eval_batch_size=self.batch_size * 8,
             warmup_steps=warmup_steps,
             num_train_epochs=self.epochs,
-            dataloader_num_workers=1,
+            dataloader_num_workers=4,
             fp16=True,
             dataloader_drop_last=True,
             max_grad_norm=10.0,
@@ -261,10 +261,14 @@ if __name__ == '__main__':
         cfg = config_device(cfg)
         cfg.seed = seed
         trainer = LMTrainer(cfg)
+        start_inf = time.time()
         trainer.train()
+        print(f"Training time: {time.time() - start_inf}")
+        
         start_inf = time.time()
         result_test = trainer.eval_and_save(trainer.test_dataset)
         eval_time = time.time() - start_inf
+        print(f"Eval time: {eval_time}")
         result_valid = trainer.eval_and_save(trainer.val_dataset)
         result_train = trainer.eval_and_save(trainer.train_dataset)
         result_all = {
