@@ -218,14 +218,14 @@ def parse_args() -> argparse.Namespace:
     r"""Parses the command line arguments."""
     parser = argparse.ArgumentParser(description='GraphGym')
     parser.add_argument('--cfg', dest='cfg_file', type=str, required=False,
-                                default='core/yamls/cora/lms/llama.yaml',
+                                default='core/yamls/cora/lms/ft-llama.yaml',
                         help='The configuration file path.')
     parser.add_argument('--repeat', type=int, default=5,
                         help='The number of repeated jobs.')
     parser.add_argument('--start_seed', type=int, default=0,
                         help='The number of starting seed.')
-    parser.add_argument('--device', dest='device', required=False,
-                        help='device id')
+    # parser.add_argument('--device', dest='device', required=False,
+    #                    help='device id')
     parser.add_argument('--downsampling', type=float, default=1,
                         help='Downsampling rate.')
     parser.add_argument('--epochs', dest='epoch', type=int, required=False,
@@ -239,12 +239,10 @@ if __name__ == '__main__':
     FILE_PATH = f'{get_git_repo_root_path()}/'
 
     args = parse_args()
+   
     cfg = set_cfg(FILE_PATH, args.cfg_file)
     cfg.merge_from_list(args.opts)
 
-    cfg.data.device = args.device
-    cfg.model.device = args.device
-    cfg.device = args.device
     torch.set_num_threads(cfg.num_threads)
     best_acc = 0
     best_params = {}
@@ -253,18 +251,20 @@ if __name__ == '__main__':
     for run_id in range(args.repeat):
         seed = run_id + args.start_seed
         custom_set_run_dir(cfg, run_id)
-        set_printing(cfg)
+
         print_logger = set_printing(cfg)
         cfg.seed = seed
         cfg.run_id = run_id
         seed_everything(cfg.seed)
         cfg = config_device(cfg)
+        
         cfg.seed = seed
         trainer = LMTrainer(cfg)
         trainer.train()
         start_inf = time.time()
         result_test = trainer.eval_and_save(trainer.test_dataset)
         eval_time = time.time() - start_inf
+        
         result_valid = trainer.eval_and_save(trainer.val_dataset)
         result_train = trainer.eval_and_save(trainer.train_dataset)
         result_all = {

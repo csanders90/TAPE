@@ -13,7 +13,7 @@
 			"console": "integratedTerminal",
 			"justMyCode": true,
 			"python.tensorboard.logDirectory": "/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core/gcns/runs", 
-			"args": [
+			// "args": [
 				// "--data",
 				// "arxiv_2023",
 				// "--device",
@@ -22,7 +22,10 @@
 				// "100",
 				// "--embedder",
 				// "w2v"
-			],
+			// ],
+			"args": [
+				"--cfg_file", "/core/yamls/cora/lms/ft-minilm.yaml"
+			]
 		}
 	]
 }

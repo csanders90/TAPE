@@ -23,6 +23,8 @@ from graphgps.utility.utils import set_cfg, append_acc_to_excel, append_mrr_to_e
 from torch_geometric.utils import to_scipy_sparse_matrix
 from graph_embed.tune_utils import get_git_repo_root_path
 import wandb
+from networkx import from_scipy_sparse_matrix as from_scipy_sparse_array
+
 
 def parse_args() -> argparse.Namespace:
     """Parses the command line arguments."""
@@ -60,7 +62,7 @@ def create_graph(splits):
     
     full_A = ssp.csr_matrix((full_edge_weight.view(-1), (full_edge_index[0], full_edge_index[1])), shape=(num_nodes, num_nodes)) 
     adj = to_scipy_sparse_matrix(full_edge_index)
-    G = nx.from_scipy_sparse_array(adj)
+    G = from_scipy_sparse_array(adj)
     return G
 
 def train_line_model(G, cfg):
