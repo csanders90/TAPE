@@ -6,7 +6,7 @@ import time
 import argparse
 import torch
 import torch as th
-import utils as uf
+from utils import *
 from typing import Dict
 from datasets import load_metric
 from transformers import (
