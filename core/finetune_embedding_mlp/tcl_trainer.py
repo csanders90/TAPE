@@ -1,7 +1,7 @@
 import os
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
+import logging
 import time
 import argparse
 import torch
@@ -18,9 +18,10 @@ from transformers import (
     IntervalStrategy
 )
 from utils import seed_everything
-
+from torch_geometric.data import Data, Dataset
 import wandb
-
+import random 
+from data_utils.lcc import construct_sparse_adj
 from graphgps.utility.utils import (
     random_sampling,
     set_cfg,
@@ -35,6 +36,7 @@ from graphgps.utility.utils import (
 )
 from model import *
 from data_utils.load import load_data_lp, load_graph_lp
+from transformers import AutoTokenizer
 
 METRICS = {  # metric -> metric_path
     'accuracy': 'hf_accuracy.py',
@@ -50,7 +52,7 @@ def parse_args() -> argparse.Namespace:
     r"""Parses the command line arguments."""
     parser = argparse.ArgumentParser(description='GraphGym')
     parser.add_argument('--cfg', dest='cfg_file', type=str, required=False,
-                                default='core/yamls/cora/lms/ft-llama.yaml',
+                                default='core/yamls/cora/lms/Distilbert.yaml',
                         help='The configuration file path.')
     parser.add_argument('--repeat', type=int, default=5,
                         help='The number of repeated jobs.')
@@ -105,27 +107,72 @@ class CustomTrainer(Trainer):
         loss = infonce(center_contrast_embeddings, toplogy_contrast_embeddings)
         return  loss
 
+class TCL_Dataset(object):
+    def __init__(self, cfg, data):
+        self.data = data
+        self.tokenizer = cfg.lm.model.name
+        self.max_length = cfg.lm.model.max_length
+        splits, self.text, self.data = load_data_lp[cfg.data.name](cfg.data)
+        
+        self.train_samples = splits['train'].pos_edge_label_index.shape[1]*2
+        tokenizer = AutoTokenizer.from_pretrained(cfg.lm.model.name)
+
+        # Tokenize the text
+        self.tokenized_output = tokenizer(
+            self.text,
+            max_length=self.max_length,        
+            padding='max_length',   
+            truncation=True,       
+            return_tensors='pt'   
+        )
+
+        self.adjacencyList = [[] for x in range(self.data.num_nodes)] # one list for every node containing the neighbors
+        row, col = self.data.edge_index.numpy()
+        for i in range(len(row)):
+            self.adjacencyList[row[i]].append(col[i]) # fill the lists with the neighbors
+
+       
+    def __len__(self):
+        return self.data.num_nodes
+    
+    
+    def __getitem__(self, idx):
+        batch_graph = {}
+        batch_graph['input_ids'] = self.tokenized_output['input_ids'][idx]
+        batch_graph['token_type_ids'] = self.tokenized_output['token_type_ids'][idx]
+        batch_graph['attention_mask'] = self.tokenized_output['attention_mask'][idx]
+        
+        nb_id = random.choice(self.adjacencyList[idx])
+        batch_graph['nb_input_ids'] = self.tokenized_output['input_ids'][nb_id]
+        batch_graph['nb_token_type_ids'] = self.tokenized_output['token_type_ids'][nb_id]
+        batch_graph['nb_attention_mask'] = self.tokenized_output['attention_mask'][nb_id]
+        return batch_graph
+    
+
 class TCLTrainer():
-    def __init__(self, cf):
+    def __init__(self, cf, loggers):
         self.cf = cf
         # logging.set_verbosity_warning()
         from transformers import logging as trfm_logging
         trfm_logging.set_verbosity_error()
+        self.train_data = TCL_Dataset(cf, cf.data)
+        self.cf = cf 
+        self.log = loggers
 
-    @uf.time_logger
+        
     def train_trainer(self):
         # ! Prepare data
-        cf = self.cf
-        self.train_data = None 
         # Finetune on dowstream tasks
-        train_steps = len(num_train_samples) // cf.eq_batch_size + 1 
-        warmup_steps = int(cf.warmup_epochs * train_steps)
+        cf = self.cf.lm
+        train_steps = self.train_data.train_samples // cf.train.eq_batch_size + 1 
+        warmup_steps = int(cf.train.warmup_epochs * train_steps)
         # ! Load Model for NP with no trainer
-        PLM = AutoModel.from_pretrained(cf.hf_model) if cf.pretrain_path is None else AutoModel.from_pretrained(
-            f'{cf.pretrain_path}')
-
+        PLM = AutoModel.from_pretrained(cf.model.name,  attn_implementation="eager") if cf.train.pretrain_path is None else AutoModel.from_pretrained(
+            f'{cf.train.pretrain_path}')
+    
+        cf.local_rank = -1 if 'LOCAL_RANK' not in os.environ else int(os.environ['LOCAL_RANK'])
         #! Freeze the model.encoder layer if cf.freeze is not None
-        if cf.freeze is not None:
+        if cf.train.if_freeze is not None:
             for param in PLM.parameters():
                 param.requires_grad = False
             if cf.local_rank <= 0:
@@ -133,7 +180,8 @@ class TCLTrainer():
                     p.numel() for p in PLM.parameters() if p.requires_grad
                 )
                 assert trainable_params == 0
-            for param in PLM.encoder.layer[-cf.freeze:].parameters():
+                
+            for param in PLM.encoder.layer[-cf.train.if_freeze:].parameters():
                 param.requires_grad = True
             if cf.local_rank <= 0:
                 trainable_params = sum(
@@ -143,8 +191,8 @@ class TCLTrainer():
 
         self.model = CLModel(
                 PLM,
-                dropout=cf.cla_dropout,
-                cl_dim=cf.cl_dim,
+                dropout=cf.train.cla_dropout,
+                cl_dim=cf.train.cl_dim,
             )
         if cf.local_rank <= 0:
             trainable_params = sum(
@@ -155,30 +203,40 @@ class TCLTrainer():
             self.model.config.dropout = cf.dropout
             self.model.config.attention_dropout = cf.att_dropout
         else:
-            self.model.config.hidden_dropout_prob = cf.dropout
-            self.model.config.attention_probs_dropout_prob = cf.att_dropout
-        self.log(self.model.config)
+            self.model.config.hidden_dropout_prob = cf.train.dropout
+            self.model.config.attention_probs_dropout_prob = cf.train.att_dropout
 
-        if cf.grad_steps is not None:
-            cf.grad_acc_steps = cf.grad_steps
-            cf.batch_size = cf.per_device_bsz
+        self.log.info(self.model.config)
 
+        if cf.train.grad_steps is not None:
+            cf.grad_acc_steps = cf.train.grad_steps
+            cf.batch_size = cf.train.per_device_bsz
+
+        cf = self.cf.opt
+        eval_steps = cf.eval_patience // cf.eq_batch_size
+                
+        cf.local_rank = -1 if 'LOCAL_RANK' not in os.environ else int(os.environ['LOCAL_RANK'])
+        # cf.train.verbose = -1 if cf.local_rank > 0 else cf.train.verbose
         training_args = TrainingArguments(
             output_dir=cf.out_dir,
             learning_rate=cf.lr, weight_decay=cf.weight_decay,
             gradient_accumulation_steps=cf.grad_acc_steps,
             save_total_limit=None,
             report_to='wandb' if cf.wandb_on else None,
-            per_device_train_batch_size=cf.batch_size,
-            per_device_eval_batch_size=cf.batch_size * 6 if cf.hf_model in {'distilbert-base-uncased',
-                                                                            'google/electra-base-discriminator'} else cf.batch_size * 10,
+            per_device_train_batch_size=cf.eq_batch_size,
+            per_device_eval_batch_size=cf.eq_batch_size * 6,
             warmup_steps=warmup_steps,
             disable_tqdm=False,
             dataloader_drop_last=True,
             num_train_epochs=cf.epochs,
-            local_rank=cf.local_rank,
+            local_rank=self.cf.lm.local_rank,
             dataloader_num_workers=1,
-            fp16=torch.cuda.is_available() # True,
+            load_best_model_at_end=cf.load_best_model_at_end,
+            evaluation_strategy='steps',
+            eval_steps=eval_steps,
+            save_strategy='steps',
+            save_steps=1110,  # Change save_steps to a multiple of eval_steps
+            fp16=torch.cuda.is_available() 
         )
 
         self.trainer = CustomTrainer(
@@ -226,8 +284,9 @@ if __name__ == '__main__':
         cfg = config_device(cfg)
         
         cfg.seed = seed
-        trainer = TCLTrainer(cfg)
-        trainer.train()
+        trainer = TCLTrainer(cfg,
+                             loggers=print_logger)
+        trainer.train_trainer()
         start_inf = time.time()
         result_test = trainer.eval_and_save(trainer.test_dataset)
         eval_time = time.time() - start_inf

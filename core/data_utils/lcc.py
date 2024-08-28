@@ -13,7 +13,8 @@ from typing import List
 import torch_geometric.utils as pyg_utils
 import networkx as nx
 import time
-from networkx import from_scipy_sparse_matrix as from_scipy_sparse_array
+from networkx import from_scipy_sparse_array
+
 
 def get_Data(data: Data):
   if type(data) is InMemoryDataset:
