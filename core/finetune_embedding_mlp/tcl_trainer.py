@@ -62,8 +62,6 @@ def parse_args() -> argparse.Namespace:
     #                    help='device id')
     parser.add_argument('--downsampling', type=float, default=1,
                         help='Downsampling rate.')
-    parser.add_argument('--epochs', dest='epoch', type=int, required=False,
-                        default=1000)
     parser.add_argument('opts', default=None, nargs=argparse.REMAINDER,
                         help='See graphgym/config.py for remaining options.')
     return parser.parse_args()
@@ -258,7 +256,20 @@ class TCLTrainer():
         else:
             print('Dont save the model in the local_rank:', cf.local_rank)
 
+    def eval_and_save(self):
+        def get_metric(split):
+            self.eval_phase = 'Test' if split == 'test' else 'Eval'
+            mtc_dict = self.trainer.predict(self.datasets[split]).metrics
+            ret = {f'{split}_{_}': mtc_dict[m][_] for m in mtc_dict if (_ := m.split('_')[-1]) in METRICS}
+            return ret
 
+        cf = self.cf
+        res = {**get_metric('valid'), **get_metric('test')}
+        # uf.pickle_save(res, cf.lm.result)
+        cf.wandb_log({f'lm_finetune_{k}': v for k, v in res.items()})
+
+        self.log(f'\nTrain seed{cf.seed} finished\nResults: {res}\n{cf}')
+        
 
 if __name__ == '__main__':
     FILE_PATH = f'{get_git_repo_root_path()}/'
@@ -287,6 +298,7 @@ if __name__ == '__main__':
         trainer = TCLTrainer(cfg,
                              loggers=print_logger)
         trainer.train_trainer()
+        
         start_inf = time.time()
         result_test = trainer.eval_and_save(trainer.test_dataset)
         eval_time = time.time() - start_inf
