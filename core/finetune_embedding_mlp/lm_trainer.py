@@ -22,8 +22,6 @@ from finetune_dataset import LinkPredictionDataset
 from utils import init_path, time_logger
 from ogb.linkproppred import Evaluator
 import numpy as np
-from torch_geometric.data import Data, Dataset
-from torch_geometric.loader import DataLoader
 from heuristic.eval import get_metric_score
 from graphgps.utility.utils import config_device, Logger
 from torch.utils.tensorboard import SummaryWriter
@@ -46,7 +44,7 @@ class LMTrainer():
         self.seed = cfg.seed
 
         self.model_name = cfg.lm.model.name
-        self.feat_shrink = cfg.lm.model.feat_shrink
+        self.feat_shrink = cfg.lm.train.feat_shrink
 
         self.weight_decay = cfg.lm.train.weight_decay
         self.dropout = cfg.lm.train.dropout
@@ -92,11 +90,17 @@ class LMTrainer():
             [splits['test'].pos_edge_label, splits['test'].neg_edge_label], dim=0))
 
         # Define pretrained tokenizer and model
-        bert_model = AutoModel.from_pretrained(self.model_name, attn_implementation="eager")
+        bert_model = AutoModel.from_pretrained(self.model_name, attn_implementation="eager",
+                                               device_map="auto", torch_dtype=torch.float16)
         for name, param in bert_model.named_parameters():
-            if 'encoder.layer.5' in name and 'minilm' in cfg.lm.model.name:
+            print(name)
+            if 'encoder.layer.5' in name and 'MiniLM' in cfg.lm.model.name:
                 break
             if 'layers.31' in name and 'Llama' in cfg.lm.model.name:
+                break
+            if 'encoder.layer.11' in name and 'bert' in cfg.lm.model.name:
+                break
+            if 'encoder.layer.23' in name and 'e5-large' in cfg.lm.model.name:
                 break
             param.requires_grad = False
         self.model = BertClassifier(bert_model,
@@ -146,8 +150,8 @@ class LMTrainer():
             per_device_eval_batch_size=self.batch_size * 8,
             warmup_steps=warmup_steps,
             num_train_epochs=self.epochs,
-            dataloader_num_workers=4,
-            fp16=True,
+            dataloader_num_workers=1,
+            fp16=False,
             dataloader_drop_last=True,
             max_grad_norm=10.0,
         )
@@ -218,14 +222,14 @@ def parse_args() -> argparse.Namespace:
     r"""Parses the command line arguments."""
     parser = argparse.ArgumentParser(description='GraphGym')
     parser.add_argument('--cfg', dest='cfg_file', type=str, required=False,
-                                default='core/yamls/cora/lms/ft-llama.yaml',
+                        default='core/yamls/cora/lms/ft-llama.yaml',
                         help='The configuration file path.')
     parser.add_argument('--repeat', type=int, default=5,
                         help='The number of repeated jobs.')
     parser.add_argument('--start_seed', type=int, default=0,
                         help='The number of starting seed.')
     # parser.add_argument('--device', dest='device', required=False,
-    #                    help='device id')
+    #                     help='device id')
     parser.add_argument('--downsampling', type=float, default=1,
                         help='Downsampling rate.')
     parser.add_argument('--epochs', dest='epoch', type=int, required=False,
@@ -239,10 +243,12 @@ if __name__ == '__main__':
     FILE_PATH = f'{get_git_repo_root_path()}/'
 
     args = parse_args()
-   
     cfg = set_cfg(FILE_PATH, args.cfg_file)
     cfg.merge_from_list(args.opts)
 
+    # cfg.data.device = args.device
+    # cfg.model.device = args.device
+    # cfg.device = args.device
     torch.set_num_threads(cfg.num_threads)
     best_acc = 0
     best_params = {}
@@ -251,24 +257,18 @@ if __name__ == '__main__':
     for run_id in range(args.repeat):
         seed = run_id + args.start_seed
         custom_set_run_dir(cfg, run_id)
-
+        set_printing(cfg)
         print_logger = set_printing(cfg)
         cfg.seed = seed
         cfg.run_id = run_id
         seed_everything(cfg.seed)
         cfg = config_device(cfg)
-        
         cfg.seed = seed
         trainer = LMTrainer(cfg)
-        start_inf = time.time()
         trainer.train()
-        print(f"Training time: {time.time() - start_inf}")
-        
         start_inf = time.time()
         result_test = trainer.eval_and_save(trainer.test_dataset)
         eval_time = time.time() - start_inf
-        
-        print(f"Eval time: {eval_time}")
         result_valid = trainer.eval_and_save(trainer.val_dataset)
         result_train = trainer.eval_and_save(trainer.train_dataset)
         result_all = {
@@ -302,7 +302,5 @@ if __name__ == '__main__':
 
     print_logger.info(f"Results for: {cfg.model.type}")
     print_logger.info(f"Model Params: {trainer.trainable_params}")
-    print_logger.info(f'Num parameters: {cfg.model.params}')
     print_logger.info(f"Inference time: {eval_time}")
-
 

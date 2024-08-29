@@ -60,7 +60,7 @@ def parse_args() -> argparse.Namespace:
                         help='The number of starting seed.')
     # parser.add_argument('--device', dest='device', required=False,
     #                    help='device id')
-    parser.add_argument('--downsampling', type=float, default=1,
+    parser.add_argument('--downsampling', type=float, default=0.001,
                         help='Downsampling rate.')
     parser.add_argument('opts', default=None, nargs=argparse.REMAINDER,
                         help='See graphgym/config.py for remaining options.')
@@ -125,6 +125,7 @@ class TCL_Dataset(object):
         )
 
         self.adjacencyList = [[] for x in range(self.data.num_nodes)] # one list for every node containing the neighbors
+        import pdb; pdb.set_trace()
         row, col = self.data.edge_index.numpy()
         for i in range(len(row)):
             self.adjacencyList[row[i]].append(col[i]) # fill the lists with the neighbors
