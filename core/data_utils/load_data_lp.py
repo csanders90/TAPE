@@ -21,7 +21,6 @@ from typing import Dict, Tuple, List, Union
 import torch
 import re
 from sklearn.feature_extraction.text import TfidfVectorizer
-from nltk.tokenize import word_tokenize
 from gensim.models import Word2Vec
 from tqdm import tqdm 
 import time

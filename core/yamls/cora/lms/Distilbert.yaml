@@ -14,7 +14,7 @@ lm:
     use_gpt: False
     warmup_epochs: 0.6
     weight_decay: 0.0
-    pretrain_path: null
+    pretrain_path: None
     verbose: 1
     if_freeze: 1
     cl_dim: 128 # The dimension of the contrastive space

@@ -2,9 +2,14 @@ import numpy as np
 from tqdm import tqdm
 import torch
 from torch_geometric.loader import DataLoader
-import networkx as nx
+
 import os, sys
-from networkx import from_scipy_sparse_matrix as from_scipy_sparse_array
+import networkx 
+if networkx.__version__ == '2.6.3':
+    from networkx import from_scipy_sparse_matrix as from_scipy_sparse_array
+else:
+    from networkx import from_scipy_sparse_array
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 def sort_edge_index(edge_index):

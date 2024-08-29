@@ -8,7 +8,12 @@ from dgl.distributed import partition_graph
 from ogb.nodeproppred import DglNodePropPredDataset
 from torch_geometric.utils import to_torch_coo_tensor
 from ogb.nodeproppred import NodePropPredDataset
-import networkx as nx 
+import networkx 
+if networkx.__version__ == '2.6.3':
+    from networkx import from_scipy_sparse_matrix as from_scipy_sparse_array
+else:
+    from networkx import from_scipy_sparse_array
+
 from scipy.sparse import csc_array
 import numpy as np
 import matspy as spy

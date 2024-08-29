@@ -3,7 +3,7 @@ import sys
 sys.path.insert(0, '/hkfs/work/workspace/scratch/cc7738-benchmark_tag/TAPE_chen/core')
 import copy as cp
 import numpy as np
-import networkx as nx
+
 import torch 
 import os.path as osp
 import seaborn as sns
@@ -21,7 +21,12 @@ from ogb.linkproppred import PygLinkPropPredDataset, Evaluator
 from torch_geometric.datasets import Planetoid
 from torch_geometric.utils import (negative_sampling, add_self_loops,
                                    train_test_split_edges)
-from networkx import from_scipy_sparse_matrix as from_scipy_sparse_array
+import networkx 
+if networkx.__version__ == '2.6.3':
+    from networkx import from_scipy_sparse_matrix as from_scipy_sparse_array
+else:
+    from networkx import from_scipy_sparse_array
+
 from torch_geometric.loader import DataLoader
 from tqdm import tqdm 
 

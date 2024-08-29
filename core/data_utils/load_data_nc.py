@@ -18,7 +18,12 @@ from graphgps.utility.utils import get_git_repo_root_path  # type: ignore
 from typing import Tuple, List, Dict, Set, Any
 from data_utils.lcc import use_lcc
 import torch_geometric.utils as pyg_utils
-import networkx as nx
+import networkx 
+if networkx.__version__ == '2.6.3':
+    from networkx import from_scipy_sparse_matrix as from_scipy_sparse_array
+else:
+    from networkx import from_scipy_sparse_array
+
 
 # import dgl
 
