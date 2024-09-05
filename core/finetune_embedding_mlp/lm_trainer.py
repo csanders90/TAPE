@@ -9,11 +9,10 @@ import torch
 from graphgps.utility.utils import random_sampling
 
 from torch_geometric import seed_everything
-from graphgps.utility.utils import set_cfg, get_git_repo_root_path, custom_set_run_dir, set_printing, run_loop_settings, \
-    create_optimizer, config_device, \
+from graphgps.utility.utils import set_cfg, get_git_repo_root_path, custom_set_run_dir, set_printing, config_device, \
     create_logger
 
-from data_utils.load import load_data_lp, load_graph_lp
+from data_utils.load import load_data_lp
 from graphgps.utility.utils import save_run_results_to_csv
 
 from transformers import AutoTokenizer, AutoModel, TrainingArguments, Trainer, IntervalStrategy
@@ -90,8 +89,7 @@ class LMTrainer():
             [splits['test'].pos_edge_label, splits['test'].neg_edge_label], dim=0))
 
         # Define pretrained tokenizer and model
-        bert_model = AutoModel.from_pretrained(self.model_name, attn_implementation="eager",
-                                               device_map="auto", torch_dtype=torch.float16)
+        bert_model = AutoModel.from_pretrained(self.model_name, attn_implementation="eager", torch_dtype=torch.float16)
         for name, param in bert_model.named_parameters():
             print(name)
             if 'encoder.layer.5' in name and 'MiniLM' in cfg.lm.model.name:
@@ -103,10 +101,13 @@ class LMTrainer():
             if 'encoder.layer.23' in name and 'e5-large' in cfg.lm.model.name:
                 break
             param.requires_grad = False
-        self.model = BertClassifier(bert_model,
-                                    cfg,
-                                    feat_shrink=self.feat_shrink).to(self.device)
-
+        # self.model = BertClassifier(bert_model,
+        #                             cfg,
+        #                             feat_shrink=self.feat_shrink).to(self.device)
+        self.model = torch.utils.checkpoint.checkpoint_sequential(
+            BertClassifier(bert_model, cfg, feat_shrink=self.feat_shrink).to(self.device),
+            segments=2  # Number of segments to split the model into
+        )
         # prev_ckpt = f'prt_lm/{self.dataset_name}/{self.model_name}.ckpt'
         # if self.use_gpt_str and os.path.exists(prev_ckpt):
         #     print("Initialize using previous ckpt...")
@@ -145,13 +146,13 @@ class LMTrainer():
             weight_decay=self.weight_decay,
             save_total_limit=1,
             load_best_model_at_end=True,
-            gradient_accumulation_steps=self.grad_acc_steps,
-            per_device_train_batch_size=self.batch_size,
+            gradient_accumulation_steps=4,
+            per_device_train_batch_size=2,
             per_device_eval_batch_size=self.batch_size * 8,
             warmup_steps=warmup_steps,
             num_train_epochs=self.epochs,
             dataloader_num_workers=1,
-            fp16=False,
+            fp16=True,
             dataloader_drop_last=True,
             max_grad_norm=10.0,
         )
@@ -254,6 +255,7 @@ if __name__ == '__main__':
     best_params = {}
     loggers = create_logger(args.repeat)
     start_ft = time.time()
+    torch.cuda.empty_cache()
     for run_id in range(args.repeat):
         seed = run_id + args.start_seed
         custom_set_run_dir(cfg, run_id)
