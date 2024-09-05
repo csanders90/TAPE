@@ -558,7 +558,7 @@ if __name__ == '__main__':
     print(type(graph))
     print(type(text))
 
-    '''graph, _ = load_graph_cora(True)
+    graph, _ = load_graph_cora(True)
     # print(type(graph))
     graph, text = load_tag_cora()
     print(type(graph))
@@ -575,7 +575,7 @@ if __name__ == '__main__':
     graph = load_graph_pubmed()
     graph, text = load_tag_pubmed()
     print(type(graph))
-    print(type(text))'''
+    print(type(text))
 
     graph = load_graph_citationv8()
     print(type(graph))
