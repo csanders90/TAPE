@@ -24,7 +24,7 @@ from graphgps.utility.utils import (
 )
 from ge.models.struc2vec import Struc2Vec
 from networkx import from_scipy_sparse_matrix as from_scipy_sparse_array
-
+# not maintained
 # Function to parse command line arguments
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='GraphGym')

@@ -1,32 +1,28 @@
 # -*- coding:utf-8 -*-
 
 """
-
+adopted from https://raw.githubusercontent.com/ChenS676/TAPE/e9dcb32e61d796e021ae5cd75a2d0799a0e4d8c5/core/graph_embed/examples/line_tf.py
 Author:
 
     Weichen Shen,weichenswc@163.com
 
-
-
 Reference:
 
     [1] Tang J, Qu M, Wang M, et al. Line: Large-scale information network embedding[C]//Proceedings of the 24th International Conference on World Wide Web. International World Wide Web Conferences Steering Committee, 2015: 1067-1077.(https://arxiv.org/pdf/1503.03578.pdf)
-
-
 
 """
 import math
 import random
 
 import numpy as np
-# from tensorflow.math import reduce_sum
-# from tensorflow.keras import backend as K
-# from tensorflow.keras import optimizers
-# from tensorflow.keras.layers import Embedding, Input, Lambda
-# from tensorflow.keras.models import Model
+from tensorflow.math import reduce_sum
+from tensorflow.keras import backend as K
+from tensorflow.keras import optimizers
+from tensorflow.keras.layers import Embedding, Input, Lambda
+from tensorflow.keras.models import Model
 
-from ..ge.alias import create_alias_table, alias_sample
-from ..ge.utils import preprocess_nxgraph
+from ge.alias import create_alias_table, alias_sample
+from ge.utils import preprocess_nxgraph
 from IPython import embed 
 
 
@@ -240,7 +236,4 @@ class LINE:
                               verbose=verbose)
 
         return hist
-
-
-# Add your main function or additional code below if necessary
 
