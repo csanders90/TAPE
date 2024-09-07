@@ -258,7 +258,7 @@ if __name__ == '__main__':
     torch.cuda.empty_cache()
     for run_id in range(args.repeat):
         seed = run_id + args.start_seed
-        custom_set_run_dir(cfg, run_id)
+        # custom_set_run_dir(cfg, run_id)
         set_printing(cfg)
         print_logger = set_printing(cfg)
         cfg.seed = seed
