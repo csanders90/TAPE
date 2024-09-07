@@ -1,7 +1,6 @@
 import os, sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-import networkx as nx
 from matplotlib import pyplot
 import numpy as np
 import torch
@@ -24,7 +23,6 @@ import timeit
 import time 
 import pandas as pd 
 
-import networkx as nx
 from torch_geometric.utils import to_undirected 
 from torch_geometric.data import Data
 from typing import Dict, Tuple, List, Union
@@ -34,7 +32,11 @@ from graphgps.utility.utils import get_git_repo_root_path, config_device, init_c
 from data_utils.load import load_data_lp
 from data_utils.load_data_lp import load_taglp_citationv8, load_graph_citationv8
 from data_utils.lcc import use_lcc, get_largest_connected_component
-from networkx import from_scipy_sparse_matrix as from_scipy_sparse_array
+import networkx 
+if networkx.__version__ == '2.6.3':
+    from networkx import from_scipy_sparse_matrix as from_scipy_sparse_array
+else:
+    from networkx import from_scipy_sparse_array
 
 # adopted from [Google Research - GraphWorld](https://github.com/google-research/graphworld/tree/main/src/graph_world/metrics)
 # inspired by https://dl.acm.org/doi/epdf/10.1145/3633778

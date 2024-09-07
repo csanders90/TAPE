@@ -1,204 +1,200 @@
-# Benchmark TAG 
+# CS-TAG  ![](https://img.shields.io/badge/license-MIT-blue)
+CS-TAG is a project to share the public text-attributed graph (TAG) datasets and benchmark the performance of the different baseline methods.
+We welcome more to share datasets that are valuable for TAGs research.
 
-<img src="./overview.svg">
 
+## Datasets 🔔
+We collect and construct 8 TAG datasets from ogbn-arxiv, amazon, dblp and goodreads.
+Now you can go to the 'Files and version' in [CSTAG](https://huggingface.co/datasets/Sherirto/CSTAG/tree/main) to find the datasets we upload!
+In each dataset folder, you can find the **csv** file (which save the text attribute of the dataset), **pt** file (which represent the dgl graph file), and the **Feature** folder (which save the text embedding we extract from the PLM).
+You can use the node initial feature we created, and you also can extract the node feature from our code. 
+For a more detailed and clear process, please [clik there.😎](FeatureExtractor/README.md)
 
-## 0.0 Python environment setup with Conda
-```
-conda create --name EAsF python=3.10
-conda activate EAsF
-
-conda install pytorch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 cudatoolkit=11.3 -c pytorch
-conda install -c pyg pytorch-sparse
-conda install -c pyg pytorch-scatter
-conda install -c pyg pytorch-cluster
-conda install -c pyg pyg
-pip install ogb
-conda install -c dglteam/label/cu113 dgl
-pip install yacs
-pip install transformers
-pip install --upgrade accelerate
-pip install gitpython
-pip install ipython
-pip install wandb
+## Environments
+You can quickly install the corresponding dependencies
+```shell
+conda env create -f environment.yml
 ```
 
-## 0.1 Here is my install examples in horeka server with cuda113
+## Pipeline 🎮
+We describe below how to use our repository to perform the experiments reported in the paper. We are also adjusting the style of the repository to make it easier to use.
+(Please complete the ['Datasets and Feature part'](FeatureExtractor/README.md) above first)
+### 1. GNN for Node Classification/Link Prediction
+You can use 'ogbn-arxiv', 'Children', 'History', 'Fitness', 'Photo', 'Computers', 'webkb-cornell', 'webkb-texas', 'webkb-washington' and 'webkb-wisconsin' for the '**--data_name**'.
+```python
+python GNN/GNN.py --data_name=Photo --dropout=0.2 --lr=0.005 --model_name=SAGE --n-epochs=1000 --n-hidden=256 --n-layers=3 --n-runs=5 --use_PLM=data/CSTAG/Photo/Feature/Photo_roberta_base_512_cls.npy
+```
+```python
+python GNN/GNN_Link.py --use_PLM=data/CSTAG/Photo/Feature/Photo_roberta_base_512_cls.npy --path=data/CSTAG/Photo/LinkPrediction/ --graph_path=data/CSTAG/Photo/Photo.pt --gnn_model=GCN
 ```
 
-Currently Loaded Modules:
-  1) devel/cmake/3.18   2) devel/cuda/10.2   3) devel/cudnn/10.2 (E)   4) compiler/gnu/11.1
-
-  Where:
-   E:  Experimental
-
-pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu114
-conda install pytorch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 cudatoolkit=11.3 -c pytorch
-conda install -c pyg pytorch-sparse
-conda install -c pyg pytorch-scatter
-conda install -c pyg pytorch-cluster
-pip install ogb
-conda install -c dglteam/label/cu113 dgl
-pip install yacs
-pip install transformers
-pip install --upgrade accelerate
-
-```
-## 0.2 Here is my install examples in haicore server
-```
-module load devel/cmake/3.26
-module load compiler/intel/2023.1.0_llvm
-module load devel/cuda/11.8
-
-Currently Loaded Modules:
-  1) devel/cmake/3.26   2) compiler/intel/2023.1.0_llvm   3) devel/cuda/11.8 (E)
-
-  Where:
-   E:  Experimental
-
-# install pytorch 
-pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia
-
-python -c "import torch; print(torch.__version__)" 
-2.3.1
-python -c "import torch; print(torch.version.cuda)"
-11.8
-
-nvcc --version 
-nvcc: NVIDIA (R) Cuda compiler driver
-Copyright (c) 2005-2023 NVIDIA Corporation
-Built on Fri_Jan__6_16:45:21_PST_2023
-Cuda compilation tools, release 12.0, V12.0.140
-Build cuda_12.0.r12.0/compiler.32267302_0
-
-pip install pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-2.3.1+cu118.html
-pip install tqdm wandb pandas ogb yacs
+### 2. PLM for Classification Tasks
+```python
+CUDA_VISIBLE_DEVICES=0,1 /usr/bin/env python sweep/dist_runner.py LMs/trainLM.py --att_dropout=0.1 --cla_dropout=0.1 --dataset=Computers_RS --dropout=0.1 --epochs=4 --eq_batch_size=180 --eval_patience=20000 --grad_steps=1 --label_smoothing_factor=0.1 --lr=4e-05 --model=Deberta --per_device_bsz=60 --per_eval_bsz=1000 --train_ratio=0.2 --val_ratio=0.1 --warmup_epochs=1 --gpus=0,1 --wandb_name OFF --wandb_id OFF 
 ```
 
-## 0.1 Here is my install examples in horeka server cuda 118
+### 3. TMLM for PreTraining
+```python
+for update and debug
 ```
-Currently Loaded Modules:
-  1) devel/cmake/3.18   2) compiler/gnu/13   3) devel/cuda/11.8
-
-conda create --name TAPE3 python=3.10
-conda activate TAPE3
-# install pytorch 
-python -c "import torch; print(torch.__version__)"
-python -c "import torch; print(torch.version.cuda)"
-python -c "import torch; print(torch.cuda.is_available())"
-
-
-pip install pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-2.3.1+cu118.html
-conda install pytorch==2.3.0 torchvision==0.18.0 torchaudio==2.3.0 pytorch-cuda=11.8 -c pytorch -c nvidia
-
-
-pip install pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-2.3.1+cu118.html
-pip install torch_geometric
-pip install ogb yacs pandas wandb
-pip install fast-pagerank datasketch ogb
-pip install --upgrade accelerate
-
-# test your installed pytorch geometric 
-from torch_sparse import SparseTensor
-import torch_geometric.transforms as T
-from torch_geometric.utils import to_undirected
-from torch_geometric.graphgym.config import cfg
-from torch_geometric import seed_everything
-from torch_geometric.nn import GCNConv, SAGEConv, GINConv, GATConv
+### 4. TDK for PreTraining 
+```python
+for update and debug
+```
+### 5. TCL for PreTraining 
+```python
+CUDA_VISIBLE_DEVICES=1,2 /usr/bin/env python sweep/dist_runner.py LMs/Train_Command/train_CL.py --PrtMode=TCL --att_dropout=0.1 --cla_dropout=0.1 --dataset=Photo_RS --dropout=0.1 --epochs=5 --eq_batch_size=60 --per_device_bsz=15 --grad_steps=2 --lr=5e-05 --model=Bert --warmup_epochs=1 --gpus=1,2 --cache_dir=exp/TCL/Photo/Bert_base/
+```
+```python
+python LMs/Train_Command/train_CL.py --PrtMode=TCL --att_dropout=0.1 --cla_dropout=0.1 --dataset=Photo_RS --dropout=0.1 --epochs=5 --eq_batch_size=60 --per_device_bsz=15 --grad_steps=2 --lr=5e-05 --model=Bert --warmup_epochs=1 --gpus=1,2 --cache_dir=exp/TCL/Photo/Bert_base/
 ```
 
-## 0.2 Horka Server installation 2.0
-```
-module purge
-module load compiler/intel/2023.1.0
-module load devel/cuda/11.8
-
-conda create --name TAPE python=3.9
-conda activate TAPE
-
-conda install pytorch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 cudatoolkit=11.3 -c pytorch
-pip install pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-2.3.0+cu118.html
-conda install scikit-learn
-conda install -c pyg pyg
-pip install ogb
-pip install transformers
-pip install gitpython
-pip install ipython
-pip install yacs
-pip install sentence-transformers
-pip install wandb
-pip install python-dotenv
-pip install sentencepiece
+### 6. TMDC for Training 
+```python
+for update and debug
 ```
 
-## 0.2 Horka Server installation 2.0
+## Create Your Model
+If you want to add your own model to this code base, you can follow the steps below:
+
+Add your GNN model:
+1. In GNN/model/GNN_library, define your model (you can refer to the code for models like GCN, GAT, etc.)
+2. In the args_init() function in GNN/model/GNN_arg.py, check to see if it contains all the parameters involved in your model. If there are deficiencies, you can easily add new parameters to this function.
+3. Import the model you defined in GNN/GNN.py and add your corresponding model to the gen_model() function. You can then run the corresponding code to perform the node classification task.
+
+Add your PLM model:
+1. Go to the LM/Model/ path and create a folder named after your model name. Define __init__.py and config.py in it (see how these two files are defined in other folders).
+2. Add the parameters you need to the parser() function in lm_utils.
+3. If your model can't be loaded from huggingface, please pass in the path to the folder your model corresponds to via the parameter 'pretrain_path'.
+
+
+
+## Main experiments in CS-TAG
+Representation learning on the TAGs often depend on the two type models: Graph Neural Networks and Language Models.
+For the latter, we often use the Pretrained Language Models (PLMs) to encode the text.
+For the GNNs, we follow the [DGL](https://www.dgl.ai/) toolkit and implement them in the GNN library.
+For the PLMs, we follow the [huggingface](https://huggingface.co/) trainer to implement the PLMs in a same pipeline.
+We know that there are no absolute fair between the two type baselines.
+
+[//]: # (We use the [wandb]&#40;https://wandb.ai/site&#41; to log the results of our experiments.)
+
+[//]: # (We make public the logs of some of our experiments done and organized to promote more researchers to study TAG.)
+
+[//]: # (- [x] [Node classification from GNN]&#40;https://wandb.ai/csu_tag/OGB-Arxiv-GNN/reports/GNN-Accuracy--Vmlldzo0MjcyMzk4&#41;)
+
+[//]: # (- [x] [LM related in Ele-computers]&#40;https://wandb.ai//csu_tag/Computers/reports/Ele-Computers--Vmlldzo0NjMxNTA4&#41;)
+
+
+## Citation
+If you use our datasets, please consider citing our work:
+
 ```
-module purge
-module load compiler/intel/2023.1.0
-module load devel/cuda/11.8
-
-conda create --name TAPE python=3.9
-conda activate TAPE
-
-conda install pytorch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 cudatoolkit=11.3 -c pytorch
-pip install pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-2.3.0+cu118.html
-conda install scikit-learn
-conda install -c pyg pyg
-pip install ogb
-pip install transformers
-pip install gitpython
-pip install ipython
-pip install yacs
-pip install sentence-transformers
-pip install wandb
-pip install python-dotenv
-pip install sentencepiece
-```
-
-## 1. Download/Test TAG datasets 
-
-```
-bash core/scripts/get-tapedataset.sh 
-python load_arxiv_2023.py 
-python load_cora.py
-python load_ogbn-arxiv.py
-python load_products.py
-python load_pubmed.py
-#TODO add paperwithcode dataset
-#TODO use SemOpenAlex
-```
-
-In case, you have issue [#43](https://github.com/wkentaro/gdown/issues/43), please try solution [1](https://github.com/wkentaro/gdown/issues/43#issuecomment-1892954390), [2](https://stackoverflow.com/questions/65312867/how-to-download-large-file-from-google-drive-from-terminal-gdown-doesnt-work).
-
-### A. Original Text Attributes
-All graph encoder modules including node encoder and edge encoder are implemented in GraphGym transferred from [PyTorch Geometric](https://pytorch-geometric.readthedocs.io/en/latest/modules/graphgym.html#).
-
-#### FeatNodeEncoder
-
-## 2. Fine-tuning the LMs
-To use the orginal text attributes in custom_main.py
-```
-....
-
-splits, _, data = load_data_lp[cfg.data.name](cfg.data)
-
-# LLM: finetuning
-if cfg.train.finetune: 
-    # load custom embedding 
-    #  basically data.x = $your embedding in tensor
-    data = init_model_from_pretrained(model, cfg.train.finetune,
-                                        cfg.train.freeze_pretrained)
-...
-```
-
-### To load pretrained embedding
-```
-
+@article{yan2023comprehensive,
+  title={A Comprehensive Study on Text-attributed Graphs: Benchmarking and Rethinking},
+  author={Yan, Hao and Li, Chaozhuo and Long, Ruosong and Yan, Chao and Zhao, Jianan and Zhuang, Wenwen and Yin, Jun and Zhang, Peiyan and Han, Weihao and Sun, Hao and others},
+  journal={Advances in Neural Information Processing Systems},
+  volume={36},
+  pages={17238--17264},
+  year={2023}
+}
 ```
 
 
-## 3. Training the GNNs
-### To use different GNN models
 
-## 4. Reproducibility
+
+[//]: # (```bash)
+
+[//]: # (./GNN                )
+
+[//]: # (|---- model/                )
+
+[//]: # (|        |---- Dataloader.py    # Load the data from CS-TAG     	)
+
+[//]: # (|        |---- GNN_arg.py       # GNN settings &#40;e.g. dropout, n-layers, n-hidden&#41;)
+
+[//]: # (|        |---- GNN_library.py   # CS-TAG GNN baselines&#40;e.g., mlp, GCN, GAT&#41;)
+
+[//]: # (|---- GNN.py                    # .py for node classification task)
+
+[//]: # (|---- GNN_Link.py                    # .py for link prediction task)
+
+[//]: # (./LMs)
+
+[//]: # (|---- Model/)
+
+[//]: # (|        |---- Bert    # Save the config for the TinyBert, Bert-base and Bert-large)
+
+[//]: # (|        |---- Deberta    # Save the config for the Deberta-base and Deberta-large)
+
+[//]: # (|        |---- Distilbert    # Save the config for the Distilbert)
+
+[//]: # (|        |---- Electra    # Save the config for the Electra-small, Electra-base and Electra-large)
+
+[//]: # (|---- Train_Command/)
+
+[//]: # (|        |---- Pretrain/    # Save the scripts for the topological pretraining )
+
+[//]: # (|                |---- Scripts/    # Save the scripts for the topological pretraining )
+
+[//]: # (|                       |---- TCL.sh   #  Scripts for the TCL)
+
+[//]: # (|                       |---- TMLM.sh   #  Scripts for the TMLM)
+
+[//]: # (|                       |---- TDK.sh   #  Scripts for the TDK)
+
+[//]: # (|                       |---- TMDC.sh   #  Scripts for the TMDC)
+
+[//]: # (|        |---- Co-Train.py    # .py for the Co-Training strategy)
+
+[//]: # (|        |---- Toplogical_Pretrain.py    # .py for the toplogical pretraining strategy &#40;e.g., TCL,TDK,TMLM, TCL+TDK&#41;)
+
+[//]: # (|---- Trainer/)
+
+[//]: # (|        |---- Inf_trainer.py            # .py for getting node embedding from the PLMs)
+
+[//]: # (|        |---- TCL_trainer.py            # Trainer &#40;following the huggingface&#41; for the TCL strategy)
+
+[//]: # (|        |---- TDK_trainer.py            # Trainer &#40;following the huggingface&#41; for the TDK strategy)
+
+[//]: # (|        |---- TMDC_trainer.py            # Trainer &#40;following the huggingface&#41; for the TMDC strategy)
+
+[//]: # (|        |---- TLink_trainer.py            # Trainer &#40;following the huggingface&#41; for the TCL in the Link prediction tasks )
+
+[//]: # (|        |---- lm_trainer.py                 # Trainer for node classification tasks)
+
+[//]: # (|        |---- train_MLM.py                 #  .py for the TMLM tasks &#40;following the huggingface&#41;)
+
+[//]: # (|---- utils/)
+
+[//]: # (|        |---- data/    # Save the scripts for the topological pretraining )
+
+[//]: # (|                |---- data_augmentation.py # the .py for generating the corpus for the TMLM tasks)
+
+[//]: # (|                |---- datasets.py #  The defined dataset class for different tasks)
+
+[//]: # (|                |---- preprocess.py #  Some commands for preprocessing the data &#40;e.g. tokenize_graph, split_graph&#41;)
+
+[//]: # (|        |---- function )
+
+[//]: # (|                |---- dgl_utils.py   # Some commands from dgl )
+
+[//]: # (|                |---- hf_metric.py   # Some metric used in this benchmark &#40;e.g. accuracy, f1&#41;)
+
+[//]: # (|        |---- modules)
+
+[//]: # (|                |---- conf_utils.py)
+
+[//]: # (|                |---- logger.py)
+
+[//]: # (|        |---- settings.py    # Some config for the datasets. You can creat your dataset in this file!  )
+
+[//]: # (|---- model.py       # Define the model for the donstream tasks)
+
+[//]: # (|---- lm_utils.py    # Define the config for the PLM pipeline)
+
+[//]: # (|---- trainLM.py     # Running for the node classification tasks)
+
+[//]: # (|---- dist_runner.py  # Parallel way to training the model)
+
+[//]: # (```)
+

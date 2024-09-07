@@ -15,7 +15,28 @@ lm:
     use_gpt: False
     warmup_epochs: 0.6
     weight_decay: 0.0
-    feat_shrink: 256
+    pretrain_path: None
+    verbose: 1
+    if_freeze: 1
+    cl_dim: 128 # The dimension of the contrastive space
+    dropout: 0.1
+    att_dropout: 0.1
+    cla_dropout: 0.1 
+    grad_steps: 2
+    per_device_bsz: 15
+    
+opt:
+  out_dir: results
+  lr: 0.00002
+  weight_decay: 0.01
+  grad_acc_steps: 1
+  eq_batch_size: 36
+  wandb_on: True 
+  epochs: 5 
+  load_best_model_at_end: True
+  eval_patience: 20000
+  local_rank: -1
+  feat_shrink: 256
 
 runs: 5
 seed: 0
