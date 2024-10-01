@@ -25,3 +25,5 @@ GNN/model/__pycache__/
 core/dataset
 batch
 runs
+.venv
+dataset.tar.gz

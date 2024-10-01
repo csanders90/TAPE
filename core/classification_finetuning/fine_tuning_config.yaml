@@ -1,0 +1,30 @@
+save_path: "./models/fine_tuned_classification_model"
+model_name: "microsoft/Phi-3-mini-128k-instruct"
+bnb_config:
+    load_in_4bit: True
+    bnb_4bit_use_double_quant: True
+    bnb_4bit_quant_type: "nf4"
+lora_config:
+  r: 4
+  lora_alpha: 8
+  lora_dropout: 0.2
+  target_modules: ["o_proj", "qkv_proj"]
+training_args:
+  output_dir: "./models/"
+  eval_strategy: "steps"
+  eval_steps: 10
+  logging_dir: "./logs"
+  logging_strategy: "epoch"
+  learning_rate: 6.e-5
+  per_device_train_batch_size: 8
+  per_device_eval_batch_size: 8
+  num_train_epochs: 15
+  weight_decay: 0.01
+  save_strategy: "steps"
+  save_total_limit: 1               
+  load_best_model_at_end: True     
+  metric_for_best_model: "macro_recall" 
+  greater_is_better: True          
+  gradient_accumulation_steps: 2
+  dataloader_num_workers: 4
+  max_grad_norm: 1.
